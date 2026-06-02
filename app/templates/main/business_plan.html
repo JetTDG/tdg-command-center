@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}Business Plan — TDG Command Center{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-1">
+  <div>
+    <div class="page-title">Business Plan</div>
+    <div class="page-subtitle">Annual goals vs actuals per agent</div>
+  </div>
+  <div class="d-flex gap-2">
+    <form method="GET" class="d-flex gap-2">
+      <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+        {% for y in years %}<option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+      </select>
+    </form>
+    <a href="{{ url_for('main.add_business_plan') }}" class="btn btn-gold btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Plan</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr>
+        <th>Agent</th>
+        <th class="text-end">GCI Goal</th>
+        <th class="text-end">Actual GCI</th>
+        <th class="text-center">GCI %</th>
+        <th class="text-center">Unit Goal</th>
+        <th class="text-center">Actual Units</th>
+        <th class="text-center">Units %</th>
+        <th class="text-end">Avg Sale Price</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for row in board %}
+        <tr>
+          <td class="fw-semibold">{{ row.agent.name }}</td>
+          {% if row.plan %}
+          <td class="text-end">${{ "${:,.0f}".format(row.plan.gci_goal) }}</td>
+          <td class="text-end fw-bold" style="color:var(--tdg-gold)">${{ "${:,.0f}".format(row.actual_gci) }}</td>
+          <td class="text-center">
+            <div style="font-size:0.8rem">{{ row.gci_pct }}%</div>
+            <div class="progress mt-1" style="width:60px;margin:0 auto"><div class="progress-bar" style="width:{{ [row.gci_pct,100]|min }}%"></div></div>
+          </td>
+          <td class="text-center">{{ row.plan.total_unit_goal }}</td>
+          <td class="text-center fw-bold" style="color:var(--tdg-gold)">{{ row.actual_units }}</td>
+          <td class="text-center">
+            <div style="font-size:0.8rem">{{ row.units_pct }}%</div>
+            <div class="progress mt-1" style="width:60px;margin:0 auto"><div class="progress-bar" style="width:{{ [row.units_pct,100]|min }}%"></div></div>
+          </td>
+          <td class="text-end small text-muted">${{ "${:,.0f}".format(row.plan.avg_sale_price) }}</td>
+          <td><a href="{{ url_for('main.edit_business_plan', pid=row.plan.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2">Edit</a></td>
+          {% else %}
+          <td colspan="7" class="text-muted small text-center">No plan set for {{ year }}</td>
+          <td><a href="{{ url_for('main.add_business_plan') }}" class="btn btn-sm btn-gold py-0 px-2">Set Plan</a></td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">No agents found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

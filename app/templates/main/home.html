@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block title %}Home — TDG Command Center{% endblock %}
+{% block content %}
+<div class="page-title">Dashboard</div>
+<div class="page-subtitle">{{ current_month }} {{ year }} — Live Overview</div>
+
+<!-- KPI Row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">YTD Closed Units</div>
+      <div class="stat-value">{{ ytd_closed }}</div>
+      <div class="stat-sub">This month: {{ month_closed }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">YTD GCI</div>
+      <div class="stat-value">${{ "${:,.0f}".format(ytd_gci) }}</div>
+      <div class="stat-sub">This month: ${{ "${:,.0f}".format(month_gci) }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Pending (Projected)</div>
+      <div class="stat-value">{{ pending_count }}</div>
+      <div class="stat-sub">${{ "${:,.0f}".format(projected_gci) }} GCI</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Goal Progress</div>
+      <div class="stat-value">{{ goal_pct }}%</div>
+      <div class="progress mt-2"><div class="progress-bar" style="width:{{ [goal_pct,100]|min }}%"></div></div>
+      <div class="stat-sub mt-1">of ${{ "${:,.0f}".format(team_goal) }} goal</div>
+    </div>
+  </div>
+</div>
+
+<!-- Second row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Listings Signed</div>
+      <div class="stat-value">{{ listings_signed }}</div>
+      <div class="stat-sub">YTD</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Buyers Signed</div>
+      <div class="stat-value">{{ buyers_signed }}</div>
+      <div class="stat-sub">YTD</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Active Listings</div>
+      <div class="stat-value">{{ active_listings }}</div>
+      <div class="stat-sub">Current</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Active Buyers</div>
+      <div class="stat-value">{{ active_buyers }}</div>
+      <div class="stat-sub">In pipeline</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- GCI Trend Chart -->
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">GCI Trend — Last 6 Months</div>
+      <div class="card-body">
+        <canvas id="gciChart" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+  <!-- Recent Activity -->
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Recent Transactions</span>
+        <a href="{{ url_for('main.my_business') }}" class="btn btn-sm btn-gold">View All</a>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <tbody>
+              {% for t in recent %}
+              <tr>
+                <td>
+                  <div class="fw-semibold small">{{ t.agent.name }}</div>
+                  <div class="text-muted" style="font-size:0.75rem">{{ t.address or 'No address' }}</div>
+                </td>
+                <td class="text-end">
+                  <span class="badge-status status-{{ t.status | replace(' ', '-') }}">{{ t.status }}</span>
+                  <div class="text-muted mt-1" style="font-size:0.75rem">${{ "${:,.0f}".format(t.gci) }}</div>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="2" class="text-muted text-center py-3">No transactions yet</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const ctx = document.getElementById('gciChart');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: {{ monthly_trend | map(attribute='month') | list | tojson }},
+    datasets: [{
+      label: 'GCI',
+      data: {{ monthly_trend | map(attribute='gci') | list | tojson }},
+      backgroundColor: 'rgba(212,160,23,0.5)',
+      borderColor: 'rgba(212,160,23,1)',
+      borderWidth: 1,
+      borderRadius: 4
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { ticks: { color: '#8b949e', callback: v => '$' + (v/1000).toFixed(0) + 'K' }, grid: { color: '#21262d' } },
+      x: { ticks: { color: '#8b949e' }, grid: { display: false } }
+    }
+  }
+});
+</script>
+{% endblock %}

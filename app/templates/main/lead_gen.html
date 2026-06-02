@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}Lead Gen — TDG Command Center{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-1">
+  <div>
+    <div class="page-title">Lead Generation</div>
+    <div class="page-subtitle">Activity log — contacts, appointments, signed contracts</div>
+  </div>
+  <a href="{{ url_for('main.add_lead_gen') }}" class="btn btn-gold"><i class="bi bi-plus-lg me-1"></i>Add Entry</a>
+</div>
+
+<!-- Filters -->
+<form method="GET" class="row g-2 mb-3">
+  <div class="col-auto">
+    <select name="year" class="form-select form-select-sm">
+      {% for y in years %}<option value="{{ y }}" {% if y==selected_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <select name="month" class="form-select form-select-sm">
+      {% for num, name in months %}<option value="{{ num }}" {% if num==selected_month %}selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <select name="agent_id" class="form-select form-select-sm">
+      <option value="">All Agents</option>
+      {% for a in agents %}<option value="{{ a.id }}" {% if selected_agent|string==a.id|string %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">Filter</button></div>
+</form>
+
+<!-- Monthly Totals -->
+<div class="row g-2 mb-3">
+  {% set cols = [('Hours', totals.hours or 0, '{:.1f}'), ('Contacts', totals.contacts or 0, '{:,}'), ('Nurtures', totals.nurtures or 0, '{:,}'),
+     ('L.Appts Set', totals.listing_appts_set or 0, '{:,}'), ('L.Appts Held', totals.listing_appts_held or 0, '{:,}'), ('Listings Signed', totals.listings_signed or 0, '{:,}'),
+     ('B.Appts Set', totals.buyer_appts_set or 0, '{:,}'), ('B.Appts Held', totals.buyer_appts_held or 0, '{:,}'), ('Buyers Signed', totals.buyers_signed or 0, '{:,}')] %}
+  {% for label, val, fmt in cols %}
+  <div class="col">
+    <div class="stat-card text-center py-2">
+      <div style="font-size:1.3rem;font-weight:700;color:var(--tdg-gold)">{{ fmt.format(val) }}</div>
+      <div style="font-size:0.68rem;color:var(--tdg-muted);text-transform:uppercase">{{ label }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr>
+        <th>Date</th><th>Agent</th><th>Hrs</th><th>Contacts</th><th>Nurtures</th>
+        <th>L.Set</th><th>L.Held</th><th>L.Signed</th>
+        <th>B.Set</th><th>B.Held</th><th>B.Signed</th>
+        <th>Offers</th><th>Source</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td class="small">{{ log.log_date.strftime('%m/%d/%y') }}</td>
+          <td class="small fw-semibold">{{ log.agent.name }}</td>
+          <td class="small">{{ log.hours }}</td>
+          <td class="small">{{ log.contacts }}</td>
+          <td class="small">{{ log.nurtures }}</td>
+          <td class="small">{{ log.listing_appts_set }}</td>
+          <td class="small">{{ log.listing_appts_held }}</td>
+          <td class="small fw-bold" style="color:var(--tdg-gold)">{{ log.listings_signed }}</td>
+          <td class="small">{{ log.buyer_appts_set }}</td>
+          <td class="small">{{ log.buyer_appts_held }}</td>
+          <td class="small fw-bold" style="color:var(--tdg-gold)">{{ log.buyers_signed }}</td>
+          <td class="small">{{ log.written_offers }}</td>
+          <td class="small text-muted">{{ log.lead_source or '—' }}</td>
+          <td>
+            <a href="{{ url_for('main.edit_lead_gen', lid=log.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2">Edit</a>
+            <form method="POST" action="{{ url_for('main.delete_lead_gen', lid=log.id) }}" style="display:inline" onsubmit="return confirm('Delete?')">
+              <button class="btn btn-sm btn-outline-danger py-0 px-2">Del</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="14" class="text-center text-muted py-4">No entries for this period. <a href="{{ url_for('main.add_lead_gen') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

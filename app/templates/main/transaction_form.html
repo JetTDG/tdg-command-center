@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if t else 'Add' }} Transaction — TDG Command Center{% endblock %}
+{% block content %}
+<div class="page-title">{{ 'Edit' if t else 'Add' }} Transaction</div>
+<div class="page-subtitle">{{ 'Update transaction details' if t else 'Record a new transaction' }}</div>
+
+<div class="card" style="max-width:700px">
+  <div class="card-body">
+    <form method="POST">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Agent *</label>
+          <select name="agent_id" class="form-select" required>
+            {% for a in agents %}<option value="{{ a.id }}" {% if t and t.agent_id==a.id %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Type *</label>
+          <select name="transaction_type" class="form-select" required>
+            {% for tp in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
+            <option {% if t and t.transaction_type==tp %}selected{% endif %}>{{ tp }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Status *</label>
+          <select name="status" class="form-select" required>
+            {% for s in statuses %}<option {% if t and t.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Address</label>
+          <input type="text" name="address" class="form-control" value="{{ t.address if t else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Client Name</label>
+          <input type="text" name="client_name" class="form-control" value="{{ t.client_name if t else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Sale Price</label>
+          <input type="number" name="sale_price" class="form-control" step="0.01" value="{{ t.sale_price if t else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Commission %</label>
+          <input type="number" name="commission_pct" class="form-control" step="0.01" value="{{ (t.commission_pct*100)|round(2) if t else '' }}" placeholder="e.g. 3">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">GCI ($)</label>
+          <input type="number" name="gci" class="form-control" step="0.01" value="{{ t.gci if t else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Net Income ($)</label>
+          <input type="number" name="net_income" class="form-control" step="0.01" value="{{ t.net_income if t else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Lead Type</label>
+          <select name="lead_type" class="form-select">
+            {% for lt in ['Team','Agent'] %}<option {% if t and t.lead_type==lt %}selected{% endif %}>{{ lt }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Year</label>
+          <input type="number" name="year" class="form-control" value="{{ t.year if t else '' }}" placeholder="{{ now.year if now else 2026 }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Signed Date</label>
+          <input type="date" name="signed_date" class="form-control" value="{{ t.signed_date.strftime('%Y-%m-%d') if t and t.signed_date else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Contract Date</label>
+          <input type="date" name="contract_date" class="form-control" value="{{ t.contract_date.strftime('%Y-%m-%d') if t and t.contract_date else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Close Date</label>
+          <input type="date" name="close_date" class="form-control" value="{{ t.close_date.strftime('%Y-%m-%d') if t and t.close_date else '' }}">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" rows="2">{{ t.notes if t else '' }}</textarea>
+        </div>
+        <div class="col-12 d-flex gap-2">
+          <button type="submit" class="btn btn-gold">{{ 'Update' if t else 'Save Transaction' }}</button>
+          <a href="{{ url_for('main.my_business') }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Leaderboard — TDG Command Center{% endblock %}
+{% block content %}
+<div class="page-title">Leaderboard</div>
+<div class="page-subtitle">Agent rankings by GCI</div>
+
+<form method="GET" class="row g-2 mb-4">
+  <div class="col-auto">
+    <select name="year" class="form-select form-select-sm">
+      {% for y in years %}<option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <select name="timeframe" class="form-select form-select-sm">
+      {% for t in ['YTD','This Month'] %}<option {% if timeframe==t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+    </select>
+  </div>
+  {% if timeframe == 'This Month' %}
+  <div class="col-auto">
+    <select name="month" class="form-select form-select-sm">
+      {% for num, name in months %}<option value="{{ num }}" {% if num==selected_month %}selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  <div class="col-auto"><button class="btn btn-sm btn-gold">Apply</button></div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr>
+        <th style="width:40px">Rank</th>
+        <th>Agent</th>
+        <th class="text-center">Units (L/B)</th>
+        <th class="text-end">GCI</th>
+        <th class="text-end">Volume</th>
+        <th class="text-end">Goal %</th>
+        <th class="text-center">Contacts</th>
+        <th class="text-center">L.Signed</th>
+        <th class="text-center">B.Signed</th>
+      </tr></thead>
+      <tbody>
+        {% for row in board %}
+        <tr>
+          <td>
+            <span class="rank-badge rank-{{ row.rank if row.rank <= 3 else 'other' }}">{{ row.rank }}</span>
+          </td>
+          <td class="fw-semibold">{{ row.agent.name }}</td>
+          <td class="text-center">
+            <span class="text-muted small">{{ row.units }}</span>
+            <span class="text-muted" style="font-size:0.7rem"> ({{ row.listings }}/{{ row.buyers }})</span>
+          </td>
+          <td class="text-end fw-bold" style="color:var(--tdg-gold)">${{ "${:,.0f}".format(row.gci) }}</td>
+          <td class="text-end small text-muted">${{ "${:,.0f}".format(row.volume) }}</td>
+          <td class="text-end">
+            {% if row.gci_goal > 0 %}
+            <div style="font-size:0.8rem">{{ row.goal_pct }}%</div>
+            <div class="progress mt-1" style="width:80px;margin-left:auto"><div class="progress-bar" style="width:{{ [row.goal_pct,100]|min }}%"></div></div>
+            {% else %}<span class="text-muted small">—</span>{% endif %}
+          </td>
+          <td class="text-center small">{{ row.contacts }}</td>
+          <td class="text-center small">{{ row.listings_signed }}</td>
+          <td class="text-center small">{{ row.buyers_signed }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">No data yet for this period.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if log else 'Add' }} Lead Gen Entry{% endblock %}
+{% block content %}
+<div class="page-title">{{ 'Edit' if log else 'Add' }} Lead Gen Entry</div>
+<div class="page-subtitle">Daily activity log</div>
+<div class="card" style="max-width:700px">
+  <div class="card-body">
+    <form method="POST">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Agent *</label>
+          <select name="agent_id" class="form-select" required>
+            {% for a in agents %}<option value="{{ a.id }}" {% if log and log.agent_id==a.id %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Date *</label>
+          <input type="date" name="log_date" class="form-control" required value="{{ log.log_date.strftime('%Y-%m-%d') if log and log.log_date else '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Hours</label>
+          <input type="number" name="hours" class="form-control" step="0.5" value="{{ log.hours if log else '' }}">
+        </div>
+        <div class="col-md-3"><label class="form-label">Dials</label><input type="number" name="dials" class="form-control" value="{{ log.dials if log else 0 }}"></div>
+        <div class="col-md-3"><label class="form-label">Contacts</label><input type="number" name="contacts" class="form-control" value="{{ log.contacts if log else 0 }}"></div>
+        <div class="col-md-3"><label class="form-label">Nurtures</label><input type="number" name="nurtures" class="form-control" value="{{ log.nurtures if log else 0 }}"></div>
+        <div class="col-md-3">
+          <label class="form-label">Lead Source</label>
+          <select name="lead_source" class="form-select">
+            <option value="">— None —</option>
+            {% for s in sources %}<option {% if log and log.lead_source==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-12"><hr style="border-color:var(--tdg-border)"><p class="text-muted small mb-2">Listing Activity</p></div>
+        <div class="col-md-4"><label class="form-label">Listing Appts Set</label><input type="number" name="listing_appts_set" class="form-control" value="{{ log.listing_appts_set if log else 0 }}"></div>
+        <div class="col-md-4"><label class="form-label">Listing Appts Held</label><input type="number" name="listing_appts_held" class="form-control" value="{{ log.listing_appts_held if log else 0 }}"></div>
+        <div class="col-md-4"><label class="form-label">Listings Signed</label><input type="number" name="listings_signed" class="form-control" value="{{ log.listings_signed if log else 0 }}"></div>
+        <div class="col-12"><p class="text-muted small mb-2">Buyer Activity</p></div>
+        <div class="col-md-4"><label class="form-label">Buyer Appts Set</label><input type="number" name="buyer_appts_set" class="form-control" value="{{ log.buyer_appts_set if log else 0 }}"></div>
+        <div class="col-md-4"><label class="form-label">Buyer Appts Held</label><input type="number" name="buyer_appts_held" class="form-control" value="{{ log.buyer_appts_held if log else 0 }}"></div>
+        <div class="col-md-4"><label class="form-label">Buyers Signed</label><input type="number" name="buyers_signed" class="form-control" value="{{ log.buyers_signed if log else 0 }}"></div>
+        <div class="col-md-4"><label class="form-label">Written Offers</label><input type="number" name="written_offers" class="form-control" value="{{ log.written_offers if log else 0 }}"></div>
+        <div class="col-md-4"><label class="form-label">Showings</label><input type="number" name="showings" class="form-control" value="{{ log.showings if log else 0 }}"></div>
+        <div class="col-md-4"><label class="form-label">Open Houses</label><input type="number" name="open_houses" class="form-control" value="{{ log.open_houses if log else 0 }}"></div>
+        <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2">{{ log.notes if log else '' }}</textarea></div>
+        <div class="col-12 d-flex gap-2">
+          <button type="submit" class="btn btn-gold">{{ 'Update' if log else 'Save Entry' }}</button>
+          <a href="{{ url_for('main.lead_gen') }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}My Business — TDG Command Center{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-1">
+  <div>
+    <div class="page-title">My Business</div>
+    <div class="page-subtitle">Transaction records — all agents</div>
+  </div>
+  <a href="{{ url_for('main.add_transaction') }}" class="btn btn-gold"><i class="bi bi-plus-lg me-1"></i>Add Transaction</a>
+</div>
+
+<!-- Summary bar -->
+<div class="row g-2 mb-3">
+  {% for label, val in [('Active Listings', summary.active_listings), ('Active Buyers', summary.active_buyers), ('Pending', summary.pending), ('Closed', summary.closed), ('Pipeline', summary.pipeline)] %}
+  <div class="col">
+    <div class="stat-card text-center py-2">
+      <div style="font-size:1.4rem;font-weight:700;color:var(--tdg-gold)">{{ val }}</div>
+      <div style="font-size:0.72rem;color:var(--tdg-muted);text-transform:uppercase">{{ label }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Filters -->
+<form method="GET" class="row g-2 mb-3">
+  <div class="col-auto">
+    <select name="year" class="form-select form-select-sm">
+      {% for y in years %}<option value="{{ y }}" {% if y==selected_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <select name="agent_id" class="form-select form-select-sm">
+      <option value="">All Agents</option>
+      {% for a in agents %}<option value="{{ a.id }}" {% if selected_agent|string == a.id|string %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <select name="status" class="form-select form-select-sm">
+      <option value="">All Statuses</option>
+      {% for s in statuses %}<option {% if selected_status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <select name="type" class="form-select form-select-sm">
+      <option value="">All Types</option>
+      {% for t in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
+      <option {% if selected_type==t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">Filter</button></div>
+  <div class="col-auto"><a href="{{ url_for('main.my_business') }}" class="btn btn-sm btn-outline-secondary">Reset</a></div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr>
+        <th>Agent</th><th>Address / Client</th><th>Type</th><th>Status</th>
+        <th class="text-end">Sale Price</th><th class="text-end">GCI</th>
+        <th>Signed</th><th>Close Date</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for t in transactions %}
+        <tr>
+          <td class="fw-semibold small">{{ t.agent.name }}</td>
+          <td>
+            <div class="small">{{ t.address or '—' }}</div>
+            {% if t.client_name %}<div class="text-muted" style="font-size:0.72rem">{{ t.client_name }}</div>{% endif %}
+          </td>
+          <td><span class="text-muted small">{{ t.transaction_type }}</span></td>
+          <td><span class="badge-status status-{{ t.status | replace(' ','-') | replace('x-','') | replace('y-','') }}">{{ t.status }}</span></td>
+          <td class="text-end small">${{ "${:,.0f}".format(t.sale_price) }}</td>
+          <td class="text-end small fw-semibold" style="color:var(--tdg-gold)">${{ "${:,.0f}".format(t.gci) }}</td>
+          <td class="small text-muted">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '—' }}</td>
+          <td class="small text-muted">{{ t.close_date.strftime('%m/%d/%y') if t.close_date else '—' }}</td>
+          <td>
+            <a href="{{ url_for('main.edit_transaction', tid=t.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2">Edit</a>
+            <form method="POST" action="{{ url_for('main.delete_transaction', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Delete this transaction?')">
+              <button class="btn btn-sm btn-outline-danger py-0 px-2">Del</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">No transactions found. <a href="{{ url_for('main.add_transaction') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

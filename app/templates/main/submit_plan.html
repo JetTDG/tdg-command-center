@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Submit Your Business Plan — TDG</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>
+    body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; }
+    .form-control, .form-select { background: #0d1117; border-color: #30363d; color: #e6edf3; }
+    .form-control:focus, .form-select:focus { background: #0d1117; border-color: #d4a017; color: #e6edf3; box-shadow: 0 0 0 0.2rem rgba(212,160,23,0.15); }
+    .form-label { color: #8b949e; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.3px; }
+    .btn-gold { background: #d4a017; color: #000; font-weight: 600; }
+    .btn-gold:hover { background: #f0c040; color: #000; }
+    .alert-success { background: rgba(63,185,80,0.1); border-color: rgba(63,185,80,0.3); color: #3fb950; }
+    .alert-danger { background: rgba(248,81,73,0.1); border-color: rgba(248,81,73,0.3); color: #f85149; }
+  </style>
+</head>
+<body>
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="text-center mb-4">
+        <div style="font-size:2.5rem;color:#d4a017"><i class="bi bi-clipboard-data"></i></div>
+        <h2 class="fw-bold mt-2">Submit Your Business Plan</h2>
+        <p style="color:#8b949e">TDG {{ year }} — Agent Self-Submission</p>
+      </div>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="alert alert-{{ cat }} mb-3">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+      <div class="card p-4">
+        <form method="POST">
+          <input type="hidden" name="year" value="{{ year }}">
+          <div class="mb-3">
+            <label class="form-label">Your Name *</label>
+            <select name="agent_name" class="form-select" required>
+              <option value="">Select your name...</option>
+              {% for a in agents %}<option value="{{ a.name }}">{{ a.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6"><label class="form-label">Listing Unit Goal</label><input type="number" name="listing_unit_goal" class="form-control" placeholder="0"></div>
+            <div class="col-md-6"><label class="form-label">Buyer Unit Goal</label><input type="number" name="buyer_unit_goal" class="form-control" placeholder="0"></div>
+          </div>
+          <div class="mb-3"><label class="form-label">GCI Goal ($)</label><input type="number" name="gci_goal" class="form-control" placeholder="e.g. 150000" step="0.01"></div>
+          <div class="mb-3"><label class="form-label">Average Sale Price ($)</label><input type="number" name="avg_sale_price" class="form-control" placeholder="e.g. 400000" step="0.01"></div>
+          <div class="mb-3"><label class="form-label">Notes / Goals</label><textarea name="notes" class="form-control" rows="3" placeholder="Any additional goals or notes..."></textarea></div>
+          <button type="submit" class="btn btn-gold w-100">Submit Business Plan</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

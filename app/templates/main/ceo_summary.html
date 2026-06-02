@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block title %}CEO Summary — TDG Command Center{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-1">
+  <div>
+    <div class="page-title">CEO Summary</div>
+    <div class="page-subtitle">Executive overview — {{ year }}</div>
+  </div>
+  <form method="GET" class="d-flex gap-2">
+    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+      {% for y in years %}<option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+<!-- Top KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">YTD GCI</div>
+      <div class="stat-value">${{ "${:,.0f}".format(ytd_gci) }}</div>
+      <div class="stat-sub">Goal: ${{ "${:,.0f}".format(team_gci_goal) }} ({{ goal_pct }}%)</div>
+      <div class="progress mt-2"><div class="progress-bar" style="width:{{ [goal_pct,100]|min }}%"></div></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Closed Units</div>
+      <div class="stat-value">{{ ytd_units }}</div>
+      <div class="stat-sub">vs {{ prior_units }} prior year
+        <span style="color:{{ 'var(--tdg-green)' if units_yoy_pct >= 0 else 'var(--tdg-red)' }}">
+          ({{ '+' if units_yoy_pct >= 0 else '' }}{{ units_yoy_pct }}%)
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Projected (Pending)</div>
+      <div class="stat-value">{{ projected_units }}</div>
+      <div class="stat-sub">${{ "${:,.0f}".format(projected_gci) }} additional GCI</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Closed + Projected</div>
+      <div class="stat-value">{{ ytd_units + projected_units }}</div>
+      <div class="stat-sub">${{ "${:,.0f}".format(ytd_gci + projected_gci) }} total GCI</div>
+    </div>
+  </div>
+</div>
+
+<!-- Pipeline Row -->
+<div class="row g-3 mb-4">
+  {% for label, val in [('Listings Signed', listings_signed), ('Buyers Signed', buyers_signed), ('Contacts YTD', lg_contacts), ('L.Appts Held', lg_listing_held), ('B.Appts Held', lg_buyer_held)] %}
+  <div class="col">
+    <div class="stat-card text-center py-2">
+      <div style="font-size:1.4rem;font-weight:700;color:var(--tdg-gold)">{{ "{:,}".format(val) }}</div>
+      <div style="font-size:0.72rem;color:var(--tdg-muted);text-transform:uppercase">{{ label }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-3">
+  <!-- Monthly GCI Chart -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">Monthly GCI — {{ year }}</div>
+      <div class="card-body"><canvas id="monthlyChart" height="110"></canvas></div>
+    </div>
+  </div>
+  <!-- YOY Comparison -->
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Year-over-Year</div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <thead><tr><th></th><th class="text-end">{{ year }}</th><th class="text-end">{{ year-1 }}</th><th class="text-end">+/-</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="text-muted small">GCI</td>
+              <td class="text-end small">${{ "${:,.0f}".format(ytd_gci) }}</td>
+              <td class="text-end small">${{ "${:,.0f}".format(prior_gci) }}</td>
+              <td class="text-end small" style="color:{{ 'var(--tdg-green)' if gci_yoy_pct >= 0 else 'var(--tdg-red)' }}">
+                {{ '+' if gci_yoy_pct >= 0 else '' }}{{ gci_yoy_pct }}%
+              </td>
+            </tr>
+            <tr>
+              <td class="text-muted small">Units</td>
+              <td class="text-end small">{{ ytd_units }}</td>
+              <td class="text-end small">{{ prior_units }}</td>
+              <td class="text-end small" style="color:{{ 'var(--tdg-green)' if units_yoy_pct >= 0 else 'var(--tdg-red)' }}">
+                {{ '+' if units_yoy_pct >= 0 else '' }}{{ units_yoy_pct }}%
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+new Chart(document.getElementById('monthlyChart'), {
+  type: 'line',
+  data: {
+    labels: {{ monthly | map(attribute='month') | list | tojson }},
+    datasets: [{
+      label: 'GCI',
+      data: {{ monthly | map(attribute='gci') | list | tojson }},
+      borderColor: '#d4a017',
+      backgroundColor: 'rgba(212,160,23,0.1)',
+      tension: 0.3,
+      fill: true,
+      pointBackgroundColor: '#d4a017'
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { ticks: { color: '#8b949e', callback: v => '$' + (v/1000).toFixed(0) + 'K' }, grid: { color: '#21262d' } },
+      x: { ticks: { color: '#8b949e' }, grid: { display: false } }
+    }
+  }
+});
+</script>
+{% endblock %}

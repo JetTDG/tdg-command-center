@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if plan else 'Add' }} Business Plan{% endblock %}
+{% block content %}
+<div class="page-title">{{ 'Edit' if plan else 'Add' }} Business Plan</div>
+<div class="page-subtitle">Set annual goals for an agent</div>
+<div class="card" style="max-width:600px">
+  <div class="card-body">
+    <form method="POST">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Agent *</label>
+          <select name="agent_id" class="form-select" required {% if plan %}disabled{% endif %}>
+            {% for a in agents %}<option value="{{ a.id }}" {% if plan and plan.agent_id==a.id %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+          </select>
+          {% if plan %}<input type="hidden" name="agent_id" value="{{ plan.agent_id }}">{% endif %}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Year *</label>
+          <input type="number" name="year" class="form-control" value="{{ plan.year if plan else year }}" required>
+        </div>
+        <div class="col-md-4"><label class="form-label">Listing Unit Goal</label><input type="number" name="listing_unit_goal" class="form-control" value="{{ plan.listing_unit_goal if plan else 0 }}"></div>
+        <div class="col-md-4"><label class="form-label">Buyer Unit Goal</label><input type="number" name="buyer_unit_goal" class="form-control" value="{{ plan.buyer_unit_goal if plan else 0 }}"></div>
+        <div class="col-md-4"><label class="form-label">GCI Goal ($)</label><input type="number" name="gci_goal" class="form-control" step="0.01" value="{{ plan.gci_goal if plan else 0 }}"></div>
+        <div class="col-md-4"><label class="form-label">Avg Sale Price ($)</label><input type="number" name="avg_sale_price" class="form-control" step="0.01" value="{{ plan.avg_sale_price if plan else 0 }}"></div>
+        <div class="col-md-4"><label class="form-label">Listing Comm % </label><input type="number" name="listing_comm_pct" class="form-control" step="0.01" value="{{ (plan.listing_comm_pct*100)|round(2) if plan else 3 }}" placeholder="3"></div>
+        <div class="col-md-4"><label class="form-label">Buyer Comm %</label><input type="number" name="buyer_comm_pct" class="form-control" step="0.01" value="{{ (plan.buyer_comm_pct*100)|round(2) if plan else 3 }}" placeholder="3"></div>
+        <div class="col-md-4"><label class="form-label">Split %</label><input type="number" name="split_pct" class="form-control" step="0.01" value="{{ (plan.split_pct*100)|round(2) if plan else 0 }}"></div>
+        <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2">{{ plan.notes if plan else '' }}</textarea></div>
+        <div class="col-12 d-flex gap-2">
+          <button type="submit" class="btn btn-gold">{{ 'Update' if plan else 'Save Plan' }}</button>
+          <a href="{{ url_for('main.business_plan') }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
