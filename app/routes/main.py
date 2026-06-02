@@ -85,15 +85,45 @@ def home():
     # Recent transactions
     recent = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).order_by(Transaction.updated_at.desc()).limit(10).all()
 
-    # Monthly GCI trend (last 6 months)
+    # Monthly trend — full year, all 12 months, Closed + Pending, Residential + Commercial
+    COMMERCIAL_TYPES = ('Commercial', 'Lease')
     monthly_trend = []
-    for m in range(max(1, month-5), month+1):
-        gci = db.session.query(func.sum(Transaction.gci)).filter(
-            Transaction.year == year,
-            Transaction.month == m,
-            Transaction.status == 'Closed'
-        ).scalar() or 0
-        monthly_trend.append({'month': calendar.month_abbr[m], 'gci': round(gci, 2)})
+    for m in range(1, 13):
+        def msum(status_list, type_filter=None, exclude_types=None):
+            q = db.session.query(func.sum(Transaction.gci)).filter(
+                Transaction.year == year, Transaction.month == m,
+                Transaction.status.in_(status_list)
+            )
+            if type_filter:
+                q = q.filter(Transaction.transaction_type.in_(type_filter))
+            if exclude_types:
+                q = q.filter(~Transaction.transaction_type.in_(exclude_types))
+            return float(q.scalar() or 0)
+
+        def mvolume(status_list, type_filter=None, exclude_types=None):
+            q = db.session.query(func.sum(Transaction.sale_price)).filter(
+                Transaction.year == year, Transaction.month == m,
+                Transaction.status.in_(status_list)
+            )
+            if type_filter:
+                q = q.filter(Transaction.transaction_type.in_(type_filter))
+            if exclude_types:
+                q = q.filter(~Transaction.transaction_type.in_(exclude_types))
+            return float(q.scalar() or 0)
+
+        monthly_trend.append({
+            'month': calendar.month_abbr[m],
+            # GCI
+            'gci_closed_res':   msum(['Closed'], exclude_types=COMMERCIAL_TYPES),
+            'gci_closed_comm':  msum(['Closed'], type_filter=COMMERCIAL_TYPES),
+            'gci_pending_res':  msum(['Pending'], exclude_types=COMMERCIAL_TYPES),
+            'gci_pending_comm': msum(['Pending'], type_filter=COMMERCIAL_TYPES),
+            # Volume
+            'vol_closed_res':   mvolume(['Closed'], exclude_types=COMMERCIAL_TYPES),
+            'vol_closed_comm':  mvolume(['Closed'], type_filter=COMMERCIAL_TYPES),
+            'vol_pending_res':  mvolume(['Pending'], exclude_types=COMMERCIAL_TYPES),
+            'vol_pending_comm': mvolume(['Pending'], type_filter=COMMERCIAL_TYPES),
+        })
 
     return render_template('main/home.html',
         ytd_closed=ytd_closed,
