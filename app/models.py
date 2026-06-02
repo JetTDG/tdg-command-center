@@ -38,7 +38,7 @@ class Agent(db.Model):
     email = db.Column(db.String(120))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    transactions = db.relationship('Transaction', backref='agent', lazy='dynamic')
+    transactions = db.relationship('Transaction', foreign_keys='Transaction.agent_id', backref='agent', lazy='dynamic')
     lead_gen_logs = db.relationship('LeadGenLog', backref='agent', lazy='dynamic')
     business_plans = db.relationship('BusinessPlan', backref='agent', lazy='dynamic')
 
