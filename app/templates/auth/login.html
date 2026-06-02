@@ -1,32 +1,32 @@
 {% extends 'base.html' %}
 {% block title %}Sign In — TDG Command Center{% endblock %}
 {% block content_noauth %}
-<div class="row justify-content-center mt-5">
-  <div class="col-md-5 col-lg-4">
-    <div class="text-center mb-4">
-      <div style="font-size:2.5rem;color:var(--tdg-gold)"><i class="bi bi-command"></i></div>
-      <h2 class="fw-bold mt-2">TDG Command Center</h2>
-      <p class="text-muted">Sign in to your account</p>
-    </div>
-    <div class="card p-4">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for cat, msg in messages %}
-          <div class="alert alert-{{ cat }} mb-3">{{ msg }}</div>
-        {% endfor %}
-      {% endwith %}
-      <form method="POST">
-        <div class="mb-3">
-          <label class="form-label">Username</label>
-          <input type="text" name="username" class="form-control" required autofocus>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Password</label>
-          <input type="password" name="password" class="form-control" required>
-        </div>
-        <button type="submit" class="btn btn-gold w-100">Sign In</button>
-      </form>
-    </div>
-    <p class="text-center mt-3 text-muted small">Are you an agent? <a href="{{ url_for('main.submit_plan') }}" style="color:var(--tdg-gold)">Submit your business plan here</a></p>
+<div class="login-card">
+  <div class="login-logo"><i class="bi bi-command"></i></div>
+  <div class="text-center mb-4">
+    <h1 class="fw-bold" style="font-size:1.3rem;letter-spacing:-0.02em;">TDG Command Center</h1>
+    <p class="text-muted" style="font-size:0.84rem;margin-top:0.25rem;">Sign in to your account</p>
   </div>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }} mb-3">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+  <form method="POST">
+    <div class="mb-3">
+      <label class="form-label">Username</label>
+      <input type="text" name="username" class="form-control" required autofocus placeholder="Enter your username">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Password</label>
+      <input type="password" name="password" class="form-control" required placeholder="••••••••">
+    </div>
+    <button type="submit" class="btn btn-gold w-100 mt-1" style="padding:0.6rem;">
+      <i class="bi bi-arrow-right-circle me-2"></i>Sign In
+    </button>
+  </form>
+  <p class="text-center mt-4 mb-0 text-muted" style="font-size:0.78rem;">
+    Agent? <a href="{{ url_for('main.submit_plan') }}" style="color:var(--tdg-gold-dark);font-weight:600;">Submit your business plan →</a>
+  </p>
 </div>
 {% endblock %}
