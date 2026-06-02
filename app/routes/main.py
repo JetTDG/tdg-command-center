@@ -4,7 +4,7 @@ from flask_login import login_required, current_user
 from app.models import Agent, Transaction, LeadGenLog, BusinessPlan, Pipeline
 from app import db
 from datetime import datetime, date
-from sqlalchemy import func, extract
+from sqlalchemy import func, extract, or_, and_
 import calendar
 
 bp = Blueprint('main', __name__)
@@ -127,7 +127,13 @@ def my_business():
     lead_source_filter = request.args.get('lead_source', '')
     admin_filter = request.args.get('admin_name', '')
 
-    query = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(Transaction.year == year)
+    query = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(
+        or_(
+            Transaction.year == year,
+            and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
+            and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year)
+        )
+    )
     if agent_id:
         query = query.filter(Transaction.agent_id == int(agent_id))
     if status_filter:
@@ -141,13 +147,20 @@ def my_business():
 
     transactions = query.order_by(Transaction.close_date.desc().nullslast(), Transaction.signed_date.desc()).all()
 
-    # Summary counts
+    # Summary counts (year column may be null on imported data; use close_date year as fallback)
+    def year_filter(model):
+        return or_(
+            model.year == year,
+            and_(model.year == None, extract('year', model.close_date) == year),
+            and_(model.year == None, model.close_date == None, extract('year', model.signed_date) == year)
+        )
+
     summary = {
-        'active_listings': Transaction.query.filter_by(year=year, transaction_type='Listing', status='Active').count(),
-        'active_buyers':   Transaction.query.filter_by(year=year, transaction_type='Buyer', status='Active').count(),
-        'pending': Transaction.query.filter_by(year=year, status='Pending').count(),
-        'closed': Transaction.query.filter_by(year=year, status='Closed').count(),
-        'pipeline': Transaction.query.filter_by(year=year, status='Pipeline').count(),
+        'active_listings': Transaction.query.filter(Transaction.transaction_type=='Listing', Transaction.status=='Active', year_filter(Transaction)).count(),
+        'active_buyers':   Transaction.query.filter(Transaction.transaction_type=='Buyer',   Transaction.status=='Active', year_filter(Transaction)).count(),
+        'pending':         Transaction.query.filter(Transaction.status=='Pending',  year_filter(Transaction)).count(),
+        'closed':          Transaction.query.filter(Transaction.status=='Closed',   year_filter(Transaction)).count(),
+        'pipeline':        Transaction.query.filter(Transaction.status=='Pipeline', year_filter(Transaction)).count(),
     }
 
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
