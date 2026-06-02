@@ -58,7 +58,7 @@
         {% for log in logs %}
         <tr>
           <td class="small">{{ log.log_date.strftime('%m/%d/%y') }}</td>
-          <td class="small fw-semibold">{{ log.agent.name }}</td>
+          <td class="small fw-semibold">{{ log.agent.name if log.agent else "—" }}</td>
           <td class="small">{{ log.hours }}</td>
           <td class="small">{{ log.contacts }}</td>
           <td class="small">{{ log.nurtures }}</td>

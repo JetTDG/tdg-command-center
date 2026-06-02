@@ -93,12 +93,12 @@
               {% for t in recent %}
               <tr>
                 <td>
-                  <div class="fw-semibold small">{{ t.agent.name }}</div>
+                  <div class="fw-semibold small">{{ t.agent.name if t.agent else (t.primary_agent_name or '—') }}</div>
                   <div class="text-muted" style="font-size:0.75rem">{{ t.address or 'No address' }}</div>
                 </td>
                 <td class="text-end">
                   <span class="badge-status status-{{ t.status | replace(' ', '-') }}">{{ t.status }}</span>
-                  <div class="text-muted mt-1" style="font-size:0.75rem">{{ "${:,.0f}".format(t.gci) }}</div>
+                  <div class="text-muted mt-1" style="font-size:0.75rem">{{ "${:,.0f}".format(t.gci or 0) }}</div>
                 </td>
               </tr>
               {% else %}

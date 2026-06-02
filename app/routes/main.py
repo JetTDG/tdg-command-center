@@ -178,7 +178,7 @@ def add_transaction():
             net_income=float(f.get('net_income') or 0),
             signed_date=_parse_date(f.get('signed_date')),
             close_date=_parse_date(f.get('close_date')),
-            contract_date=_parse_date(f.get('contract_date')),
+            under_contract_date=_parse_date(f.get('contract_date')),
             year=int(f.get('year') or current_year()),
             month=int(f.get('month') or current_month()),
             notes=f.get('notes', '')

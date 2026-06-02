@@ -33,7 +33,7 @@
       <tbody>
         {% for row in board %}
         <tr>
-          <td class="fw-semibold">{{ row.agent.name }}</td>
+          <td class="fw-semibold">{{ row.agent.name if row.agent else "—" }}</td>
           {% if row.plan %}
           <td class="text-end">{{ "${:,.0f}".format(row.plan.gci_goal) }}</td>
           <td class="text-end fw-bold" style="color:var(--tdg-gold)">{{ "${:,.0f}".format(row.actual_gci) }}</td>
