@@ -95,6 +95,7 @@ class Transaction(db.Model):
     # Vendors
     mortgage_company = db.Column(db.String(100))
     title_company = db.Column(db.String(100))
+    admin_name = db.Column(db.String(100))
 
     # Meta
     year = db.Column(db.Integer)

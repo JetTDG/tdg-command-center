@@ -53,6 +53,12 @@
       {% for ls in lead_sources %}<option {% if selected_lead_source==ls %}selected{% endif %}>{{ ls }}</option>{% endfor %}
     </select>
   </div>
+  <div class="col-auto">
+    <select name="admin_name" class="form-select form-select-sm">
+      <option value="">All Admins</option>
+      {% for a in admin_names %}<option {% if selected_admin==a %}selected{% endif %} value="{{ a }}">{{ a }}</option>{% endfor %}
+    </select>
+  </div>
   <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">Filter</button></div>
   <div class="col-auto"><a href="{{ url_for('main.my_business') }}" class="btn btn-sm btn-outline-secondary">Reset</a></div>
 </form>
@@ -63,7 +69,7 @@
       <thead><tr>
         <th>Agent</th><th>Address / Client</th><th>Type</th><th>Status</th>
         <th class="text-end">Sale Price</th><th class="text-end">GCI</th>
-        <th>Lead Source</th><th>Signed</th><th>Close Date</th><th></th>
+        <th>Lead Source</th><th>Admin</th><th>Signed</th><th>Close Date</th><th></th>
       </tr></thead>
       <tbody>
         {% for t in transactions %}
@@ -78,6 +84,16 @@
           <td class="text-end small">${{ "{:,.0f}".format(t.sale_price or 0) }}</td>
           <td class="text-end small fw-semibold" style="color:var(--tdg-gold)">${{ "{:,.0f}".format(t.gci or 0) }}</td>
           <td class="small text-muted">{{ t.lead_source or '—' }}</td>
+          <td class="small">
+            <form method="POST" action="{{ url_for('main.set_transaction_admin', tid=t.id) }}" style="display:inline">
+              <select name="admin_name" class="form-select form-select-sm py-0" onchange="this.form.submit()" style="min-width:120px;font-size:0.75rem">
+                <option value="">— assign —</option>
+                {% for a in admin_names %}
+                <option {% if t.admin_name == a %}selected{% endif %} value="{{ a }}">{{ a }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </td>
           <td class="small text-muted">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '—' }}</td>
           <td class="small text-muted">{{ t.close_date.strftime('%m/%d/%y') if t.close_date else '—' }}</td>
           <td>
@@ -88,7 +104,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="10" class="text-center text-muted py-4">No transactions found. <a href="{{ url_for('main.add_transaction') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>
+        <tr><td colspan="11" class="text-center text-muted py-4">No transactions found. <a href="{{ url_for('main.add_transaction') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>
         {% endfor %}
       </tbody>
     </table>

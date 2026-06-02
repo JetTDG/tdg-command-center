@@ -125,6 +125,7 @@ def my_business():
     status_filter = request.args.get('status', '')
     type_filter = request.args.get('type', '')
     lead_source_filter = request.args.get('lead_source', '')
+    admin_filter = request.args.get('admin_name', '')
 
     query = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(Transaction.year == year)
     if agent_id:
@@ -135,6 +136,8 @@ def my_business():
         query = query.filter(Transaction.transaction_type == type_filter)
     if lead_source_filter:
         query = query.filter(Transaction.lead_source == lead_source_filter)
+    if admin_filter:
+        query = query.filter(Transaction.admin_name == admin_filter)
 
     transactions = query.order_by(Transaction.close_date.desc().nullslast(), Transaction.signed_date.desc()).all()
 
@@ -150,6 +153,7 @@ def my_business():
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
     statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Coming Soon',
                 'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
+    admin_names = ['Joanne Sumiec', 'Julie Kelsey']
 
     # Distinct lead sources from DB (non-null, non-empty)
     lead_sources = [
@@ -167,11 +171,13 @@ def my_business():
         agents=agents,
         statuses=statuses,
         lead_sources=lead_sources,
+        admin_names=admin_names,
         selected_year=year,
         selected_agent=agent_id,
         selected_status=status_filter,
         selected_type=type_filter,
         selected_lead_source=lead_source_filter,
+        selected_admin=admin_filter,
         years=list(range(2020, current_year()+1))
     )
 
@@ -247,7 +253,15 @@ def delete_transaction(tid):
     flash('Transaction deleted.', 'warning')
     return redirect(url_for('main.my_business'))
 
-# ─── LEAD GEN ───────────────────────────────────────────────────────────────
+@bp.route('/my-business/<int:tid>/set-admin', methods=['POST'])
+@login_required
+def set_transaction_admin(tid):
+    t = Transaction.query.get_or_404(tid)
+    t.admin_name = request.form.get('admin_name') or None
+    db.session.commit()
+    return redirect(request.referrer or url_for('main.my_business'))
+
+
 
 @bp.route('/lead-gen')
 @login_required
