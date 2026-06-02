@@ -27,6 +27,22 @@
             {% for s in statuses %}<option {% if t and t.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
           </select>
         </div>
+        <div class="col-md-3">
+          <label class="form-label">Sub Status</label>
+          <select name="sub_status" class="form-select">
+            <option value="">— none —</option>
+            {% for ss in ['CRE Buyer','CRE Listing','CRE Lease','Landlord Rep','Tenant Rep','Business-only'] %}
+            <option {% if t and t.sub_status==ss %}selected{% endif %} value="{{ ss }}">{{ ss }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Lead Source</label>
+          <select name="lead_source" class="form-select">
+            <option value="">— none —</option>
+            {% for ls in lead_sources %}<option {% if t and t.lead_source==ls %}selected{% endif %} value="{{ ls }}">{{ ls }}</option>{% endfor %}
+          </select>
+        </div>
         <div class="col-md-6">
           <label class="form-label">Address</label>
           <input type="text" name="address" class="form-control" value="{{ t.address if t else '' }}">

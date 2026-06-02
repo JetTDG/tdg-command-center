@@ -203,7 +203,9 @@ def add_transaction():
             agent_id=int(f['agent_id']),
             transaction_type=f['transaction_type'],
             status=f['status'],
+            sub_status=f.get('sub_status') or None,
             lead_type=f.get('lead_type', 'Team'),
+            lead_source=f.get('lead_source') or None,
             address=f.get('address', ''),
             client_name=f.get('client_name', ''),
             sale_price=float(f.get('sale_price') or 0),
@@ -224,7 +226,10 @@ def add_transaction():
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
     statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Coming Soon',
                 'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
-    return render_template('main/transaction_form.html', agents=agents, statuses=statuses, t=None)
+    lead_sources = [r[0] for r in db.session.query(Transaction.lead_source)
+                    .filter(Transaction.lead_source.isnot(None), Transaction.lead_source != '')
+                    .distinct().order_by(Transaction.lead_source).all()]
+    return render_template('main/transaction_form.html', agents=agents, statuses=statuses, lead_sources=lead_sources, t=None)
 
 @bp.route('/my-business/edit/<int:tid>', methods=['GET', 'POST'])
 @login_required
@@ -235,7 +240,9 @@ def edit_transaction(tid):
         t.agent_id = int(f['agent_id'])
         t.transaction_type = f['transaction_type']
         t.status = f['status']
+        t.sub_status = f.get('sub_status') or None
         t.lead_type = f.get('lead_type', 'Team')
+        t.lead_source = f.get('lead_source') or None
         t.address = f.get('address', '')
         t.client_name = f.get('client_name', '')
         t.sale_price = float(f.get('sale_price') or 0)
@@ -255,7 +262,10 @@ def edit_transaction(tid):
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
     statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Coming Soon',
                 'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
-    return render_template('main/transaction_form.html', agents=agents, statuses=statuses, t=t)
+    lead_sources = [r[0] for r in db.session.query(Transaction.lead_source)
+                    .filter(Transaction.lead_source.isnot(None), Transaction.lead_source != '')
+                    .distinct().order_by(Transaction.lead_source).all()]
+    return render_template('main/transaction_form.html', agents=agents, statuses=statuses, lead_sources=lead_sources, t=t)
 
 @bp.route('/my-business/delete/<int:tid>', methods=['POST'])
 @login_required
