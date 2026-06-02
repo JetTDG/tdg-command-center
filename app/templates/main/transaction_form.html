@@ -4,101 +4,259 @@
 <div class="page-title">{{ 'Edit' if t else 'Add' }} Transaction</div>
 <div class="page-subtitle">{{ 'Update transaction details' if t else 'Record a new transaction' }}</div>
 
-<div class="card" style="max-width:700px">
-  <div class="card-body">
-    <form method="POST">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label">Agent *</label>
-          <select name="agent_id" class="form-select" required>
-            {% for a in agents %}<option value="{{ a.id }}" {% if t and t.agent_id==a.id %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Type *</label>
-          <select name="transaction_type" class="form-select" required>
-            {% for tp in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
-            <option {% if t and t.transaction_type==tp %}selected{% endif %}>{{ tp }}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Status *</label>
-          <select name="status" class="form-select" required>
-            {% for s in statuses %}<option {% if t and t.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Sub Status</label>
-          <select name="sub_status" class="form-select">
-            <option value="">— none —</option>
-            {% for ss in ['CRE Buyer','CRE Listing','CRE Lease','Landlord Rep','Tenant Rep','Business-only'] %}
-            <option {% if t and t.sub_status==ss %}selected{% endif %} value="{{ ss }}">{{ ss }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Lead Source</label>
-          <select name="lead_source" class="form-select">
-            <option value="">— none —</option>
-            {% for ls in lead_sources %}<option {% if t and t.lead_source==ls %}selected{% endif %} value="{{ ls }}">{{ ls }}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Address</label>
-          <input type="text" name="address" class="form-control" value="{{ t.address if t else '' }}">
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Client Name</label>
-          <input type="text" name="client_name" class="form-control" value="{{ t.client_name if t else '' }}">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Sale Price</label>
-          <input type="number" name="sale_price" class="form-control" step="0.01" value="{{ t.sale_price if t else '' }}">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Commission %</label>
-          <input type="number" name="commission_pct" class="form-control" step="0.01" value="{{ (t.commission_pct*100)|round(2) if t else '' }}" placeholder="e.g. 3">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">GCI ($)</label>
-          <input type="number" name="gci" class="form-control" step="0.01" value="{{ t.gci if t else '' }}">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Net Income ($)</label>
-          <input type="number" name="net_income" class="form-control" step="0.01" value="{{ t.net_income if t else '' }}">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Lead Type</label>
-          <select name="lead_type" class="form-select">
-            {% for lt in ['Team','Agent'] %}<option {% if t and t.lead_type==lt %}selected{% endif %}>{{ lt }}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Year</label>
-          <input type="number" name="year" class="form-control" value="{{ t.year if t else '' }}" placeholder="{{ now.year if now else 2026 }}">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Signed Date</label>
-          <input type="date" name="signed_date" class="form-control" value="{{ t.signed_date.strftime('%Y-%m-%d') if t and t.signed_date else '' }}">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Contract Date</label>
-          <input type="date" name="contract_date" class="form-control" value="{{ t.contract_date.strftime('%Y-%m-%d') if t and t.contract_date else '' }}">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Close Date</label>
-          <input type="date" name="close_date" class="form-control" value="{{ t.close_date.strftime('%Y-%m-%d') if t and t.close_date else '' }}">
-        </div>
-        <div class="col-12">
-          <label class="form-label">Notes</label>
-          <textarea name="notes" class="form-control" rows="2">{{ t.notes if t else '' }}</textarea>
-        </div>
-        <div class="col-12 d-flex gap-2">
-          <button type="submit" class="btn btn-gold">{{ 'Update' if t else 'Save Transaction' }}</button>
-          <a href="{{ url_for('main.my_business') }}" class="btn btn-outline-secondary">Cancel</a>
-        </div>
-      </div>
-    </form>
+<form method="POST" class="mt-3" id="tx-form">
+  <div class="row g-3">
+
+    {# ── SECTION: Core Info ───────────────────────────────────────── #}
+    <div class="col-12"><h6 class="text-muted fw-semibold text-uppercase" style="font-size:.72rem;letter-spacing:.08em;border-bottom:1px solid #eee;padding-bottom:6px">Core Info</h6></div>
+
+    <div class="col-md-3">
+      <label class="form-label">Agent (Primary) *</label>
+      <select name="agent_id" class="form-select" required>
+        {% for a in agents %}
+        <option value="{{ a.id }}" {% if t and t.agent_id==a.id %}selected{% endif %}>{{ a.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Type *</label>
+      <select name="transaction_type" class="form-select" required>
+        {% for tp in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
+        <option {% if t and t.transaction_type==tp %}selected{% endif %}>{{ tp }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Status *</label>
+      <select name="status" class="form-select" required>
+        {% for s in statuses %}<option {% if t and t.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Sub Status</label>
+      <select name="sub_status" class="form-select">
+        <option value="">— none —</option>
+        {% for ss in ['CRE Buyer','CRE Listing','CRE Lease','Landlord Rep','Tenant Rep','Business-only'] %}
+        <option {% if t and t.sub_status==ss %}selected{% endif %} value="{{ ss }}">{{ ss }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Lead Source</label>
+      <select name="lead_source" class="form-select">
+        <option value="">— none —</option>
+        {% for ls in lead_sources %}<option {% if t and t.lead_source==ls %}selected{% endif %} value="{{ ls }}">{{ ls }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label">Address</label>
+      <input type="text" name="address" class="form-control" value="{{ t.address if t else '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Client Name(s)</label>
+      <input type="text" name="client_name" class="form-control" value="{{ t.client_name if t else '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Location / Office</label>
+      <input type="text" name="location" class="form-control" value="{{ t.location if t else '' }}" placeholder="e.g. Rochester">
+    </div>
+
+    {# ── SECTION: Dates ───────────────────────────────────────────── #}
+    <div class="col-12"><h6 class="text-muted fw-semibold text-uppercase" style="font-size:.72rem;letter-spacing:.08em;border-bottom:1px solid #eee;padding-bottom:6px;margin-top:8px">Dates</h6></div>
+
+    <div class="col-md-2">
+      <label class="form-label">Signed Date</label>
+      <input type="date" name="signed_date" class="form-control" value="{{ t.signed_date.strftime('%Y-%m-%d') if t and t.signed_date else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">MLS Live Date</label>
+      <input type="date" name="mls_live_date" class="form-control" value="{{ t.mls_live_date.strftime('%Y-%m-%d') if t and t.mls_live_date else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Expiry Date</label>
+      <input type="date" name="expiry_date" class="form-control" value="{{ t.expiry_date.strftime('%Y-%m-%d') if t and t.expiry_date else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Under Contract Date</label>
+      <input type="date" name="contract_date" class="form-control" value="{{ t.under_contract_date.strftime('%Y-%m-%d') if t and t.under_contract_date else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Proj Close Date</label>
+      <input type="date" name="projected_close_date" class="form-control" value="{{ t.projected_close_date.strftime('%Y-%m-%d') if t and t.projected_close_date else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Close Date</label>
+      <input type="date" name="close_date" class="form-control" value="{{ t.close_date.strftime('%Y-%m-%d') if t and t.close_date else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Inspection Date</label>
+      <input type="date" name="inspection_date" class="form-control" value="{{ t.inspection_date.strftime('%Y-%m-%d') if t and t.inspection_date else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Appraisal Date</label>
+      <input type="date" name="appraisal_date" class="form-control" value="{{ t.appraisal_date.strftime('%Y-%m-%d') if t and t.appraisal_date else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Year</label>
+      <input type="number" name="year" class="form-control" value="{{ t.year if t else '' }}" placeholder="{{ 2026 }}">
+    </div>
+
+    {# ── SECTION: Financials ──────────────────────────────────────── #}
+    <div class="col-12"><h6 class="text-muted fw-semibold text-uppercase" style="font-size:.72rem;letter-spacing:.08em;border-bottom:1px solid #eee;padding-bottom:6px;margin-top:8px">Financials</h6></div>
+
+    <div class="col-md-2">
+      <label class="form-label">List Price ($)</label>
+      <input type="number" name="list_price" id="list_price" class="form-control" step="0.01" value="{{ t.list_price if t else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Sale Price ($)</label>
+      <input type="number" name="sale_price" id="sale_price" class="form-control" step="0.01" value="{{ t.sale_price if t else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Commission %</label>
+      <input type="number" name="commission_pct" id="commission_pct" class="form-control" step="0.01" value="{{ (t.commission_pct*100)|round(2) if t and t.commission_pct else '' }}" placeholder="e.g. 3">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">GCI ($) <small class="text-muted">auto-calc</small></label>
+      <input type="number" name="gci" id="gci" class="form-control" step="0.01" value="{{ t.gci if t else '' }}" placeholder="Sale Price × Comm%">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Bonus ($)</label>
+      <input type="number" name="bonus" class="form-control" step="0.01" value="{{ t.bonus if t else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Transaction Fee ($)</label>
+      <input type="number" name="transaction_fee" class="form-control" step="0.01" value="{{ t.transaction_fee if t else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Broker Split ($)</label>
+      <input type="number" name="broker_split" class="form-control" step="0.01" value="{{ t.broker_split if t else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Franchise Split ($)</label>
+      <input type="number" name="franchise_split" class="form-control" step="0.01" value="{{ t.franchise_split if t else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Referral Paid ($)</label>
+      <input type="number" name="referral_fee" class="form-control" step="0.01" value="{{ t.referral_fee if t else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">E&amp;O ($)</label>
+      <input type="number" name="taxes" class="form-control" step="0.01" value="{{ t.taxes if t else '' }}" placeholder="E&O insurance">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Other Fees ($)</label>
+      <input type="number" name="net_after_taxes" class="form-control" step="0.01" value="{{ t.net_after_taxes if t else '' }}" placeholder="Misc fees">
+    </div>
+
+    {# ── SECTION: Agent Splits ────────────────────────────────────── #}
+    <div class="col-12"><h6 class="text-muted fw-semibold text-uppercase" style="font-size:.72rem;letter-spacing:.08em;border-bottom:1px solid #eee;padding-bottom:6px;margin-top:8px">Agent Splits</h6></div>
+
+    <div class="col-md-3">
+      <label class="form-label">Primary Agent</label>
+      <input type="text" name="primary_agent_name" class="form-control" value="{{ t.primary_agent_name if t else '' }}" placeholder="Name">
+    </div>
+    <div class="col-md-1">
+      <label class="form-label">% Split</label>
+      <input type="number" name="primary_agent_pct" id="primary_agent_pct" class="form-control" step="0.01" value="{{ (t.primary_agent_pct*100)|round(1) if t and t.primary_agent_pct else '' }}" placeholder="e.g. 100">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Primary GCI <small class="text-muted">auto</small></label>
+      <input type="number" name="primary_agent_gci" id="primary_agent_gci" class="form-control" step="0.01" value="{{ t.primary_agent_gci if t else '' }}" readonly style="background:#f8f9fa">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Secondary Agent</label>
+      <input type="text" name="secondary_agent_name" class="form-control" value="{{ t.secondary_agent_name if t else '' }}" placeholder="Name">
+    </div>
+    <div class="col-md-1">
+      <label class="form-label">% Split</label>
+      <input type="number" name="secondary_agent_pct" id="secondary_agent_pct" class="form-control" step="0.01" value="{{ (t.secondary_agent_pct*100)|round(1) if t and t.secondary_agent_pct else '' }}" placeholder="e.g. 50">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Secondary GCI <small class="text-muted">auto</small></label>
+      <input type="number" name="secondary_agent_gci" id="secondary_agent_gci" class="form-control" step="0.01" value="{{ t.secondary_agent_gci if t else '' }}" readonly style="background:#f8f9fa">
+    </div>
+
+    {# ── SECTION: Vendors & Other ─────────────────────────────────── #}
+    <div class="col-12"><h6 class="text-muted fw-semibold text-uppercase" style="font-size:.72rem;letter-spacing:.08em;border-bottom:1px solid #eee;padding-bottom:6px;margin-top:8px">Vendors & Other</h6></div>
+
+    <div class="col-md-3">
+      <label class="form-label">Mortgage Company</label>
+      <input type="text" name="mortgage_company" class="form-control" value="{{ t.mortgage_company if t else '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Title / Closing Company</label>
+      <input type="text" name="title_company" class="form-control" value="{{ t.title_company if t else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Lead Type</label>
+      <select name="lead_type" class="form-select">
+        {% for lt in ['Team','Agent'] %}<option {% if t and t.lead_type==lt %}selected{% endif %}>{{ lt }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Paid?</label>
+      <select name="paid" class="form-select">
+        <option value="">—</option>
+        {% for p in ['Yes','No','Pending'] %}<option {% if t and t.notes and p in t.notes %}selected{% endif %} value="{{ p }}">{{ p }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div class="col-12">
+      <label class="form-label">Notes</label>
+      <textarea name="notes" class="form-control" rows="2">{{ t.notes if t else '' }}</textarea>
+    </div>
+
+    <div class="col-12 d-flex gap-2 mt-2">
+      <button type="submit" class="btn btn-gold">{{ 'Update Transaction' if t else 'Save Transaction' }}</button>
+      <a href="{{ url_for('main.my_business') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
   </div>
-</div>
+</form>
+
+<script>
+// Auto-calculate GCI = Sale Price × Commission %
+function calcGCI() {
+  var sp = parseFloat(document.getElementById('sale_price').value) || 0;
+  var cp = parseFloat(document.getElementById('commission_pct').value) || 0;
+  var gciField = document.getElementById('gci');
+  // Only auto-fill if GCI is empty or matches previous auto-calc
+  if (sp > 0 && cp > 0) {
+    var calc = (sp * cp / 100).toFixed(2);
+    if (!gciField._manuallyEdited) {
+      gciField.value = calc;
+    }
+  }
+  calcAgentSplits();
+}
+
+// Track if GCI was manually overridden
+document.getElementById('gci').addEventListener('input', function() {
+  this._manuallyEdited = true;
+});
+
+// Auto-calculate agent splits
+function calcAgentSplits() {
+  var gci = parseFloat(document.getElementById('gci').value) || 0;
+  var pPct = parseFloat(document.getElementById('primary_agent_pct').value) || 0;
+  var sPct = parseFloat(document.getElementById('secondary_agent_pct').value) || 0;
+  if (gci > 0 && pPct > 0) {
+    document.getElementById('primary_agent_gci').value = (gci * pPct / 100).toFixed(2);
+  }
+  if (gci > 0 && sPct > 0) {
+    document.getElementById('secondary_agent_gci').value = (gci * sPct / 100).toFixed(2);
+  }
+}
+
+document.getElementById('sale_price').addEventListener('input', calcGCI);
+document.getElementById('commission_pct').addEventListener('input', calcGCI);
+document.getElementById('gci').addEventListener('input', calcAgentSplits);
+document.getElementById('primary_agent_pct').addEventListener('input', calcAgentSplits);
+document.getElementById('secondary_agent_pct').addEventListener('input', calcAgentSplits);
+
+// Run on load for edit form
+window.addEventListener('DOMContentLoaded', function() {
+  {% if t and t.gci %}document.getElementById('gci')._manuallyEdited = true;{% endif %}
+  calcAgentSplits();
+});
+</script>
 {% endblock %}
