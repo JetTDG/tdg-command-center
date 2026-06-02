@@ -318,76 +318,67 @@ document.querySelectorAll('.es').forEach(function(sel) {
     });
   });
 // ── Fixed floating scrollbar (always visible at viewport bottom) ─────────────
-(function() {
-  // Create the floating scrollbar rail + thumb
+// NOTE: this script runs AFTER the DOM — do NOT wrap in DOMContentLoaded
+(function initFloatScroll() {
+  const wrap = document.getElementById('mb-table-wrap');
+  if (!wrap) return;
+
+  // Build the floating rail
   const rail = document.createElement('div');
   rail.id = 'mb-float-scroll';
-  rail.style.cssText = [
-    'position:fixed',
-    'bottom:0',
-    'left:0',
-    'right:0',
-    'height:14px',
-    'overflow-x:auto',
-    'overflow-y:hidden',
-    'z-index:9999',
-    'background:#f1f1f1',
-    'border-top:1px solid #ddd',
-    'display:none',   // hidden until table is in view
-  ].join(';');
+  Object.assign(rail.style, {
+    position:   'fixed',
+    bottom:     '0',
+    height:     '14px',
+    overflowX:  'auto',
+    overflowY:  'hidden',
+    zIndex:     '9999',
+    background: '#e8e8e8',
+    borderTop:  '1px solid #ccc',
+    display:    'none',
+  });
 
   const inner = document.createElement('div');
   inner.style.height = '1px';
   rail.appendChild(inner);
   document.body.appendChild(rail);
 
-  window.addEventListener('DOMContentLoaded', function() {
-    const wrap = document.getElementById('mb-table-wrap');
-    if (!wrap) return;
+  // Position rail to exactly match the table wrapper's left/width
+  function positionRail() {
+    const rect = wrap.getBoundingClientRect();
+    rail.style.left  = rect.left + 'px';
+    rail.style.width = rect.width + 'px';
+    inner.style.width = wrap.scrollWidth + 'px';
+  }
 
-    // Size the phantom inner div to match table scroll width
-    function syncWidth() {
-      inner.style.width = wrap.scrollWidth + 'px';
-      // Also match left/width of rail to the wrap element's on-screen position
-      const rect = wrap.getBoundingClientRect();
-      rail.style.left  = rect.left + 'px';
-      rail.style.width = rect.width + 'px';
-    }
-    syncWidth();
-    new ResizeObserver(syncWidth).observe(wrap);
-    window.addEventListener('resize', syncWidth);
+  // Show the rail whenever any part of the table is in the viewport
+  // AND the table is wider than the viewport (needs horizontal scroll)
+  function updateVisibility() {
+    positionRail();
+    const rect = wrap.getBoundingClientRect();
+    const tableVisible = rect.top < window.innerHeight && rect.bottom > 0;
+    const needsScroll  = wrap.scrollWidth > wrap.clientWidth;
+    rail.style.display = (tableVisible && needsScroll) ? 'block' : 'none';
+  }
 
-    // Show/hide based on whether table bottom is below viewport
-    function updateVisibility() {
-      const rect = wrap.getBoundingClientRect();
-      // Show the floating bar whenever the table spans below the viewport bottom
-      // (i.e. you'd normally need to scroll down to see the native scrollbar)
-      const tableBottomBelowViewport = rect.bottom > window.innerHeight;
-      // Also hide once table top is above viewport (scrolled fully past it)
-      const tableTopAboveViewport = rect.top < 0;
-      const visible = tableBottomBelowViewport || (tableTopAboveViewport && rect.bottom > 0);
-      rail.style.display = visible ? 'block' : 'none';
-      // Keep rail left/width in sync while scrolling
-      rail.style.left  = rect.left + 'px';
-      rail.style.width = rect.width + 'px';
-    }
-    window.addEventListener('scroll', updateVisibility, { passive: true });
-    updateVisibility();
+  // Run immediately + on scroll/resize
+  positionRail();
+  updateVisibility();
+  window.addEventListener('scroll', updateVisibility, { passive: true });
+  window.addEventListener('resize', updateVisibility, { passive: true });
+  new ResizeObserver(updateVisibility).observe(wrap);
 
-    // Bidirectional sync (guard against feedback loop)
-    let syncing = false;
-    rail.addEventListener('scroll', () => {
-      if (syncing) return;
-      syncing = true;
-      wrap.scrollLeft = rail.scrollLeft;
-      syncing = false;
-    });
-    wrap.addEventListener('scroll', () => {
-      if (syncing) return;
-      syncing = true;
-      rail.scrollLeft = wrap.scrollLeft;
-      syncing = false;
-    });
+  // Bidirectional sync
+  let syncing = false;
+  rail.addEventListener('scroll', () => {
+    if (syncing) return; syncing = true;
+    wrap.scrollLeft = rail.scrollLeft;
+    syncing = false;
+  });
+  wrap.addEventListener('scroll', () => {
+    if (syncing) return; syncing = true;
+    rail.scrollLeft = wrap.scrollLeft;
+    syncing = false;
   });
 })();
 </script>
