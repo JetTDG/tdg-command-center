@@ -348,6 +348,61 @@ def delete_transaction(tid):
     flash('Transaction deleted.', 'warning')
     return redirect(url_for('main.my_business'))
 
+@bp.route('/api/transaction/<int:tid>/patch', methods=['POST'])
+@login_required
+def patch_transaction(tid):
+    """Inline cell edit — saves a single field via AJAX."""
+    t = Transaction.query.get_or_404(tid)
+    data = request.get_json(force=True)
+    field = data.get('field')
+    value = data.get('value', '')
+
+    # Allowed fields for inline editing (whitelist for security)
+    TEXT_FIELDS = {'transaction_type','status','sub_status','lead_source','address',
+                   'client_name','location','primary_agent_name','secondary_agent_name',
+                   'mortgage_company','title_company','lead_type','notes','admin_name'}
+    FLOAT_FIELDS = {'sale_price','list_price','commission_pct','gci','bonus',
+                    'transaction_fee','broker_split','franchise_split','referral_fee',
+                    'taxes','net_after_taxes','primary_agent_pct','primary_agent_gci',
+                    'secondary_agent_pct','secondary_agent_gci'}
+    DATE_FIELDS  = {'signed_date','mls_live_date','expiry_date','under_contract_date',
+                    'projected_close_date','close_date','inspection_date','appraisal_date'}
+    INT_FIELDS   = {'year','month'}
+
+    if field not in TEXT_FIELDS | FLOAT_FIELDS | DATE_FIELDS | INT_FIELDS:
+        return jsonify({'error': f'Field not editable: {field}'}), 400
+
+    try:
+        if field in TEXT_FIELDS:
+            setattr(t, field, value.strip() or None)
+        elif field in FLOAT_FIELDS:
+            # commission_pct and agent pcts are stored as decimals
+            v = float(value) if value.strip() else None
+            if field in ('commission_pct','primary_agent_pct','secondary_agent_pct') and v:
+                v = v / 100  # form sends %, store as decimal
+            setattr(t, field, v)
+        elif field in DATE_FIELDS:
+            from datetime import date
+            setattr(t, field, date.fromisoformat(value) if value.strip() else None)
+        elif field in INT_FIELDS:
+            setattr(t, field, int(value) if value.strip() else None)
+
+        # Auto-recalculate GCI if sale_price or commission_pct changed
+        if field in ('sale_price', 'commission_pct') and t.sale_price and t.commission_pct:
+            t.gci = round(t.sale_price * t.commission_pct, 2)
+        # Auto-recalculate agent GCIs if gci or pcts changed
+        if field in ('gci', 'primary_agent_pct') and t.gci and t.primary_agent_pct:
+            t.primary_agent_gci = round(t.gci * t.primary_agent_pct, 2)
+        if field in ('gci', 'secondary_agent_pct') and t.gci and t.secondary_agent_pct:
+            t.secondary_agent_gci = round(t.gci * t.secondary_agent_pct, 2)
+
+        t.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({'ok': True, 'field': field, 'value': str(getattr(t, field) or '')})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
 @bp.route('/my-business/<int:tid>/set-admin', methods=['POST'])
 @login_required
 def set_transaction_admin(tid):

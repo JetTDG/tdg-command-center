@@ -63,51 +63,260 @@
   <div class="col-auto"><a href="{{ url_for('main.my_business') }}" class="btn btn-sm btn-outline-secondary">Reset</a></div>
 </form>
 
-<div class="card">
-  <div class="table-responsive">
-    <table class="table table-hover mb-0">
-      <thead><tr>
-        <th>Agent</th><th>Address / Client</th><th>Type</th><th>Status</th>
-        <th class="text-end">Sale Price</th><th class="text-end">GCI</th>
-        <th>Lead Source</th><th>Admin</th><th>Signed</th><th>Close Date</th><th></th>
-      </tr></thead>
+<div class="card mt-3 p-0">
+  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:72vh;position:relative;">
+    <table class="table table-hover table-bordered mb-0 small" id="mb-table" style="min-width:3800px;table-layout:fixed;font-size:0.76rem">
+      <thead style="position:sticky;top:0;z-index:20;background:#fff;">
+        <tr>
+          {# Sticky cols #}
+          <th class="sticky-col" style="left:0;min-width:36px;width:36px;z-index:25;background:#f8f9fa">#</th>
+          <th class="sticky-col" style="left:36px;min-width:140px;width:140px;z-index:25;background:#f8f9fa">Agent</th>
+          <th class="sticky-col" style="left:176px;min-width:200px;width:200px;z-index:25;background:#f8f9fa">Address</th>
+          {# Scrollable cols #}
+          <th style="min-width:90px">Client</th>
+          <th style="min-width:80px">Type</th>
+          <th style="min-width:90px">Status</th>
+          <th style="min-width:100px">Sub Status</th>
+          <th style="min-width:100px">Lead Source</th>
+          <th style="min-width:90px">Location</th>
+          <th style="min-width:90px">Lead Type</th>
+          <th style="min-width:90px">Signed</th>
+          <th style="min-width:90px">MLS Live</th>
+          <th style="min-width:90px">Expiry</th>
+          <th style="min-width:90px">Under Contr</th>
+          <th style="min-width:90px">Proj Close</th>
+          <th style="min-width:90px">Close Date</th>
+          <th style="min-width:90px">Inspection</th>
+          <th style="min-width:90px">Appraisal</th>
+          <th style="min-width:90px">List Price</th>
+          <th style="min-width:90px">Sale Price</th>
+          <th style="min-width:55px">Comm%</th>
+          <th style="min-width:90px">GCI</th>
+          <th style="min-width:80px">Bonus</th>
+          <th style="min-width:80px">Tx Fee</th>
+          <th style="min-width:90px">Broker Split</th>
+          <th style="min-width:90px">Franchise</th>
+          <th style="min-width:80px">Referral</th>
+          <th style="min-width:70px">E&amp;O</th>
+          <th style="min-width:80px">Other Fees</th>
+          <th style="min-width:130px">Primary Agent</th>
+          <th style="min-width:55px">Pri%</th>
+          <th style="min-width:90px">Primary GCI</th>
+          <th style="min-width:130px">Secondary Agent</th>
+          <th style="min-width:55px">Sec%</th>
+          <th style="min-width:90px">Secondary GCI</th>
+          <th style="min-width:130px">Mortgage Co</th>
+          <th style="min-width:130px">Title Co</th>
+          <th style="min-width:110px">Admin</th>
+          <th style="min-width:120px;z-index:21;position:sticky;right:0;background:#f8f9fa">Actions</th>
+        </tr>
+      </thead>
       <tbody>
         {% for t in transactions %}
-        <tr>
-          <td class="fw-semibold small">{{ t.agent.name if t.agent else (t.primary_agent_name or '—') }}</td>
-          <td>
-            <div class="small">{{ t.address or '—' }}</div>
-            {% if t.client_name %}<div class="text-muted" style="font-size:0.72rem">{{ t.client_name }}</div>{% endif %}
+        <tr data-tid="{{ t.id }}">
+          {# Sticky: row number #}
+          <td class="sticky-col text-muted text-center" style="left:0;background:#fafafa">{{ loop.index }}</td>
+          {# Sticky: agent #}
+          <td class="sticky-col" style="left:36px;background:#fff">
+            <span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}">{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</span>
           </td>
-          <td><span class="badge bg-secondary bg-opacity-25 text-body small">{{ t.transaction_type or '—' }}</span></td>
-          <td><span class="badge-status status-{{ t.status | replace(' ','-') | replace('x-','') | replace('y-','') }}">{{ t.status }}</span></td>
-          <td class="text-end small">${{ "{:,.0f}".format(t.sale_price or 0) }}</td>
-          <td class="text-end small fw-semibold" style="color:var(--tdg-gold)">${{ "{:,.0f}".format(t.gci or 0) }}</td>
-          <td class="small text-muted">{{ t.lead_source or '—' }}</td>
-          <td class="small">
-            <form method="POST" action="{{ url_for('main.set_transaction_admin', tid=t.id) }}" style="display:inline">
-              <select name="admin_name" class="form-select form-select-sm py-0" onchange="this.form.submit()" style="min-width:120px;font-size:0.75rem">
-                <option value="">— assign —</option>
-                {% for a in admin_names %}
-                <option {% if t.admin_name == a %}selected{% endif %} value="{{ a }}">{{ a }}</option>
-                {% endfor %}
-              </select>
-            </form>
+          {# Sticky: address #}
+          <td class="sticky-col" style="left:176px;background:#fff">
+            <span class="ec" data-field="address" data-tid="{{ t.id }}">{{ t.address or '' }}</span>
           </td>
-          <td class="small text-muted">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '—' }}</td>
-          <td class="small text-muted">{{ t.close_date.strftime('%m/%d/%y') if t.close_date else '—' }}</td>
+          {# Scrollable cells #}
+          <td><span class="ec" data-field="client_name" data-tid="{{ t.id }}">{{ t.client_name or '' }}</span></td>
           <td>
-            <a href="{{ url_for('main.edit_transaction', tid=t.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2">Edit</a>
-            <form method="POST" action="{{ url_for('main.delete_transaction', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Delete this transaction?')">
-              <button class="btn btn-sm btn-outline-danger py-0 px-2">Del</button>
+            <select class="es form-select form-select-sm p-0" data-field="transaction_type" data-tid="{{ t.id }}" style="font-size:0.74rem;border:0;background:transparent">
+              {% for opt in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
+              <option {% if t.transaction_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+            </select>
+          </td>
+          <td>
+            <select class="es form-select form-select-sm p-0" data-field="status" data-tid="{{ t.id }}" style="font-size:0.74rem;border:0;background:transparent">
+              {% for opt in ['Active','Pending','Closed','Pipeline','Pre-Signed','Coming Soon','x-Cancelled','y-Sale Failed','z-Expired','Temp Off Market'] %}
+              <option {% if t.status==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+            </select>
+          </td>
+          <td>
+            <select class="es form-select form-select-sm p-0" data-field="sub_status" data-tid="{{ t.id }}" style="font-size:0.74rem;border:0;background:transparent">
+              <option value="">—</option>
+              {% for opt in ['CRE Buyer','CRE Listing','CRE Lease','Landlord Rep','Tenant Rep','Business-only'] %}
+              <option {% if t.sub_status==opt %}selected{% endif %} value="{{ opt }}">{{ opt }}</option>{% endfor %}
+            </select>
+          </td>
+          <td><span class="ec" data-field="lead_source" data-tid="{{ t.id }}">{{ t.lead_source or '' }}</span></td>
+          <td><span class="ec" data-field="location" data-tid="{{ t.id }}">{{ t.location or '' }}</span></td>
+          <td>
+            <select class="es form-select form-select-sm p-0" data-field="lead_type" data-tid="{{ t.id }}" style="font-size:0.74rem;border:0;background:transparent">
+              {% for opt in ['Team','Agent'] %}<option {% if t.lead_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+            </select>
+          </td>
+          <td><span class="ec" data-field="signed_date" data-tid="{{ t.id }}" data-type="date">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '' }}</span></td>
+          <td><span class="ec" data-field="mls_live_date" data-tid="{{ t.id }}" data-type="date">{{ t.mls_live_date.strftime('%m/%d/%y') if t.mls_live_date else '' }}</span></td>
+          <td><span class="ec" data-field="expiry_date" data-tid="{{ t.id }}" data-type="date">{{ t.expiry_date.strftime('%m/%d/%y') if t.expiry_date else '' }}</span></td>
+          <td><span class="ec" data-field="under_contract_date" data-tid="{{ t.id }}" data-type="date">{{ t.under_contract_date.strftime('%m/%d/%y') if t.under_contract_date else '' }}</span></td>
+          <td><span class="ec" data-field="projected_close_date" data-tid="{{ t.id }}" data-type="date">{{ t.projected_close_date.strftime('%m/%d/%y') if t.projected_close_date else '' }}</span></td>
+          <td><span class="ec" data-field="close_date" data-tid="{{ t.id }}" data-type="date">{{ t.close_date.strftime('%m/%d/%y') if t.close_date else '' }}</span></td>
+          <td><span class="ec" data-field="inspection_date" data-tid="{{ t.id }}" data-type="date">{{ t.inspection_date.strftime('%m/%d/%y') if t.inspection_date else '' }}</span></td>
+          <td><span class="ec" data-field="appraisal_date" data-tid="{{ t.id }}" data-type="date">{{ t.appraisal_date.strftime('%m/%d/%y') if t.appraisal_date else '' }}</span></td>
+          <td><span class="ec num" data-field="list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.list_price) if t.list_price else '' }}</span></td>
+          <td><span class="ec num" data-field="sale_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.sale_price) if t.sale_price else '' }}</span></td>
+          <td><span class="ec num" data-field="commission_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.2f}".format(t.commission_pct*100) if t.commission_pct else '' }}</span></td>
+          <td class="fw-semibold" style="color:var(--tdg-gold)"><span class="ec num" data-field="gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.gci) if t.gci else '' }}</span></td>
+          <td><span class="ec num" data-field="bonus" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.bonus) if t.bonus else '' }}</span></td>
+          <td><span class="ec num" data-field="transaction_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.transaction_fee) if t.transaction_fee else '' }}</span></td>
+          <td><span class="ec num" data-field="broker_split" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.broker_split) if t.broker_split else '' }}</span></td>
+          <td><span class="ec num" data-field="franchise_split" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.franchise_split) if t.franchise_split else '' }}</span></td>
+          <td><span class="ec num" data-field="referral_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.referral_fee) if t.referral_fee else '' }}</span></td>
+          <td><span class="ec num" data-field="taxes" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.taxes) if t.taxes else '' }}</span></td>
+          <td><span class="ec num" data-field="net_after_taxes" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.net_after_taxes) if t.net_after_taxes else '' }}</span></td>
+          <td><span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}">{{ t.primary_agent_name or '' }}</span></td>
+          <td><span class="ec num" data-field="primary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.primary_agent_pct*100) if t.primary_agent_pct else '' }}</span></td>
+          <td><span class="ec num" data-field="primary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.primary_agent_gci) if t.primary_agent_gci else '' }}</span></td>
+          <td><span class="ec" data-field="secondary_agent_name" data-tid="{{ t.id }}">{{ t.secondary_agent_name or '' }}</span></td>
+          <td><span class="ec num" data-field="secondary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.secondary_agent_pct*100) if t.secondary_agent_pct else '' }}</span></td>
+          <td><span class="ec num" data-field="secondary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.secondary_agent_gci) if t.secondary_agent_gci else '' }}</span></td>
+          <td><span class="ec" data-field="mortgage_company" data-tid="{{ t.id }}">{{ t.mortgage_company or '' }}</span></td>
+          <td><span class="ec" data-field="title_company" data-tid="{{ t.id }}">{{ t.title_company or '' }}</span></td>
+          <td>
+            <select class="es form-select form-select-sm p-0" data-field="admin_name" data-tid="{{ t.id }}" style="font-size:0.74rem;border:0;background:transparent">
+              <option value="">— assign —</option>
+              {% for a in admin_names %}<option {% if t.admin_name==a %}selected{% endif %} value="{{ a }}">{{ a }}</option>{% endfor %}
+            </select>
+          </td>
+          <td style="position:sticky;right:0;background:#fff;white-space:nowrap">
+            <a href="{{ url_for('main.edit_transaction', tid=t.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-1">Edit</a>
+            <form method="POST" action="{{ url_for('main.delete_transaction', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Delete?')">
+              <button class="btn btn-sm btn-outline-danger py-0 px-1">Del</button>
             </form>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="11" class="text-center text-muted py-4">No transactions found. <a href="{{ url_for('main.add_transaction') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>
+        <tr><td colspan="40" class="text-center text-muted py-4">No transactions found. <a href="{{ url_for('main.add_transaction') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+
+<style>
+.sticky-col { position:sticky; z-index:10; }
+#mb-table td, #mb-table th { white-space:nowrap; padding:4px 8px; vertical-align:middle; }
+#mb-table thead th { font-size:0.72rem; font-weight:600; color:#555; background:#f8f9fa; border-bottom:2px solid #dee2e6; }
+.ec { cursor:pointer; display:block; min-width:40px; min-height:18px; border-radius:3px; padding:1px 3px; }
+.ec:hover { background:#fff8e6; outline:1px solid var(--tdg-gold); }
+.ec.editing { display:none; }
+.ec-input { display:none; width:100%; border:1px solid var(--tdg-gold); border-radius:3px; padding:1px 4px; font-size:0.74rem; background:#fffbf0; }
+.ec-input.active { display:block; }
+.ec.saving { opacity:0.5; }
+.ec.saved { background:#d1fae5; transition:background 1s; }
+.ec.error { background:#fee2e2; }
+.num { text-align:right; }
+</style>
+
+{% block extra_js %}{{ super() if super is defined else '' }}{% endblock %}
+<script>
+// ── Inline text/date cell editing ──────────────────────────────────────────
+document.querySelectorAll('.ec').forEach(function(span) {
+  span.addEventListener('click', function() {
+    if (span.classList.contains('editing')) return;
+    const field = span.dataset.field;
+    const tid   = span.dataset.tid;
+    const isPct = span.dataset.pct;
+    const dtype = span.dataset.type;
+
+    // Build inline input
+    const inp = document.createElement(dtype === 'date' ? 'input' : 'input');
+    inp.type = dtype === 'date' ? 'date' : 'text';
+    inp.className = 'ec-input active';
+    inp.style.cssText = 'width:100%;border:1px solid #d4a017;border-radius:3px;padding:1px 4px;font-size:0.74rem;background:#fffbf0';
+
+    // Set current value
+    let rawVal = span.textContent.trim();
+    if (dtype === 'date' && rawVal) {
+      // Convert mm/dd/yy to yyyy-mm-dd for date input
+      const p = rawVal.split('/');
+      if (p.length === 3) {
+        const yr = p[2].length === 2 ? '20' + p[2] : p[2];
+        rawVal = yr + '-' + p[0].padStart(2,'0') + '-' + p[1].padStart(2,'0');
+      }
+    } else if (isPct) {
+      rawVal = rawVal.replace(/[^0-9.]/g, '');
+    } else {
+      rawVal = rawVal.replace(/[$,]/g, '');
+    }
+    inp.value = rawVal;
+
+    span.classList.add('editing');
+    span.parentNode.insertBefore(inp, span.nextSibling);
+    inp.focus();
+    inp.select();
+
+    function save() {
+      const newVal = inp.value.trim();
+      inp.remove();
+      span.classList.remove('editing');
+
+      fetch('/api/transaction/' + tid + '/patch', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({field: field, value: newVal})
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          // Update display
+          if (dtype === 'date' && newVal) {
+            const p = newVal.split('-');
+            span.textContent = p[1] + '/' + p[2] + '/' + p[0].slice(2);
+          } else if (isPct) {
+            span.textContent = newVal ? parseFloat(newVal).toFixed(newVal.includes('.') ? 2 : 0) : '';
+          } else if (span.classList.contains('num') && newVal) {
+            span.textContent = parseFloat(newVal.replace(/,/g,'')).toLocaleString('en-US', {maximumFractionDigits:0});
+          } else {
+            span.textContent = newVal;
+          }
+          span.classList.add('saved');
+          setTimeout(() => span.classList.remove('saved'), 1500);
+        } else {
+          span.classList.add('error');
+          setTimeout(() => span.classList.remove('error'), 2000);
+          alert('Save failed: ' + (data.error || 'unknown'));
+        }
+      })
+      .catch(() => { span.classList.add('error'); setTimeout(() => span.classList.remove('error'), 2000); });
+    }
+
+    inp.addEventListener('blur', save);
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); save(); }
+      if (e.key === 'Escape') { inp.remove(); span.classList.remove('editing'); }
+    });
+  });
+});
+
+// ── Inline select editing ──────────────────────────────────────────────────
+document.querySelectorAll('.es').forEach(function(sel) {
+  sel.addEventListener('change', function() {
+    const field = sel.dataset.field;
+    const tid   = sel.dataset.tid;
+    fetch('/api/transaction/' + tid + '/patch', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({field: field, value: sel.value})
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        sel.style.background = '#d1fae5';
+        setTimeout(() => sel.style.background = 'transparent', 1200);
+      } else {
+        sel.style.background = '#fee2e2';
+        setTimeout(() => sel.style.background = 'transparent', 2000);
+      }
+    });
+  });
+});
+</script>
 {% endblock %}
