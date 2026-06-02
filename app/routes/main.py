@@ -62,9 +62,9 @@ def home():
         Transaction.status == 'Pending'
     ).scalar() or 0
 
-    # Pipeline
-    active_buyers = Pipeline.query.filter_by(lead_type='Buyer', status='Active').count()
-    active_listings = Transaction.query.filter_by(year=year, status='Active').count()
+    # Active pipeline — current status regardless of year
+    active_listings = Transaction.query.filter_by(transaction_type='Listing', status='Active').count()
+    active_buyers   = Transaction.query.filter_by(transaction_type='Buyer',   status='Active').count()
 
     # This month
     month_closed = Transaction.query.filter(
