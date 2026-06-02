@@ -144,7 +144,7 @@ def my_business():
     # Summary counts
     summary = {
         'active_listings': Transaction.query.filter_by(year=year, transaction_type='Listing', status='Active').count(),
-        'active_buyers': Pipeline.query.filter_by(lead_type='Buyer', status='Active').count(),
+        'active_buyers':   Transaction.query.filter_by(year=year, transaction_type='Buyer', status='Active').count(),
         'pending': Transaction.query.filter_by(year=year, status='Pending').count(),
         'closed': Transaction.query.filter_by(year=year, status='Closed').count(),
         'pipeline': Transaction.query.filter_by(year=year, status='Pipeline').count(),
