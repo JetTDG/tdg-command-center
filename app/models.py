@@ -49,19 +49,54 @@ class Agent(db.Model):
 class Transaction(db.Model):
     __tablename__ = 'transactions'
     id = db.Column(db.Integer, primary_key=True)
-    agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=False)
-    transaction_type = db.Column(db.String(20))  # Listing, Buyer, Other, Referral, Lease, Commercial
-    status = db.Column(db.String(30))  # Active, Pending, Closed, Pipeline, Pre-Signed, Coming Soon, x-Cancelled, y-Sale Failed, z-Expired, Temp Off Market
-    lead_type = db.Column(db.String(30))  # Team, Agent
-    address = db.Column(db.String(200))
-    client_name = db.Column(db.String(100))
-    sale_price = db.Column(db.Float, default=0.0)
-    commission_pct = db.Column(db.Float, default=0.0)
-    gci = db.Column(db.Float, default=0.0)
-    net_income = db.Column(db.Float, default=0.0)
+    agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True)  # nullable for import
+    transaction_type = db.Column(db.String(20))   # Listing, Buyer, Other, Referral, Lease, Commercial
+    status = db.Column(db.String(30))             # Active, Pending, Closed, etc.
+    sub_status = db.Column(db.String(50))
+    lead_type = db.Column(db.String(30))          # Team, Agent
+    lead_source = db.Column(db.String(100))       # SOI, Zillow, Veterans United, etc.
+
+    # Property
+    address = db.Column(db.String(300))
+    client_name = db.Column(db.String(200))
+    location = db.Column(db.String(100))          # Rochester, etc.
+
+    # Dates
     signed_date = db.Column(db.Date)
+    mls_live_date = db.Column(db.Date)
+    expiry_date = db.Column(db.Date)
+    under_contract_date = db.Column(db.Date)
+    projected_close_date = db.Column(db.Date)
     close_date = db.Column(db.Date)
-    contract_date = db.Column(db.Date)
+
+    # Financials
+    list_price = db.Column(db.Float)
+    sale_price = db.Column(db.Float)
+    commission_pct = db.Column(db.Float)
+    gci = db.Column(db.Float, default=0.0)
+    bonus = db.Column(db.Float)
+    transaction_fee = db.Column(db.Float)
+    broker_split = db.Column(db.Float)
+    franchise_split = db.Column(db.Float)
+    referral_fee = db.Column(db.Float)
+    net_income = db.Column(db.Float)
+    taxes = db.Column(db.Float)
+    net_after_taxes = db.Column(db.Float)
+
+    # Agent splits
+    primary_agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True)
+    primary_agent_name = db.Column(db.String(100))
+    primary_agent_pct = db.Column(db.Float)
+    primary_agent_gci = db.Column(db.Float)
+    secondary_agent_name = db.Column(db.String(100))
+    secondary_agent_pct = db.Column(db.Float)
+    secondary_agent_gci = db.Column(db.Float)
+
+    # Vendors
+    mortgage_company = db.Column(db.String(100))
+    title_company = db.Column(db.String(100))
+
+    # Meta
     year = db.Column(db.Integer)
     month = db.Column(db.Integer)
     notes = db.Column(db.Text)
