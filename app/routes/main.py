@@ -371,17 +371,20 @@ def leaderboard():
     board = []
     for agent in agents:
         q = Transaction.query.filter(
-            Transaction.agent_id == agent.id,
             Transaction.status == 'Closed',
-            Transaction.year == year
+            Transaction.year == year,
+            db.or_(
+                Transaction.agent_id == agent.id,
+                Transaction.primary_agent_name == agent.name
+            )
         )
         if timeframe == 'This Month':
             q = q.filter(Transaction.month == month)
 
         txns = q.all()
         units = len(txns)
-        gci = sum(t.gci for t in txns)
-        volume = sum(t.sale_price for t in txns)
+        gci = sum((t.gci or 0) for t in txns)
+        volume = sum((t.sale_price or 0) for t in txns)
         listings = sum(1 for t in txns if t.transaction_type == 'Listing')
         buyers = sum(1 for t in txns if t.transaction_type == 'Buyer')
 
@@ -452,10 +455,10 @@ def ceo_summary():
     closed = Transaction.query.filter_by(year=year, status='Closed').all()
     pending = Transaction.query.filter_by(year=year, status='Pending').all()
 
-    ytd_gci = sum(t.gci for t in closed)
+    ytd_gci = sum((t.gci or 0) for t in closed)
     ytd_units = len(closed)
-    ytd_volume = sum(t.sale_price for t in closed)
-    projected_gci = sum(t.gci for t in pending)
+    ytd_volume = sum((t.sale_price or 0) for t in closed)
+    projected_gci = sum((t.gci or 0) for t in pending)
     projected_units = len(pending)
 
     listings_signed = Transaction.query.filter(
@@ -477,13 +480,13 @@ def ceo_summary():
     # Monthly breakdown
     monthly = []
     for m in range(1, 13):
-        m_gci = sum(t.gci for t in closed if t.month == m)
+        m_gci = sum((t.gci or 0) for t in closed if t.month == m)
         m_units = sum(1 for t in closed if t.month == m)
         monthly.append({'month': calendar.month_abbr[m], 'gci': round(m_gci, 2), 'units': m_units})
 
     # Prior year comparison
     prior_closed = Transaction.query.filter_by(year=year-1, status='Closed').all()
-    prior_gci = sum(t.gci for t in prior_closed)
+    prior_gci = sum((t.gci or 0) for t in prior_closed)
     prior_units = len(prior_closed)
 
     # Lead gen YTD
@@ -538,7 +541,7 @@ def business_plan():
     for agent in agents:
         plan = plan_map.get(agent.id)
         closed = Transaction.query.filter_by(agent_id=agent.id, year=year, status='Closed').all()
-        actual_gci = sum(t.gci for t in closed)
+        actual_gci = sum((t.gci or 0) for t in closed)
         actual_units = len(closed)
         board.append({
             'agent': agent,
