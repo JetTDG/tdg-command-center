@@ -124,6 +124,7 @@ def my_business():
     agent_id = request.args.get('agent_id', '')
     status_filter = request.args.get('status', '')
     type_filter = request.args.get('type', '')
+    lead_source_filter = request.args.get('lead_source', '')
 
     query = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(Transaction.year == year)
     if agent_id:
@@ -132,6 +133,8 @@ def my_business():
         query = query.filter(Transaction.status == status_filter)
     if type_filter:
         query = query.filter(Transaction.transaction_type == type_filter)
+    if lead_source_filter:
+        query = query.filter(Transaction.lead_source == lead_source_filter)
 
     transactions = query.order_by(Transaction.close_date.desc().nullslast(), Transaction.signed_date.desc()).all()
 
@@ -148,15 +151,27 @@ def my_business():
     statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Coming Soon',
                 'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
 
+    # Distinct lead sources from DB (non-null, non-empty)
+    lead_sources = [
+        r[0] for r in db.session.query(Transaction.lead_source)
+                                .filter(Transaction.lead_source.isnot(None),
+                                        Transaction.lead_source != '')
+                                .distinct()
+                                .order_by(Transaction.lead_source)
+                                .all()
+    ]
+
     return render_template('main/my_business.html',
         transactions=transactions,
         summary=summary,
         agents=agents,
         statuses=statuses,
+        lead_sources=lead_sources,
         selected_year=year,
         selected_agent=agent_id,
         selected_status=status_filter,
         selected_type=type_filter,
+        selected_lead_source=lead_source_filter,
         years=list(range(2020, current_year()+1))
     )
 
@@ -359,6 +374,33 @@ def delete_lead_gen(lid):
 
 # ─── LEADERBOARD ────────────────────────────────────────────────────────────
 
+def _build_leaderboard(year, statuses):
+    """Return agents ranked by GCI for given year and list of statuses.
+    Matches by primary_agent_name so imported-only records are included."""
+    rows = db.session.query(
+        Transaction.primary_agent_name,
+        func.sum(Transaction.gci).label('gci'),
+        func.count(Transaction.id).label('units'),
+        func.sum(Transaction.sale_price).label('volume')
+    ).filter(
+        Transaction.year == year,
+        Transaction.status.in_(statuses),
+        Transaction.primary_agent_name.isnot(None),
+        Transaction.primary_agent_name != ''
+    ).group_by(Transaction.primary_agent_name).all()
+
+    result = sorted([
+        {
+            'name': r[0],
+            'gci': float(r[1] or 0),
+            'units': int(r[2] or 0),
+            'volume': float(r[3] or 0),
+        }
+        for r in rows
+    ], key=lambda x: x['gci'], reverse=True)
+    return result
+
+
 @bp.route('/leaderboard')
 @login_required
 def leaderboard():
@@ -389,13 +431,6 @@ def leaderboard():
         buyers = sum(1 for t in txns if t.transaction_type == 'Buyer')
 
         # Lead gen
-        lg_q = LeadGenLog.query.filter(
-            LeadGenLog.agent_id == agent.id,
-            extract('year', LeadGenLog.log_date) == year
-        )
-        if timeframe == 'This Month':
-            lg_q = lg_q.filter(extract('month', LeadGenLog.log_date) == month)
-
         lg_totals = db.session.query(
             func.sum(LeadGenLog.contacts),
             func.sum(LeadGenLog.listing_appts_held),
@@ -435,9 +470,17 @@ def leaderboard():
     for i, row in enumerate(board):
         row['rank'] = i + 1
 
+    # ── Three focused leaderboard lists (by primary_agent_name) ──
+    leaderboard_closed   = _build_leaderboard(year, ['Closed'])
+    leaderboard_pending  = _build_leaderboard(year, ['Pending'])
+    leaderboard_combined = _build_leaderboard(year, ['Closed', 'Pending'])
+
     months = [(i, calendar.month_name[i]) for i in range(1, 13)]
     return render_template('main/leaderboard.html',
         board=board,
+        leaderboard_closed=leaderboard_closed,
+        leaderboard_pending=leaderboard_pending,
+        leaderboard_combined=leaderboard_combined,
         year=year,
         timeframe=timeframe,
         selected_month=month,
