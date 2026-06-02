@@ -296,6 +296,7 @@ document.querySelectorAll('.ec').forEach(function(span) {
   });
 });
 
+
 // ── Inline select editing ──────────────────────────────────────────────────
 document.querySelectorAll('.es').forEach(function(sel) {
   sel.addEventListener('change', function() {
@@ -317,65 +318,58 @@ document.querySelectorAll('.es').forEach(function(sel) {
       }
     });
   });
-// ── Fixed floating scrollbar (always visible at viewport bottom) ─────────────
-// NOTE: this script runs AFTER the DOM — do NOT wrap in DOMContentLoaded
+}); // end .es forEach
+
+// ── Fixed floating scrollbar ─────────────────────────────────────────────────
 (function initFloatScroll() {
-  const wrap = document.getElementById('mb-table-wrap');
+  var wrap = document.getElementById('mb-table-wrap');
   if (!wrap) return;
 
-  // Build the floating rail
-  const rail = document.createElement('div');
+  var rail = document.createElement('div');
   rail.id = 'mb-float-scroll';
-  Object.assign(rail.style, {
-    position:   'fixed',
-    bottom:     '0',
-    height:     '14px',
-    overflowX:  'auto',
-    overflowY:  'hidden',
-    zIndex:     '9999',
-    background: '#e8e8e8',
-    borderTop:  '1px solid #ccc',
-    display:    'none',
-  });
+  rail.style.position  = 'fixed';
+  rail.style.bottom    = '0';
+  rail.style.height    = '14px';
+  rail.style.overflowX = 'auto';
+  rail.style.overflowY = 'hidden';
+  rail.style.zIndex    = '9999';
+  rail.style.background = '#e0e0e0';
+  rail.style.borderTop  = '1px solid #bbb';
+  rail.style.display    = 'none';
 
-  const inner = document.createElement('div');
+  var inner = document.createElement('div');
   inner.style.height = '1px';
   rail.appendChild(inner);
   document.body.appendChild(rail);
 
-  // Position rail to exactly match the table wrapper's left/width
   function positionRail() {
-    const rect = wrap.getBoundingClientRect();
+    var rect = wrap.getBoundingClientRect();
     rail.style.left  = rect.left + 'px';
     rail.style.width = rect.width + 'px';
     inner.style.width = wrap.scrollWidth + 'px';
   }
 
-  // Show the rail whenever any part of the table is in the viewport
-  // AND the table is wider than the viewport (needs horizontal scroll)
   function updateVisibility() {
     positionRail();
-    const rect = wrap.getBoundingClientRect();
-    const tableVisible = rect.top < window.innerHeight && rect.bottom > 0;
-    const needsScroll  = wrap.scrollWidth > wrap.clientWidth;
-    rail.style.display = (tableVisible && needsScroll) ? 'block' : 'none';
+    var rect = wrap.getBoundingClientRect();
+    var inView      = rect.top < window.innerHeight && rect.bottom > 0;
+    var needsScroll = wrap.scrollWidth > wrap.clientWidth;
+    rail.style.display = (inView && needsScroll) ? 'block' : 'none';
   }
 
-  // Run immediately + on scroll/resize
   positionRail();
   updateVisibility();
   window.addEventListener('scroll', updateVisibility, { passive: true });
   window.addEventListener('resize', updateVisibility, { passive: true });
   new ResizeObserver(updateVisibility).observe(wrap);
 
-  // Bidirectional sync
-  let syncing = false;
-  rail.addEventListener('scroll', () => {
+  var syncing = false;
+  rail.addEventListener('scroll', function() {
     if (syncing) return; syncing = true;
     wrap.scrollLeft = rail.scrollLeft;
     syncing = false;
   });
-  wrap.addEventListener('scroll', () => {
+  wrap.addEventListener('scroll', function() {
     if (syncing) return; syncing = true;
     rail.scrollLeft = wrap.scrollLeft;
     syncing = false;
