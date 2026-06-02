@@ -83,7 +83,7 @@ def home():
     goal_pct = (ytd_gci / team_goal * 100) if team_goal > 0 else 0
 
     # Recent transactions
-    recent = Transaction.query.join(Agent).order_by(Transaction.updated_at.desc()).limit(10).all()
+    recent = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).order_by(Transaction.updated_at.desc()).limit(10).all()
 
     # Monthly GCI trend (last 6 months)
     monthly_trend = []
@@ -125,7 +125,7 @@ def my_business():
     status_filter = request.args.get('status', '')
     type_filter = request.args.get('type', '')
 
-    query = Transaction.query.join(Agent).filter(Transaction.year == year)
+    query = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(Transaction.year == year)
     if agent_id:
         query = query.filter(Transaction.agent_id == int(agent_id))
     if status_filter:
@@ -241,7 +241,7 @@ def lead_gen():
     month = int(request.args.get('month', current_month()))
     agent_id = request.args.get('agent_id', '')
 
-    query = LeadGenLog.query.join(Agent).filter(
+    query = LeadGenLog.query.join(Agent, LeadGenLog.agent_id == Agent.id).filter(
         extract('year', LeadGenLog.log_date) == year,
         extract('month', LeadGenLog.log_date) == month
     )
