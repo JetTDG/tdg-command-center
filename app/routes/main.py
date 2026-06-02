@@ -25,68 +25,114 @@ def home():
     month = current_month()
 
     # YTD stats
-    ytd_closed = Transaction.query.filter(
-        Transaction.year == year,
-        Transaction.status == 'Closed'
-    ).count()
+    COMMERCIAL_TYPES = ('Commercial', 'Lease')
 
-    ytd_gci = db.session.query(func.sum(Transaction.gci)).filter(
-        Transaction.year == year,
-        Transaction.status == 'Closed'
-    ).scalar() or 0
+    def seg_count(status, type_filter=None, exclude_types=None):
+        q = Transaction.query.filter(Transaction.year == year, Transaction.status == status)
+        if type_filter:    q = q.filter(Transaction.transaction_type.in_(type_filter))
+        if exclude_types:  q = q.filter(~Transaction.transaction_type.in_(exclude_types))
+        return q.count()
 
-    ytd_volume = db.session.query(func.sum(Transaction.sale_price)).filter(
-        Transaction.year == year,
-        Transaction.status == 'Closed'
-    ).scalar() or 0
+    def seg_sum(col, status_list, type_filter=None, exclude_types=None):
+        q = db.session.query(func.sum(col)).filter(Transaction.year == year, Transaction.status.in_(status_list))
+        if type_filter:    q = q.filter(Transaction.transaction_type.in_(type_filter))
+        if exclude_types:  q = q.filter(~Transaction.transaction_type.in_(exclude_types))
+        return float(q.scalar() or 0)
+
+    ytd_closed = Transaction.query.filter(Transaction.year == year, Transaction.status == 'Closed').count()
+    ytd_gci    = seg_sum(Transaction.gci, ['Closed'])
+    ytd_volume = seg_sum(Transaction.sale_price, ['Closed'])
 
     listings_signed = Transaction.query.filter(
-        Transaction.year == year,
-        Transaction.transaction_type == 'Listing',
+        Transaction.year == year, Transaction.transaction_type == 'Listing',
         Transaction.status.notin_(['x-Cancelled', 'y-Sale Failed', 'z-Expired'])
     ).count()
-
     buyers_signed = Transaction.query.filter(
-        Transaction.year == year,
-        Transaction.transaction_type == 'Buyer',
+        Transaction.year == year, Transaction.transaction_type == 'Buyer',
         Transaction.status.notin_(['x-Cancelled', 'y-Sale Failed', 'z-Expired'])
     ).count()
 
-    pending_count = Transaction.query.filter(
-        Transaction.year == year,
-        Transaction.status == 'Pending'
-    ).count()
-
-    projected_gci = db.session.query(func.sum(Transaction.gci)).filter(
-        Transaction.year == year,
-        Transaction.status == 'Pending'
-    ).scalar() or 0
+    pending_count  = Transaction.query.filter(Transaction.year == year, Transaction.status == 'Pending').count()
+    projected_gci  = seg_sum(Transaction.gci, ['Pending'])
 
     # Active pipeline — current status regardless of year
     active_listings = Transaction.query.filter_by(transaction_type='Listing', status='Active').count()
     active_buyers   = Transaction.query.filter_by(transaction_type='Buyer',   status='Active').count()
 
     # This month
-    month_closed = Transaction.query.filter(
-        Transaction.year == year,
-        Transaction.month == month,
-        Transaction.status == 'Closed'
-    ).count()
-    month_gci = db.session.query(func.sum(Transaction.gci)).filter(
-        Transaction.year == year,
-        Transaction.month == month,
-        Transaction.status == 'Closed'
-    ).scalar() or 0
+    month_closed = Transaction.query.filter(Transaction.year == year, Transaction.month == month, Transaction.status == 'Closed').count()
+    month_gci    = db.session.query(func.sum(Transaction.gci)).filter(Transaction.year == year, Transaction.month == month, Transaction.status == 'Closed').scalar() or 0
 
-    # Goal vs actual
     team_goal = db.session.query(func.sum(BusinessPlan.gci_goal)).filter_by(year=year).scalar() or 0
-    goal_pct = (ytd_gci / team_goal * 100) if team_goal > 0 else 0
+    goal_pct  = (ytd_gci / team_goal * 100) if team_goal > 0 else 0
 
-    # Recent transactions
-    recent = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).order_by(Transaction.updated_at.desc()).limit(10).all()
+    # Segmented KPI totals for JS-driven toggle (res / comm / combined)
+    kpi = {
+        'combined': {
+            'ytd_closed':      ytd_closed,
+            'ytd_gci':         ytd_gci,
+            'month_gci':       month_gci,
+            'month_closed':    month_closed,
+            'pending_count':   pending_count,
+            'projected_gci':   projected_gci,
+            'goal_pct':        round(goal_pct, 1),
+            'team_goal':       team_goal,
+            'listings_signed': listings_signed,
+            'buyers_signed':   buyers_signed,
+            'active_listings': active_listings,
+            'active_buyers':   active_buyers,
+        },
+        'res': {
+            'ytd_closed':      seg_count('Closed', exclude_types=COMMERCIAL_TYPES),
+            'ytd_gci':         seg_sum(Transaction.gci, ['Closed'], exclude_types=COMMERCIAL_TYPES),
+            'month_gci':       float(db.session.query(func.sum(Transaction.gci)).filter(Transaction.year==year, Transaction.month==month, Transaction.status=='Closed', ~Transaction.transaction_type.in_(COMMERCIAL_TYPES)).scalar() or 0),
+            'month_closed':    seg_count('Closed', exclude_types=COMMERCIAL_TYPES),
+            'pending_count':   seg_count('Pending', exclude_types=COMMERCIAL_TYPES),
+            'projected_gci':   seg_sum(Transaction.gci, ['Pending'], exclude_types=COMMERCIAL_TYPES),
+            'goal_pct':        round(goal_pct, 1),
+            'team_goal':       team_goal,
+            'listings_signed': Transaction.query.filter(Transaction.year==year, Transaction.transaction_type=='Listing', Transaction.status.notin_(['x-Cancelled','y-Sale Failed','z-Expired'])).count(),
+            'buyers_signed':   Transaction.query.filter(Transaction.year==year, Transaction.transaction_type=='Buyer', Transaction.status.notin_(['x-Cancelled','y-Sale Failed','z-Expired'])).count(),
+            'active_listings': Transaction.query.filter(Transaction.transaction_type=='Listing', Transaction.status=='Active').count(),
+            'active_buyers':   Transaction.query.filter(Transaction.transaction_type=='Buyer',   Transaction.status=='Active').count(),
+        },
+        'comm': {
+            'ytd_closed':      seg_count('Closed', type_filter=COMMERCIAL_TYPES),
+            'ytd_gci':         seg_sum(Transaction.gci, ['Closed'], type_filter=COMMERCIAL_TYPES),
+            'month_gci':       float(db.session.query(func.sum(Transaction.gci)).filter(Transaction.year==year, Transaction.month==month, Transaction.status=='Closed', Transaction.transaction_type.in_(COMMERCIAL_TYPES)).scalar() or 0),
+            'month_closed':    seg_count('Closed', type_filter=COMMERCIAL_TYPES),
+            'pending_count':   seg_count('Pending', type_filter=COMMERCIAL_TYPES),
+            'projected_gci':   seg_sum(Transaction.gci, ['Pending'], type_filter=COMMERCIAL_TYPES),
+            'goal_pct':        round(goal_pct, 1),
+            'team_goal':       team_goal,
+            'listings_signed': Transaction.query.filter(Transaction.year==year, Transaction.transaction_type.in_(COMMERCIAL_TYPES), Transaction.status.notin_(['x-Cancelled','y-Sale Failed','z-Expired'])).count(),
+            'buyers_signed':   0,
+            'active_listings': Transaction.query.filter(Transaction.transaction_type.in_(COMMERCIAL_TYPES), Transaction.status=='Active').count(),
+            'active_buyers':   0,
+        },
+    }
+
+    # Recent transactions — all, sorted by updated_at
+    recent_all  = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).order_by(Transaction.updated_at.desc()).limit(20).all()
+    recent_res  = [t for t in recent_all if t.transaction_type not in COMMERCIAL_TYPES][:10]
+    recent_comm = [t for t in recent_all if t.transaction_type in COMMERCIAL_TYPES][:10]
+
+    def t_to_dict(t):
+        return {
+            'agent':       t.agent.name if t.agent else (t.primary_agent_name or '—'),
+            'address':     t.address or 'No address',
+            'status':      t.status or '',
+            'list_price':  t.list_price or t.sale_price or 0,
+            'type':        t.transaction_type or '',
+        }
+
+    recent_json = {
+        'combined': [t_to_dict(t) for t in recent_all[:10]],
+        'res':      [t_to_dict(t) for t in recent_res],
+        'comm':     [t_to_dict(t) for t in recent_comm],
+    }
 
     # Monthly trend — full year, all 12 months, Closed + Pending, Residential + Commercial
-    COMMERCIAL_TYPES = ('Commercial', 'Lease')
     monthly_trend = []
     for m in range(1, 13):
         def msum(status_list, type_filter=None, exclude_types=None):
@@ -94,10 +140,8 @@ def home():
                 Transaction.year == year, Transaction.month == m,
                 Transaction.status.in_(status_list)
             )
-            if type_filter:
-                q = q.filter(Transaction.transaction_type.in_(type_filter))
-            if exclude_types:
-                q = q.filter(~Transaction.transaction_type.in_(exclude_types))
+            if type_filter:   q = q.filter(Transaction.transaction_type.in_(type_filter))
+            if exclude_types: q = q.filter(~Transaction.transaction_type.in_(exclude_types))
             return float(q.scalar() or 0)
 
         def mvolume(status_list, type_filter=None, exclude_types=None):
@@ -105,20 +149,16 @@ def home():
                 Transaction.year == year, Transaction.month == m,
                 Transaction.status.in_(status_list)
             )
-            if type_filter:
-                q = q.filter(Transaction.transaction_type.in_(type_filter))
-            if exclude_types:
-                q = q.filter(~Transaction.transaction_type.in_(exclude_types))
+            if type_filter:   q = q.filter(Transaction.transaction_type.in_(type_filter))
+            if exclude_types: q = q.filter(~Transaction.transaction_type.in_(exclude_types))
             return float(q.scalar() or 0)
 
         monthly_trend.append({
             'month': calendar.month_abbr[m],
-            # GCI
             'gci_closed_res':   msum(['Closed'], exclude_types=COMMERCIAL_TYPES),
             'gci_closed_comm':  msum(['Closed'], type_filter=COMMERCIAL_TYPES),
             'gci_pending_res':  msum(['Pending'], exclude_types=COMMERCIAL_TYPES),
             'gci_pending_comm': msum(['Pending'], type_filter=COMMERCIAL_TYPES),
-            # Volume
             'vol_closed_res':   mvolume(['Closed'], exclude_types=COMMERCIAL_TYPES),
             'vol_closed_comm':  mvolume(['Closed'], type_filter=COMMERCIAL_TYPES),
             'vol_pending_res':  mvolume(['Pending'], exclude_types=COMMERCIAL_TYPES),
@@ -139,7 +179,9 @@ def home():
         month_gci=month_gci,
         team_goal=team_goal,
         goal_pct=round(goal_pct, 1),
-        recent=recent,
+        kpi=kpi,
+        recent_json=recent_json,
+        recent=recent_all[:10],
         monthly_trend=monthly_trend,
         current_month=calendar.month_name[month],
         year=year

@@ -1,69 +1,80 @@
 {% extends 'base.html' %}
 {% block title %}Home — TDG Command Center{% endblock %}
 {% block content %}
-<div class="page-title">Dashboard</div>
-<div class="page-subtitle">{{ current_month }} {{ year }} — Live Overview</div>
 
-<!-- KPI Row -->
-<div class="row g-3 mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <div class="page-title">Dashboard</div>
+    <div class="page-subtitle" id="dash-subtitle">{{ current_month }} {{ year }} — Live Overview — Combined</div>
+  </div>
+  <!-- GLOBAL SEGMENT TOGGLE — controls all widgets -->
+  <div class="btn-group btn-group-sm" role="group" id="global-seg-toggle">
+    <button type="button" class="btn btn-gold"              id="gbtn-combined" onclick="setSegment('combined')">Combined</button>
+    <button type="button" class="btn btn-outline-secondary" id="gbtn-res"      onclick="setSegment('res')">Residential</button>
+    <button type="button" class="btn btn-outline-secondary" id="gbtn-comm"     onclick="setSegment('comm')">Commercial</button>
+  </div>
+</div>
+
+<!-- KPI Row 1 -->
+<div class="row g-3 mb-3">
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">YTD Closed Units</div>
-      <div class="stat-value">{{ ytd_closed }}</div>
-      <div class="stat-sub">This month: {{ month_closed }}</div>
+      <div class="stat-value" id="k-ytd-closed">{{ ytd_closed }}</div>
+      <div class="stat-sub">This month: <span id="k-month-closed">{{ month_closed }}</span></div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">YTD GCI</div>
-      <div class="stat-value">{{ "${:,.0f}".format(ytd_gci) }}</div>
-      <div class="stat-sub">This month: {{ "${:,.0f}".format(month_gci) }}</div>
+      <div class="stat-value" id="k-ytd-gci">${{ "{:,.0f}".format(ytd_gci) }}</div>
+      <div class="stat-sub">This month: $<span id="k-month-gci">{{ "{:,.0f}".format(month_gci) }}</span></div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">Pending (Projected)</div>
-      <div class="stat-value">{{ pending_count }}</div>
-      <div class="stat-sub">{{ "${:,.0f}".format(projected_gci) }} GCI</div>
+      <div class="stat-value" id="k-pending-count">{{ pending_count }}</div>
+      <div class="stat-sub">$<span id="k-proj-gci">{{ "{:,.0f}".format(projected_gci) }}</span> GCI</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">Goal Progress</div>
-      <div class="stat-value">{{ goal_pct }}%</div>
-      <div class="progress mt-2"><div class="progress-bar" style="width:{{ [goal_pct,100]|min }}%"></div></div>
-      <div class="stat-sub mt-1">of {{ "${:,.0f}".format(team_goal) }} goal</div>
+      <div class="stat-value" id="k-goal-pct">{{ goal_pct }}%</div>
+      <div class="progress mt-2"><div class="progress-bar" id="k-goal-bar" style="width:{{ [goal_pct,100]|min }}%"></div></div>
+      <div class="stat-sub mt-1">of $<span id="k-team-goal">{{ "{:,.0f}".format(team_goal) }}</span> goal</div>
     </div>
   </div>
 </div>
 
-<!-- Second row -->
+<!-- KPI Row 2 -->
 <div class="row g-3 mb-4">
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">Listings Signed</div>
-      <div class="stat-value">{{ listings_signed }}</div>
+      <div class="stat-value" id="k-ls">{{ listings_signed }}</div>
       <div class="stat-sub">YTD</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">Buyers Signed</div>
-      <div class="stat-value">{{ buyers_signed }}</div>
+      <div class="stat-value" id="k-bs">{{ buyers_signed }}</div>
       <div class="stat-sub">YTD</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">Active Listings</div>
-      <div class="stat-value">{{ active_listings }}</div>
+      <div class="stat-value" id="k-al">{{ active_listings }}</div>
       <div class="stat-sub">Current</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">Active Buyers</div>
-      <div class="stat-value">{{ active_buyers }}</div>
+      <div class="stat-value" id="k-ab">{{ active_buyers }}</div>
       <div class="stat-sub">In pipeline</div>
     </div>
   </div>
@@ -74,19 +85,11 @@
   <div class="col-lg-7">
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span id="chart-title">GCI Trend — Full Year {{ year }}</span>
-        <div class="d-flex gap-2 flex-wrap">
-          <!-- Metric toggle -->
-          <div class="btn-group btn-group-sm" role="group">
-            <button type="button" class="btn btn-gold active" id="btn-gci" onclick="setMetric('gci')">GCI</button>
-            <button type="button" class="btn btn-outline-secondary" id="btn-vol" onclick="setMetric('vol')">Volume</button>
-          </div>
-          <!-- Segment toggle -->
-          <div class="btn-group btn-group-sm" role="group">
-            <button type="button" class="btn btn-outline-secondary active" id="btn-combined" onclick="setSegment('combined')">Combined</button>
-            <button type="button" class="btn btn-outline-secondary" id="btn-res" onclick="setSegment('res')">Residential</button>
-            <button type="button" class="btn btn-outline-secondary" id="btn-comm" onclick="setSegment('comm')">Commercial</button>
-          </div>
+        <span id="chart-title">GCI Trend — Full Year {{ year }} — Combined</span>
+        <!-- Metric-only toggle here; segment controlled globally above -->
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="button" class="btn btn-gold active" id="btn-gci" onclick="setMetric('gci')">GCI</button>
+          <button type="button" class="btn btn-outline-secondary" id="btn-vol" onclick="setMetric('vol')">Volume</button>
         </div>
       </div>
       <div class="card-body">
@@ -94,17 +97,18 @@
       </div>
     </div>
   </div>
-  <!-- Recent Activity -->
+
+  <!-- Recent Transactions -->
   <div class="col-lg-5">
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span>Recent Transactions</span>
+        <span>Recent Transactions — <span id="recent-seg-label">Combined</span></span>
         <a href="{{ url_for('main.my_business') }}" class="btn btn-sm btn-gold">View All</a>
       </div>
       <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table table-hover mb-0">
-            <tbody>
+            <tbody id="recent-tbody">
               {% for t in recent %}
               <tr>
                 <td>
@@ -113,7 +117,7 @@
                 </td>
                 <td class="text-end">
                   <span class="badge-status status-{{ t.status | replace(' ', '-') }}">{{ t.status }}</span>
-                  <div class="text-muted mt-1" style="font-size:0.75rem">{{ "${:,.0f}".format(t.gci or 0) }}</div>
+                  <div class="text-muted mt-1" style="font-size:0.75rem">${{ "{:,.0f}".format(t.list_price or t.sale_price or 0) }}</div>
                 </td>
               </tr>
               {% else %}
@@ -127,38 +131,34 @@
   </div>
 </div>
 {% endblock %}
+
 {% block extra_js %}
 <script>
-const trend = {{ monthly_trend | tojson }};
-const labels = trend.map(r => r.month);
+const trend    = {{ monthly_trend | tojson }};
+const kpi      = {{ kpi | tojson }};
+const recentData = {{ recent_json | tojson }};
+const labels   = trend.map(r => r.month);
 
-// Data arrays
 const data = {
   gci: {
-    res:  { closed: trend.map(r => r.gci_closed_res),  pending: trend.map(r => r.gci_pending_res)  },
-    comm: { closed: trend.map(r => r.gci_closed_comm), pending: trend.map(r => r.gci_pending_comm) },
-    combined: {
-      closed:  trend.map(r => r.gci_closed_res  + r.gci_closed_comm),
-      pending: trend.map(r => r.gci_pending_res + r.gci_pending_comm)
-    }
+    res:      { closed: trend.map(r => r.gci_closed_res),  pending: trend.map(r => r.gci_pending_res)  },
+    comm:     { closed: trend.map(r => r.gci_closed_comm), pending: trend.map(r => r.gci_pending_comm) },
+    combined: { closed: trend.map(r => r.gci_closed_res + r.gci_closed_comm), pending: trend.map(r => r.gci_pending_res + r.gci_pending_comm) }
   },
   vol: {
-    res:  { closed: trend.map(r => r.vol_closed_res),  pending: trend.map(r => r.vol_pending_res)  },
-    comm: { closed: trend.map(r => r.vol_closed_comm), pending: trend.map(r => r.vol_pending_comm) },
-    combined: {
-      closed:  trend.map(r => r.vol_closed_res  + r.vol_closed_comm),
-      pending: trend.map(r => r.vol_pending_res + r.vol_pending_comm)
-    }
+    res:      { closed: trend.map(r => r.vol_closed_res),  pending: trend.map(r => r.vol_pending_res)  },
+    comm:     { closed: trend.map(r => r.vol_closed_comm), pending: trend.map(r => r.vol_pending_comm) },
+    combined: { closed: trend.map(r => r.vol_closed_res + r.vol_closed_comm), pending: trend.map(r => r.vol_pending_res + r.vol_pending_comm) }
   }
 };
 
 let metric  = 'gci';
 let segment = 'combined';
 
-const GOLD        = 'rgba(212,160,23,0.85)';
-const GOLD_BORDER = 'rgba(212,160,23,1)';
-const PENDING_BG  = 'rgba(212,160,23,0.3)';
-const PENDING_BD  = 'rgba(212,160,23,0.6)';
+const GOLD       = 'rgba(212,160,23,0.85)';
+const GOLD_BD    = 'rgba(212,160,23,1)';
+const PEND_BG    = 'rgba(212,160,23,0.3)';
+const PEND_BD    = 'rgba(212,160,23,0.6)';
 
 const ctx = document.getElementById('gciChart');
 Chart.register(ChartDataLabels);
@@ -167,93 +167,115 @@ const chart = new Chart(ctx, {
   data: {
     labels,
     datasets: [
-      { label: 'Closed',  data: [], backgroundColor: GOLD,       borderColor: GOLD_BORDER, borderWidth: 1, borderRadius: 4, stack: 'stack' },
-      { label: 'Pending', data: [], backgroundColor: PENDING_BG, borderColor: PENDING_BD,  borderWidth: 1, borderRadius: 4, stack: 'stack' }
+      { label: 'Closed',  data: [], backgroundColor: GOLD,    borderColor: GOLD_BD, borderWidth:1, borderRadius:4, stack:'s' },
+      { label: 'Pending', data: [], backgroundColor: PEND_BG, borderColor: PEND_BD, borderWidth:1, borderRadius:4, stack:'s' }
     ]
   },
   options: {
     responsive: true,
     plugins: {
-      legend: { display: true, position: 'top', labels: { color: '#555', boxWidth: 14, font: { size: 11 } } },
-      tooltip: {
-        callbacks: {
-          label: ctx => {
-            const v = ctx.parsed.y;
-            return ` ${ctx.dataset.label}: ` + '$' + (v >= 1000000 ? (v/1000000).toFixed(2)+'M' : (v/1000).toFixed(1)+'K');
-          }
-        }
-      },
+      legend: { display:true, position:'top', labels:{ color:'#555', boxWidth:14, font:{size:11} } },
+      tooltip: { callbacks: { label: c => ` ${c.dataset.label}: $` + fmt(c.parsed.y) } },
       datalabels: {
-        display: function(ctx) {
-          // Only show label on top segment of each stack (Pending bar = index 1)
-          // For each month, show the stacked total above the top bar
-          const datasetIndex = ctx.datasetIndex;
-          const dataIndex = ctx.dataIndex;
-          const datasets = ctx.chart.data.datasets;
-          // Show only on the topmost non-zero bar in the stack
-          const pendingVal = datasets[1].data[dataIndex] || 0;
-          const closedVal  = datasets[0].data[dataIndex] || 0;
-          if (pendingVal > 0 && datasetIndex === 1) return true;
-          if (pendingVal === 0 && closedVal > 0 && datasetIndex === 0) return true;
+        display: function(c) {
+          const pi = c.dataIndex, ds = c.chart.data.datasets;
+          const pv = ds[1].data[pi]||0, cv = ds[0].data[pi]||0;
+          if (pv>0 && c.datasetIndex===1) return true;
+          if (pv===0 && cv>0 && c.datasetIndex===0) return true;
           return false;
         },
-        anchor: 'end',
-        align: 'end',
-        offset: 2,
-        color: '#555',
-        font: { size: 10, weight: '600' },
-        formatter: function(value, ctx) {
-          // Show the stacked total (closed + pending)
-          const dataIndex = ctx.dataIndex;
-          const datasets = ctx.chart.data.datasets;
-          const total = (datasets[0].data[dataIndex] || 0) + (datasets[1].data[dataIndex] || 0);
-          if (total === 0) return '';
-          return total >= 1000000
-            ? '$' + (total/1000000).toFixed(2) + 'M'
-            : '$' + Math.round(total/1000) + 'K';
+        anchor:'end', align:'end', offset:2, color:'#555', font:{size:10, weight:'600'},
+        formatter: function(v,c) {
+          const pi=c.dataIndex, ds=c.chart.data.datasets;
+          const total=(ds[0].data[pi]||0)+(ds[1].data[pi]||0);
+          return total===0?'':'$'+fmt(total);
         }
       }
     },
     scales: {
-      y: {
-        stacked: true,
-        ticks: { color: '#8b949e', callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1)+'M' : (v/1000).toFixed(0)+'K') },
-        grid: { color: '#eee' }
-      },
-      x: { stacked: true, ticks: { color: '#8b949e' }, grid: { display: false } }
+      y: { stacked:true, ticks:{color:'#8b949e', callback:v=>'$'+fmt(v)}, grid:{color:'#eee'} },
+      x: { stacked:true, ticks:{color:'#8b949e'}, grid:{display:false} }
     },
-    layout: { padding: { top: 20 } }
+    layout: { padding:{top:20} }
   }
 });
+
+function fmt(v) {
+  return v>=1000000 ? (v/1000000).toFixed(2)+'M' : (v/1000).toFixed(0)+'K';
+}
+function fmtDollar(v) {
+  return '$' + Number(v).toLocaleString('en-US', {maximumFractionDigits:0});
+}
+function fmtInt(v) { return Number(v).toLocaleString('en-US'); }
 
 function refreshChart() {
   const d = data[metric][segment];
   chart.data.datasets[0].data = d.closed;
   chart.data.datasets[1].data = d.pending;
-  const label = metric === 'gci' ? 'GCI' : 'Volume';
-  const seg   = segment === 'combined' ? 'Combined' : segment === 'res' ? 'Residential' : 'Commercial';
-  document.getElementById('chart-title').textContent = `${label} Trend — Full Year {{ year }} — ${seg}`;
-  chart.options.scales.y.ticks.callback = v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1)+'M' : (v/1000).toFixed(0)+'K');
+  const mLabel = metric==='gci' ? 'GCI' : 'Volume';
+  const sLabel = segment==='combined' ? 'Combined' : segment==='res' ? 'Residential' : 'Commercial';
+  document.getElementById('chart-title').textContent = `${mLabel} Trend — Full Year {{ year }} — ${sLabel}`;
   chart.update();
+}
+
+function refreshKPI() {
+  const k = kpi[segment];
+  document.getElementById('k-ytd-closed').textContent  = fmtInt(k.ytd_closed);
+  document.getElementById('k-month-closed').textContent = fmtInt(k.month_closed);
+  document.getElementById('k-ytd-gci').textContent     = fmtDollar(k.ytd_gci);
+  document.getElementById('k-month-gci').textContent   = Number(k.month_gci).toLocaleString('en-US', {maximumFractionDigits:0});
+  document.getElementById('k-pending-count').textContent = fmtInt(k.pending_count);
+  document.getElementById('k-proj-gci').textContent    = Number(k.projected_gci).toLocaleString('en-US', {maximumFractionDigits:0});
+  document.getElementById('k-goal-pct').textContent    = k.goal_pct + '%';
+  document.getElementById('k-goal-bar').style.width    = Math.min(k.goal_pct,100) + '%';
+  document.getElementById('k-team-goal').textContent   = Number(k.team_goal).toLocaleString('en-US', {maximumFractionDigits:0});
+  document.getElementById('k-ls').textContent = fmtInt(k.listings_signed);
+  document.getElementById('k-bs').textContent = fmtInt(k.buyers_signed);
+  document.getElementById('k-al').textContent = fmtInt(k.active_listings);
+  document.getElementById('k-ab').textContent = fmtInt(k.active_buyers);
+}
+
+function refreshRecent() {
+  const rows = recentData[segment];
+  const segLabel = segment==='combined'?'Combined':segment==='res'?'Residential':'Commercial';
+  document.getElementById('recent-seg-label').textContent = segLabel;
+  const statusClass = s => s.replace(/\s+/g,'-');
+  const tbody = document.getElementById('recent-tbody');
+  if (!rows || rows.length===0) {
+    tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center py-3">No transactions</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(t => `
+    <tr>
+      <td>
+        <div class="fw-semibold small">${t.agent}</div>
+        <div class="text-muted" style="font-size:0.75rem">${t.address}</div>
+      </td>
+      <td class="text-end">
+        <span class="badge-status status-${statusClass(t.status)}">${t.status}</span>
+        <div class="text-muted mt-1" style="font-size:0.75rem">${fmtDollar(t.list_price)}</div>
+      </td>
+    </tr>`).join('');
 }
 
 function setMetric(m) {
   metric = m;
-  document.getElementById('btn-gci').classList.toggle('btn-gold', m === 'gci');
-  document.getElementById('btn-gci').classList.toggle('btn-outline-secondary', m !== 'gci');
-  document.getElementById('btn-vol').classList.toggle('btn-gold', m === 'vol');
-  document.getElementById('btn-vol').classList.toggle('btn-outline-secondary', m !== 'vol');
+  document.getElementById('btn-gci').className = 'btn btn-sm ' + (m==='gci' ? 'btn-gold active' : 'btn-outline-secondary');
+  document.getElementById('btn-vol').className = 'btn btn-sm ' + (m==='vol' ? 'btn-gold active' : 'btn-outline-secondary');
   refreshChart();
 }
 
 function setSegment(s) {
   segment = s;
+  const segLabel = s==='combined'?'Combined':s==='res'?'Residential':'Commercial';
+  document.getElementById('dash-subtitle').textContent = '{{ current_month }} {{ year }} — Live Overview — ' + segLabel;
   ['combined','res','comm'].forEach(id => {
-    const btn = document.getElementById('btn-' + id);
-    btn.classList.toggle('btn-gold', id === s);
-    btn.classList.toggle('btn-outline-secondary', id !== s);
+    const btn = document.getElementById('gbtn-' + id);
+    btn.className = 'btn btn-sm ' + (id===s ? 'btn-gold' : 'btn-outline-secondary');
   });
   refreshChart();
+  refreshKPI();
+  refreshRecent();
 }
 
 refreshChart();
