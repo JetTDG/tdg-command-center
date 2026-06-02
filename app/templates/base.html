@@ -564,11 +564,12 @@
     <main class="main-content">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for cat, msg in messages %}
-          <div class="alert alert-{{ cat }} alert-dismissible fade show mb-3" role="alert">
-            <i class="bi bi-{% if cat == 'success' %}check-circle{% elif cat == 'danger' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
-            {{ msg }}
+          <div id="flash-toast-{{ loop.index }}" class="alert alert-{{ cat }} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3 shadow" role="alert" style="z-index:9999;min-width:340px;max-width:600px;">
+            <i class="bi bi-{% if cat == 'success' %}check-circle-fill{% elif cat == 'danger' %}exclamation-triangle-fill{% else %}info-circle-fill{% endif %} me-2"></i>
+            <strong>{{ msg }}</strong>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
           </div>
+          <script>setTimeout(function(){ var el = document.getElementById('flash-toast-{{ loop.index }}'); if(el){ el.classList.remove('show'); setTimeout(function(){ el.remove(); }, 300); } }, 4000);</script>
         {% endfor %}
       {% endwith %}
       {% block content %}{% endblock %}
