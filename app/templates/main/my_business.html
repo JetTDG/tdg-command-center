@@ -11,7 +11,7 @@
 
 <!-- Summary bar -->
 <div class="row g-2 mb-3">
-  {% for label, val in [('Active Listings', summary.active_listings), ('Active Buyers', summary.active_buyers), ('Pending', summary.pending), ('Closed', summary.closed), ('Pipeline', summary.pipeline)] %}
+  {% for label, val in [('Active Listings', summary.active_listings), ('Active Buyers', summary.active_buyers), ('Pending', summary.pending), ('Closed', summary.closed), ('Pre-Signed', summary.pipeline)] %}
   <div class="col">
     <div class="stat-card text-center py-2">
       <div style="font-size:1.4rem;font-weight:700;color:var(--tdg-gold)">{{ val }}</div>
@@ -64,6 +64,10 @@
 </form>
 
 <div class="card mt-3 p-0">
+  <!-- Mirror scrollbar at top -->
+  <div id="mb-scroll-top" style="overflow-x:auto;overflow-y:hidden;height:12px;">
+    <div id="mb-scroll-top-inner" style="height:1px;"></div>
+  </div>
   <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:72vh;position:relative;">
     <table class="table table-hover table-bordered mb-0 small" id="mb-table" style="min-width:3800px;table-layout:fixed;font-size:0.76rem">
       <thead style="position:sticky;top:0;z-index:20;background:#fff;">
@@ -202,10 +206,10 @@
 
 <style>
 .sticky-col { position:sticky; z-index:10; }
-#mb-table td, #mb-table th { white-space:nowrap; padding:4px 8px; vertical-align:middle; }
+#mb-table td, #mb-table th { white-space:nowrap; padding:4px 8px; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; }
 #mb-table thead th { font-size:0.72rem; font-weight:600; color:#555; background:#f8f9fa; border-bottom:2px solid #dee2e6; }
-.ec { cursor:pointer; display:block; min-width:40px; min-height:18px; border-radius:3px; padding:1px 3px; }
-.ec:hover { background:#fff8e6; outline:1px solid var(--tdg-gold); }
+.ec { cursor:pointer; display:block; min-width:40px; min-height:18px; border-radius:3px; padding:1px 3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ec:hover { background:#fff8e6; outline:1px solid var(--tdg-gold); overflow:visible; z-index:5; position:relative; }
 .ec.editing { display:none; }
 .ec-input { display:none; width:100%; border:1px solid var(--tdg-gold); border-radius:3px; padding:1px 4px; font-size:0.74rem; background:#fffbf0; }
 .ec-input.active { display:block; }
@@ -317,6 +321,20 @@ document.querySelectorAll('.es').forEach(function(sel) {
       }
     });
   });
+// ── Dual scrollbar sync ────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', function() {
+  const wrap = document.getElementById('mb-table-wrap');
+  const top  = document.getElementById('mb-scroll-top');
+  const inner = document.getElementById('mb-scroll-top-inner');
+  // Set inner width to match the table's scrollable width
+  function syncWidth() {
+    inner.style.width = wrap.scrollWidth + 'px';
+  }
+  syncWidth();
+  new ResizeObserver(syncWidth).observe(wrap);
+  // Sync scroll positions
+  top.addEventListener('scroll',  () => { if (wrap.scrollLeft !== top.scrollLeft)  wrap.scrollLeft = top.scrollLeft; });
+  wrap.addEventListener('scroll', () => { if (top.scrollLeft  !== wrap.scrollLeft) top.scrollLeft  = wrap.scrollLeft; });
 });
 </script>
 {% endblock %}

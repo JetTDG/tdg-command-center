@@ -186,11 +186,13 @@ def my_business():
         )
 
     summary = {
-        'active_listings': Transaction.query.filter(Transaction.transaction_type=='Listing', Transaction.status=='Active', year_filter(Transaction)).count(),
-        'active_buyers':   Transaction.query.filter(Transaction.transaction_type=='Buyer',   Transaction.status=='Active', year_filter(Transaction)).count(),
+        # Active = current status regardless of year (a listing active today is active)
+        'active_listings': Transaction.query.filter_by(transaction_type='Listing', status='Active').count(),
+        'active_buyers':   Transaction.query.filter_by(transaction_type='Buyer',   status='Active').count(),
         'pending':         Transaction.query.filter(Transaction.status=='Pending',  year_filter(Transaction)).count(),
         'closed':          Transaction.query.filter(Transaction.status=='Closed',   year_filter(Transaction)).count(),
-        'pipeline':        Transaction.query.filter(Transaction.status=='Pipeline', year_filter(Transaction)).count(),
+        # Pipeline = Pre-Signed (signed but not yet under contract)
+        'pipeline':        Transaction.query.filter(Transaction.status=='Pre-Signed', year_filter(Transaction)).count(),
     }
 
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
