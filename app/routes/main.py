@@ -417,18 +417,19 @@ def set_transaction_admin(tid):
 @login_required
 def lead_gen():
     year = int(request.args.get('year', current_year()))
-    month = int(request.args.get('month', current_month()))
+    month = int(request.args.get('month', current_month()))  # 0 = all months
     agent_id = request.args.get('agent_id', '')
 
     query = LeadGenLog.query.join(Agent, LeadGenLog.agent_id == Agent.id).filter(
-        extract('year', LeadGenLog.log_date) == year,
-        extract('month', LeadGenLog.log_date) == month
+        extract('year', LeadGenLog.log_date) == year
     )
+    if month != 0:
+        query = query.filter(extract('month', LeadGenLog.log_date) == month)
     if agent_id:
         query = query.filter(LeadGenLog.agent_id == int(agent_id))
     logs = query.order_by(LeadGenLog.log_date.desc()).all()
 
-    # Monthly totals
+    # Totals
     totals_query = db.session.query(
         func.sum(LeadGenLog.contacts).label('contacts'),
         func.sum(LeadGenLog.nurtures).label('nurtures'),
@@ -441,16 +442,15 @@ def lead_gen():
         func.sum(LeadGenLog.written_offers).label('written_offers'),
         func.sum(LeadGenLog.showings).label('showings'),
         func.sum(LeadGenLog.hours).label('hours'),
-    ).filter(
-        extract('year', LeadGenLog.log_date) == year,
-        extract('month', LeadGenLog.log_date) == month
-    )
+    ).filter(extract('year', LeadGenLog.log_date) == year)
+    if month != 0:
+        totals_query = totals_query.filter(extract('month', LeadGenLog.log_date) == month)
     if agent_id:
         totals_query = totals_query.filter(LeadGenLog.agent_id == int(agent_id))
     totals = totals_query.one()
 
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
-    months = [(i, calendar.month_name[i]) for i in range(1, 13)]
+    months = [(0, 'All Months')] + [(i, calendar.month_name[i]) for i in range(1, 13)]
 
     return render_template('main/lead_gen.html',
         logs=logs,
