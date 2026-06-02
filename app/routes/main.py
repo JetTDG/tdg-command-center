@@ -210,7 +210,7 @@ def edit_transaction(tid):
         t.net_income = float(f.get('net_income') or 0)
         t.signed_date = _parse_date(f.get('signed_date'))
         t.close_date = _parse_date(f.get('close_date'))
-        t.contract_date = _parse_date(f.get('contract_date'))
+        t.under_contract_date = _parse_date(f.get('contract_date'))
         t.year = int(f.get('year') or current_year())
         t.month = int(f.get('month') or current_month())
         t.notes = f.get('notes', '')
@@ -737,7 +737,7 @@ def api_add_transaction():
         net_income=float(data.get('net_income') or 0),
         signed_date=_parse_date(data.get('signed_date')),
         close_date=_parse_date(data.get('close_date')),
-        contract_date=_parse_date(data.get('contract_date')),
+        under_contract_date=_parse_date(data.get('contract_date')),
         year=int(data.get('year') or current_year()),
         month=int(data.get('month') or current_month()),
         notes=data.get('notes', ''),
