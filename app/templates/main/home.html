@@ -161,14 +161,14 @@ const PENDING_BG  = 'rgba(212,160,23,0.3)';
 const PENDING_BD  = 'rgba(212,160,23,0.6)';
 
 const ctx = document.getElementById('gciChart');
+Chart.register(ChartDataLabels);
 const chart = new Chart(ctx, {
   type: 'bar',
   data: {
     labels,
     datasets: [
       { label: 'Closed',  data: [], backgroundColor: GOLD,       borderColor: GOLD_BORDER, borderWidth: 1, borderRadius: 4, stack: 'stack' },
-      { label: 'Pending', data: [], backgroundColor: PENDING_BG, borderColor: PENDING_BD,  borderWidth: 1, borderRadius: 4, stack: 'stack',
-        borderDash: [4,2] }
+      { label: 'Pending', data: [], backgroundColor: PENDING_BG, borderColor: PENDING_BD,  borderWidth: 1, borderRadius: 4, stack: 'stack' }
     ]
   },
   options: {
@@ -179,23 +179,50 @@ const chart = new Chart(ctx, {
         callbacks: {
           label: ctx => {
             const v = ctx.parsed.y;
-            return ` ${ctx.dataset.label}: ` + (metric === 'gci'
-              ? '$' + (v >= 1000000 ? (v/1000000).toFixed(2)+'M' : (v/1000).toFixed(1)+'K')
-              : '$' + (v >= 1000000 ? (v/1000000).toFixed(2)+'M' : (v/1000).toFixed(0)+'K'));
+            return ` ${ctx.dataset.label}: ` + '$' + (v >= 1000000 ? (v/1000000).toFixed(2)+'M' : (v/1000).toFixed(1)+'K');
           }
+        }
+      },
+      datalabels: {
+        display: function(ctx) {
+          // Only show label on top segment of each stack (Pending bar = index 1)
+          // For each month, show the stacked total above the top bar
+          const datasetIndex = ctx.datasetIndex;
+          const dataIndex = ctx.dataIndex;
+          const datasets = ctx.chart.data.datasets;
+          // Show only on the topmost non-zero bar in the stack
+          const pendingVal = datasets[1].data[dataIndex] || 0;
+          const closedVal  = datasets[0].data[dataIndex] || 0;
+          if (pendingVal > 0 && datasetIndex === 1) return true;
+          if (pendingVal === 0 && closedVal > 0 && datasetIndex === 0) return true;
+          return false;
+        },
+        anchor: 'end',
+        align: 'end',
+        offset: 2,
+        color: '#555',
+        font: { size: 10, weight: '600' },
+        formatter: function(value, ctx) {
+          // Show the stacked total (closed + pending)
+          const dataIndex = ctx.dataIndex;
+          const datasets = ctx.chart.data.datasets;
+          const total = (datasets[0].data[dataIndex] || 0) + (datasets[1].data[dataIndex] || 0);
+          if (total === 0) return '';
+          return total >= 1000000
+            ? '$' + (total/1000000).toFixed(2) + 'M'
+            : '$' + Math.round(total/1000) + 'K';
         }
       }
     },
     scales: {
       y: {
         stacked: true,
-        ticks: { color: '#8b949e', callback: v => metric === 'gci'
-          ? '$' + (v >= 1000000 ? (v/1000000).toFixed(1)+'M' : (v/1000).toFixed(0)+'K')
-          : '$' + (v >= 1000000 ? (v/1000000).toFixed(1)+'M' : (v/1000).toFixed(0)+'K') },
+        ticks: { color: '#8b949e', callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1)+'M' : (v/1000).toFixed(0)+'K') },
         grid: { color: '#eee' }
       },
       x: { stacked: true, ticks: { color: '#8b949e' }, grid: { display: false } }
-    }
+    },
+    layout: { padding: { top: 20 } }
   }
 });
 
