@@ -64,11 +64,7 @@
 </form>
 
 <div class="card mt-3 p-0">
-  <!-- Mirror scrollbar at top -->
-  <div id="mb-scroll-top" style="overflow-x:auto;overflow-y:hidden;height:12px;">
-    <div id="mb-scroll-top-inner" style="height:1px;"></div>
-  </div>
-  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:72vh;position:relative;">
+  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:76vh;position:relative;">
     <table class="table table-hover table-bordered mb-0 small" id="mb-table" style="min-width:3800px;table-layout:fixed;font-size:0.76rem">
       <thead style="position:sticky;top:0;z-index:20;background:#fff;">
         <tr>
@@ -321,20 +317,78 @@ document.querySelectorAll('.es').forEach(function(sel) {
       }
     });
   });
-// ── Dual scrollbar sync ────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', function() {
-  const wrap = document.getElementById('mb-table-wrap');
-  const top  = document.getElementById('mb-scroll-top');
-  const inner = document.getElementById('mb-scroll-top-inner');
-  // Set inner width to match the table's scrollable width
-  function syncWidth() {
-    inner.style.width = wrap.scrollWidth + 'px';
-  }
-  syncWidth();
-  new ResizeObserver(syncWidth).observe(wrap);
-  // Sync scroll positions
-  top.addEventListener('scroll',  () => { if (wrap.scrollLeft !== top.scrollLeft)  wrap.scrollLeft = top.scrollLeft; });
-  wrap.addEventListener('scroll', () => { if (top.scrollLeft  !== wrap.scrollLeft) top.scrollLeft  = wrap.scrollLeft; });
-});
+// ── Fixed floating scrollbar (always visible at viewport bottom) ─────────────
+(function() {
+  // Create the floating scrollbar rail + thumb
+  const rail = document.createElement('div');
+  rail.id = 'mb-float-scroll';
+  rail.style.cssText = [
+    'position:fixed',
+    'bottom:0',
+    'left:0',
+    'right:0',
+    'height:14px',
+    'overflow-x:auto',
+    'overflow-y:hidden',
+    'z-index:9999',
+    'background:#f1f1f1',
+    'border-top:1px solid #ddd',
+    'display:none',   // hidden until table is in view
+  ].join(';');
+
+  const inner = document.createElement('div');
+  inner.style.height = '1px';
+  rail.appendChild(inner);
+  document.body.appendChild(rail);
+
+  window.addEventListener('DOMContentLoaded', function() {
+    const wrap = document.getElementById('mb-table-wrap');
+    if (!wrap) return;
+
+    // Size the phantom inner div to match table scroll width
+    function syncWidth() {
+      inner.style.width = wrap.scrollWidth + 'px';
+      // Also match left/width of rail to the wrap element's on-screen position
+      const rect = wrap.getBoundingClientRect();
+      rail.style.left  = rect.left + 'px';
+      rail.style.width = rect.width + 'px';
+    }
+    syncWidth();
+    new ResizeObserver(syncWidth).observe(wrap);
+    window.addEventListener('resize', syncWidth);
+
+    // Show/hide based on whether table bottom is below viewport
+    function updateVisibility() {
+      const rect = wrap.getBoundingClientRect();
+      // Show the floating bar whenever the table spans below the viewport bottom
+      // (i.e. you'd normally need to scroll down to see the native scrollbar)
+      const tableBottomBelowViewport = rect.bottom > window.innerHeight;
+      // Also hide once table top is above viewport (scrolled fully past it)
+      const tableTopAboveViewport = rect.top < 0;
+      const visible = tableBottomBelowViewport || (tableTopAboveViewport && rect.bottom > 0);
+      rail.style.display = visible ? 'block' : 'none';
+      // Keep rail left/width in sync while scrolling
+      rail.style.left  = rect.left + 'px';
+      rail.style.width = rect.width + 'px';
+    }
+    window.addEventListener('scroll', updateVisibility, { passive: true });
+    updateVisibility();
+
+    // Bidirectional sync (guard against feedback loop)
+    let syncing = false;
+    rail.addEventListener('scroll', () => {
+      if (syncing) return;
+      syncing = true;
+      wrap.scrollLeft = rail.scrollLeft;
+      syncing = false;
+    });
+    wrap.addEventListener('scroll', () => {
+      if (syncing) return;
+      syncing = true;
+      rail.scrollLeft = wrap.scrollLeft;
+      syncing = false;
+    });
+  });
+})();
 </script>
 {% endblock %}
