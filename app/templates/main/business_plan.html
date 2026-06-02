@@ -35,8 +35,8 @@
         <tr>
           <td class="fw-semibold">{{ row.agent.name }}</td>
           {% if row.plan %}
-          <td class="text-end">${{ "${:,.0f}".format(row.plan.gci_goal) }}</td>
-          <td class="text-end fw-bold" style="color:var(--tdg-gold)">${{ "${:,.0f}".format(row.actual_gci) }}</td>
+          <td class="text-end">{{ "${:,.0f}".format(row.plan.gci_goal) }}</td>
+          <td class="text-end fw-bold" style="color:var(--tdg-gold)">{{ "${:,.0f}".format(row.actual_gci) }}</td>
           <td class="text-center">
             <div style="font-size:0.8rem">{{ row.gci_pct }}%</div>
             <div class="progress mt-1" style="width:60px;margin:0 auto"><div class="progress-bar" style="width:{{ [row.gci_pct,100]|min }}%"></div></div>
@@ -47,7 +47,7 @@
             <div style="font-size:0.8rem">{{ row.units_pct }}%</div>
             <div class="progress mt-1" style="width:60px;margin:0 auto"><div class="progress-bar" style="width:{{ [row.units_pct,100]|min }}%"></div></div>
           </td>
-          <td class="text-end small text-muted">${{ "${:,.0f}".format(row.plan.avg_sale_price) }}</td>
+          <td class="text-end small text-muted">{{ "${:,.0f}".format(row.plan.avg_sale_price) }}</td>
           <td><a href="{{ url_for('main.edit_business_plan', pid=row.plan.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2">Edit</a></td>
           {% else %}
           <td colspan="7" class="text-muted small text-center">No plan set for {{ year }}</td>

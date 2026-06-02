@@ -50,8 +50,8 @@
             <span class="text-muted small">{{ row.units }}</span>
             <span class="text-muted" style="font-size:0.7rem"> ({{ row.listings }}/{{ row.buyers }})</span>
           </td>
-          <td class="text-end fw-bold" style="color:var(--tdg-gold)">${{ "${:,.0f}".format(row.gci) }}</td>
-          <td class="text-end small text-muted">${{ "${:,.0f}".format(row.volume) }}</td>
+          <td class="text-end fw-bold" style="color:var(--tdg-gold)">{{ "${:,.0f}".format(row.gci) }}</td>
+          <td class="text-end small text-muted">{{ "${:,.0f}".format(row.volume) }}</td>
           <td class="text-end">
             {% if row.gci_goal > 0 %}
             <div style="font-size:0.8rem">{{ row.goal_pct }}%</div>

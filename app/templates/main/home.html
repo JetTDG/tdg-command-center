@@ -16,15 +16,15 @@
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">YTD GCI</div>
-      <div class="stat-value">${{ "${:,.0f}".format(ytd_gci) }}</div>
-      <div class="stat-sub">This month: ${{ "${:,.0f}".format(month_gci) }}</div>
+      <div class="stat-value">{{ "${:,.0f}".format(ytd_gci) }}</div>
+      <div class="stat-sub">This month: {{ "${:,.0f}".format(month_gci) }}</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">Pending (Projected)</div>
       <div class="stat-value">{{ pending_count }}</div>
-      <div class="stat-sub">${{ "${:,.0f}".format(projected_gci) }} GCI</div>
+      <div class="stat-sub">{{ "${:,.0f}".format(projected_gci) }} GCI</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
@@ -32,7 +32,7 @@
       <div class="stat-label">Goal Progress</div>
       <div class="stat-value">{{ goal_pct }}%</div>
       <div class="progress mt-2"><div class="progress-bar" style="width:{{ [goal_pct,100]|min }}%"></div></div>
-      <div class="stat-sub mt-1">of ${{ "${:,.0f}".format(team_goal) }} goal</div>
+      <div class="stat-sub mt-1">of {{ "${:,.0f}".format(team_goal) }} goal</div>
     </div>
   </div>
 </div>
@@ -98,7 +98,7 @@
                 </td>
                 <td class="text-end">
                   <span class="badge-status status-{{ t.status | replace(' ', '-') }}">{{ t.status }}</span>
-                  <div class="text-muted mt-1" style="font-size:0.75rem">${{ "${:,.0f}".format(t.gci) }}</div>
+                  <div class="text-muted mt-1" style="font-size:0.75rem">{{ "${:,.0f}".format(t.gci) }}</div>
                 </td>
               </tr>
               {% else %}

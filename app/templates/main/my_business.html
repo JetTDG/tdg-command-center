@@ -69,8 +69,8 @@
           </td>
           <td><span class="text-muted small">{{ t.transaction_type }}</span></td>
           <td><span class="badge-status status-{{ t.status | replace(' ','-') | replace('x-','') | replace('y-','') }}">{{ t.status }}</span></td>
-          <td class="text-end small">${{ "${:,.0f}".format(t.sale_price) }}</td>
-          <td class="text-end small fw-semibold" style="color:var(--tdg-gold)">${{ "${:,.0f}".format(t.gci) }}</td>
+          <td class="text-end small">{{ "${:,.0f}".format(t.sale_price) }}</td>
+          <td class="text-end small fw-semibold" style="color:var(--tdg-gold)">{{ "${:,.0f}".format(t.gci) }}</td>
           <td class="small text-muted">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '—' }}</td>
           <td class="small text-muted">{{ t.close_date.strftime('%m/%d/%y') if t.close_date else '—' }}</td>
           <td>

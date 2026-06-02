@@ -18,8 +18,8 @@
   <div class="col-md-3">
     <div class="stat-card">
       <div class="stat-label">YTD GCI</div>
-      <div class="stat-value">${{ "${:,.0f}".format(ytd_gci) }}</div>
-      <div class="stat-sub">Goal: ${{ "${:,.0f}".format(team_gci_goal) }} ({{ goal_pct }}%)</div>
+      <div class="stat-value">{{ "${:,.0f}".format(ytd_gci) }}</div>
+      <div class="stat-sub">Goal: {{ "${:,.0f}".format(team_gci_goal) }} ({{ goal_pct }}%)</div>
       <div class="progress mt-2"><div class="progress-bar" style="width:{{ [goal_pct,100]|min }}%"></div></div>
     </div>
   </div>
@@ -38,14 +38,14 @@
     <div class="stat-card">
       <div class="stat-label">Projected (Pending)</div>
       <div class="stat-value">{{ projected_units }}</div>
-      <div class="stat-sub">${{ "${:,.0f}".format(projected_gci) }} additional GCI</div>
+      <div class="stat-sub">{{ "${:,.0f}".format(projected_gci) }} additional GCI</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="stat-card">
       <div class="stat-label">Closed + Projected</div>
       <div class="stat-value">{{ ytd_units + projected_units }}</div>
-      <div class="stat-sub">${{ "${:,.0f}".format(ytd_gci + projected_gci) }} total GCI</div>
+      <div class="stat-sub">{{ "${:,.0f}".format(ytd_gci + projected_gci) }} total GCI</div>
     </div>
   </div>
 </div>
@@ -80,8 +80,8 @@
           <tbody>
             <tr>
               <td class="text-muted small">GCI</td>
-              <td class="text-end small">${{ "${:,.0f}".format(ytd_gci) }}</td>
-              <td class="text-end small">${{ "${:,.0f}".format(prior_gci) }}</td>
+              <td class="text-end small">{{ "${:,.0f}".format(ytd_gci) }}</td>
+              <td class="text-end small">{{ "${:,.0f}".format(prior_gci) }}</td>
               <td class="text-end small" style="color:{{ 'var(--tdg-green)' if gci_yoy_pct >= 0 else 'var(--tdg-red)' }}">
                 {{ '+' if gci_yoy_pct >= 0 else '' }}{{ gci_yoy_pct }}%
               </td>
