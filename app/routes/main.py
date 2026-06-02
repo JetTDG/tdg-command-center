@@ -661,14 +661,30 @@ def leaderboard():
 def ceo_summary():
     year = int(request.args.get('year', current_year()))
 
+    def company_dollar(t):
+        return (
+            (t.gci or 0)
+            - (t.primary_agent_gci or 0)
+            - (t.secondary_agent_gci or 0)
+            - (t.referral_fee or 0)
+            - (t.transaction_fee or 0)
+            - (t.franchise_split or 0)
+        )
+
     closed = Transaction.query.filter_by(year=year, status='Closed').all()
     pending = Transaction.query.filter_by(year=year, status='Pending').all()
 
-    ytd_gci = sum((t.gci or 0) for t in closed)
-    ytd_units = len(closed)
-    ytd_volume = sum((t.sale_price or 0) for t in closed)
-    projected_gci = sum((t.gci or 0) for t in pending)
-    projected_units = len(pending)
+    # YTD totals (closed)
+    ytd_gci     = sum((t.gci or 0) for t in closed)
+    ytd_volume  = sum((t.sale_price or 0) for t in closed)
+    ytd_co_dollar = sum(company_dollar(t) for t in closed)
+    ytd_units   = len(closed)
+
+    # Pending totals
+    proj_gci      = sum((t.gci or 0) for t in pending)
+    proj_volume   = sum((t.sale_price or 0) for t in pending)
+    proj_co_dollar = sum(company_dollar(t) for t in pending)
+    proj_units    = len(pending)
 
     listings_signed = Transaction.query.filter(
         Transaction.year == year,
@@ -686,16 +702,26 @@ def ceo_summary():
         func.sum(BusinessPlan.listing_unit_goal) + func.sum(BusinessPlan.buyer_unit_goal)
     ).filter_by(year=year).scalar() or 0
 
-    # Monthly breakdown
+    # Monthly breakdown — all 3 metrics, closed + pending
     monthly = []
     for m in range(1, 13):
-        m_gci = sum((t.gci or 0) for t in closed if t.month == m)
-        m_units = sum(1 for t in closed if t.month == m)
-        monthly.append({'month': calendar.month_abbr[m], 'gci': round(m_gci, 2), 'units': m_units})
+        mc = [t for t in closed  if t.month == m]
+        mp = [t for t in pending if t.month == m]
+        monthly.append({
+            'month':          calendar.month_abbr[m],
+            'closed_gci':     round(sum((t.gci or 0) for t in mc), 2),
+            'pending_gci':    round(sum((t.gci or 0) for t in mp), 2),
+            'closed_volume':  round(sum((t.sale_price or 0) for t in mc), 2),
+            'pending_volume': round(sum((t.sale_price or 0) for t in mp), 2),
+            'closed_co':      round(sum(company_dollar(t) for t in mc), 2),
+            'pending_co':     round(sum(company_dollar(t) for t in mp), 2),
+            'closed_units':   len(mc),
+            'pending_units':  len(mp),
+        })
 
     # Prior year comparison
     prior_closed = Transaction.query.filter_by(year=year-1, status='Closed').all()
-    prior_gci = sum((t.gci or 0) for t in prior_closed)
+    prior_gci   = sum((t.gci or 0) for t in prior_closed)
     prior_units = len(prior_closed)
 
     # Lead gen YTD
@@ -712,10 +738,13 @@ def ceo_summary():
     return render_template('main/ceo_summary.html',
         year=year,
         ytd_gci=ytd_gci,
-        ytd_units=ytd_units,
         ytd_volume=ytd_volume,
-        projected_gci=projected_gci,
-        projected_units=projected_units,
+        ytd_co_dollar=ytd_co_dollar,
+        ytd_units=ytd_units,
+        proj_gci=proj_gci,
+        proj_volume=proj_volume,
+        proj_co_dollar=proj_co_dollar,
+        proj_units=proj_units,
         listings_signed=listings_signed,
         buyers_signed=buyers_signed,
         team_gci_goal=team_gci_goal,

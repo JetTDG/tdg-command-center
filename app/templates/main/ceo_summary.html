@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}CEO Summary — TDG Command Center{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-start mb-1">
+<div class="d-flex justify-content-between align-items-start mb-3">
   <div>
     <div class="page-title">CEO Summary</div>
     <div class="page-subtitle">Executive overview — {{ year }}</div>
@@ -13,118 +13,194 @@
   </form>
 </div>
 
-<!-- Top KPIs -->
+<!-- ── TOP 3 METRIC CARDS ─────────────────────────────────────── -->
 <div class="row g-3 mb-4">
-  <div class="col-md-3">
+  <div class="col-md-4">
     <div class="stat-card">
-      <div class="stat-label">YTD GCI</div>
+      <div class="stat-label">Total GCI</div>
       <div class="stat-value">{{ "${:,.0f}".format(ytd_gci) }}</div>
-      <div class="stat-sub">Goal: {{ "${:,.0f}".format(team_gci_goal) }} ({{ goal_pct }}%)</div>
+      <div class="stat-sub">+ {{ "${:,.0f}".format(proj_gci) }} pending</div>
+      <div class="stat-sub mt-1">Goal: {{ "${:,.0f}".format(team_gci_goal) }} &nbsp;·&nbsp; <strong>{{ goal_pct }}%</strong></div>
       <div class="progress mt-2"><div class="progress-bar" style="width:{{ [goal_pct,100]|min }}%"></div></div>
     </div>
   </div>
+  <div class="col-md-4">
+    <div class="stat-card">
+      <div class="stat-label">Total Volume</div>
+      <div class="stat-value">{{ "${:,.0f}".format(ytd_volume) }}</div>
+      <div class="stat-sub">+ {{ "${:,.0f}".format(proj_volume) }} pending</div>
+      <div class="stat-sub mt-1">{{ ytd_units }} closed &nbsp;·&nbsp; {{ proj_units }} pending</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card">
+      <div class="stat-label">Company Dollar</div>
+      <div class="stat-value">{{ "${:,.0f}".format(ytd_co_dollar) }}</div>
+      <div class="stat-sub">+ {{ "${:,.0f}".format(proj_co_dollar) }} pending</div>
+      <div class="stat-sub mt-1">GCI minus agent splits, fees &amp; referrals</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SECONDARY KPI ROW ──────────────────────────────────────── -->
+<div class="row g-3 mb-4">
   <div class="col-md-3">
     <div class="stat-card">
       <div class="stat-label">Closed Units</div>
       <div class="stat-value">{{ ytd_units }}</div>
       <div class="stat-sub">vs {{ prior_units }} prior year
-        <span style="color:{{ 'var(--tdg-green)' if units_yoy_pct >= 0 else 'var(--tdg-red)' }}">
-          ({{ '+' if units_yoy_pct >= 0 else '' }}{{ units_yoy_pct }}%)
-        </span>
+        {% if units_yoy_pct >= 0 %}<span class="text-success">▲ {{ units_yoy_pct }}%</span>
+        {% else %}<span class="text-danger">▼ {{ units_yoy_pct|abs }}%</span>{% endif %}
       </div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="stat-card">
-      <div class="stat-label">Projected (Pending)</div>
-      <div class="stat-value">{{ projected_units }}</div>
-      <div class="stat-sub">{{ "${:,.0f}".format(projected_gci) }} additional GCI</div>
+      <div class="stat-label">Pending Units</div>
+      <div class="stat-value">{{ proj_units }}</div>
+      <div class="stat-sub">{{ "${:,.0f}".format(proj_gci) }} projected GCI</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="stat-card">
-      <div class="stat-label">Closed + Projected</div>
-      <div class="stat-value">{{ ytd_units + projected_units }}</div>
-      <div class="stat-sub">{{ "${:,.0f}".format(ytd_gci + projected_gci) }} total GCI</div>
+      <div class="stat-label">Listings Signed</div>
+      <div class="stat-value">{{ listings_signed }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Buyers Signed</div>
+      <div class="stat-value">{{ buyers_signed }}</div>
     </div>
   </div>
 </div>
 
-<!-- Pipeline Row -->
-<div class="row g-3 mb-4">
-  {% for label, val in [('Listings Signed', listings_signed), ('Buyers Signed', buyers_signed), ('Contacts YTD', lg_contacts), ('L.Appts Held', lg_listing_held), ('B.Appts Held', lg_buyer_held)] %}
-  <div class="col">
-    <div class="stat-card text-center py-2">
-      <div style="font-size:1.4rem;font-weight:700;color:var(--tdg-gold)">{{ "{:,}".format(val) }}</div>
-      <div style="font-size:0.72rem;color:var(--tdg-muted);text-transform:uppercase">{{ label }}</div>
-    </div>
-  </div>
-  {% endfor %}
-</div>
-
-<div class="row g-3">
-  <!-- Monthly GCI Chart -->
-  <div class="col-lg-8">
-    <div class="card">
-      <div class="card-header">Monthly GCI — {{ year }}</div>
-      <div class="card-body"><canvas id="monthlyChart" height="110"></canvas></div>
-    </div>
-  </div>
-  <!-- YOY Comparison -->
-  <div class="col-lg-4">
-    <div class="card h-100">
-      <div class="card-header">Year-over-Year</div>
-      <div class="card-body">
-        <table class="table table-sm mb-0">
-          <thead><tr><th></th><th class="text-end">{{ year }}</th><th class="text-end">{{ year-1 }}</th><th class="text-end">+/-</th></tr></thead>
-          <tbody>
-            <tr>
-              <td class="text-muted small">GCI</td>
-              <td class="text-end small">{{ "${:,.0f}".format(ytd_gci) }}</td>
-              <td class="text-end small">{{ "${:,.0f}".format(prior_gci) }}</td>
-              <td class="text-end small" style="color:{{ 'var(--tdg-green)' if gci_yoy_pct >= 0 else 'var(--tdg-red)' }}">
-                {{ '+' if gci_yoy_pct >= 0 else '' }}{{ gci_yoy_pct }}%
-              </td>
-            </tr>
-            <tr>
-              <td class="text-muted small">Units</td>
-              <td class="text-end small">{{ ytd_units }}</td>
-              <td class="text-end small">{{ prior_units }}</td>
-              <td class="text-end small" style="color:{{ 'var(--tdg-green)' if units_yoy_pct >= 0 else 'var(--tdg-red)' }}">
-                {{ '+' if units_yoy_pct >= 0 else '' }}{{ units_yoy_pct }}%
-              </td>
-            </tr>
-          </tbody>
-        </table>
+<!-- ── MONTHLY CHART ──────────────────────────────────────────── -->
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <h6 class="mb-0 fw-semibold">Monthly Performance</h6>
+      <div class="d-flex gap-2 flex-wrap">
+        <!-- Metric toggle -->
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="button" class="btn btn-outline-secondary active" onclick="setMetric('gci',this)">GCI</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="setMetric('volume',this)">Volume</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="setMetric('co',this)">Company $</button>
+        </div>
       </div>
     </div>
+    <canvas id="ceoChart" height="90"></canvas>
+    <!-- Legend -->
+    <div class="d-flex gap-3 mt-2 justify-content-center" style="font-size:.78rem;">
+      <span><span style="display:inline-block;width:14px;height:14px;background:#C9A84C;border-radius:2px;margin-right:4px;"></span>Closed</span>
+      <span><span style="display:inline-block;width:14px;height:14px;background:#e8d49a;border-radius:2px;margin-right:4px;"></span>Pending</span>
+    </div>
   </div>
 </div>
-{% endblock %}
-{% block extra_js %}
+
+<!-- ── LEAD GEN YTD ───────────────────────────────────────────── -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h6 class="fw-semibold mb-3">Lead Generation YTD</h6>
+    <div class="row g-3 text-center">
+      <div class="col"><div class="fw-bold fs-5">{{ "{:,}".format(lg_contacts) }}</div><div class="text-muted small">Contacts</div></div>
+      <div class="col"><div class="fw-bold fs-5">{{ lg_listing_set }}</div><div class="text-muted small">Listing Appts Set</div></div>
+      <div class="col"><div class="fw-bold fs-5">{{ lg_listing_held }}</div><div class="text-muted small">Listing Appts Held</div></div>
+      <div class="col"><div class="fw-bold fs-5">{{ lg_listings_signed }}</div><div class="text-muted small">Listings Signed</div></div>
+      <div class="col"><div class="fw-bold fs-5">{{ lg_buyer_set }}</div><div class="text-muted small">Buyer Appts Set</div></div>
+      <div class="col"><div class="fw-bold fs-5">{{ lg_buyer_held }}</div><div class="text-muted small">Buyer Appts Held</div></div>
+      <div class="col"><div class="fw-bold fs-5">{{ lg_buyers_signed }}</div><div class="text-muted small">Buyers Signed</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>
-new Chart(document.getElementById('monthlyChart'), {
-  type: 'line',
+Chart.register(ChartDataLabels);
+
+const monthly = {{ monthly | tojson }};
+const labels  = monthly.map(m => m.month);
+
+const data = {
+  gci:    { closed: monthly.map(m=>m.closed_gci),    pending: monthly.map(m=>m.pending_gci) },
+  volume: { closed: monthly.map(m=>m.closed_volume), pending: monthly.map(m=>m.pending_volume) },
+  co:     { closed: monthly.map(m=>m.closed_co),     pending: monthly.map(m=>m.pending_co) },
+};
+
+const fmt = v => v >= 1e6 ? '$' + (v/1e6).toFixed(1)+'M' : v >= 1e3 ? '$' + (v/1e3).toFixed(0)+'K' : '$'+v.toFixed(0);
+
+let currentMetric = 'gci';
+
+const ctx = document.getElementById('ceoChart').getContext('2d');
+const chart = new Chart(ctx, {
+  type: 'bar',
   data: {
-    labels: {{ monthly | map(attribute='month') | list | tojson }},
-    datasets: [{
-      label: 'GCI',
-      data: {{ monthly | map(attribute='gci') | list | tojson }},
-      borderColor: '#d4a017',
-      backgroundColor: 'rgba(212,160,23,0.1)',
-      tension: 0.3,
-      fill: true,
-      pointBackgroundColor: '#d4a017'
-    }]
+    labels: labels,
+    datasets: [
+      {
+        label: 'Closed',
+        data: data.gci.closed,
+        backgroundColor: '#C9A84C',
+        borderRadius: 4,
+        stack: 'a',
+      },
+      {
+        label: 'Pending',
+        data: data.gci.pending,
+        backgroundColor: '#e8d49a',
+        borderRadius: 4,
+        stack: 'a',
+      }
+    ]
   },
   options: {
     responsive: true,
-    plugins: { legend: { display: false } },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => ' ' + ctx.dataset.label + ': ' + fmt(ctx.parsed.y)
+        }
+      },
+      datalabels: {
+        display: ctx => {
+          // only show label on the top-most (pending) bar, and only if total > 0
+          if (ctx.datasetIndex !== 1) return false;
+          const total = ctx.chart.data.datasets[0].data[ctx.dataIndex]
+                      + ctx.chart.data.datasets[1].data[ctx.dataIndex];
+          return total > 0;
+        },
+        anchor: 'end',
+        align: 'end',
+        formatter: (val, ctx) => {
+          const total = ctx.chart.data.datasets[0].data[ctx.dataIndex]
+                      + ctx.chart.data.datasets[1].data[ctx.dataIndex];
+          return fmt(total);
+        },
+        color: '#555',
+        font: { size: 10, weight: '600' },
+      }
+    },
     scales: {
-      y: { ticks: { color: '#8b949e', callback: v => '$' + (v/1000).toFixed(0) + 'K' }, grid: { color: '#21262d' } },
-      x: { ticks: { color: '#8b949e' }, grid: { display: false } }
+      x: { stacked: true, grid: { display: false } },
+      y: {
+        stacked: true,
+        ticks: { callback: v => fmt(v) },
+        grid: { color: '#f0f0f0' }
+      }
     }
   }
 });
+
+function setMetric(metric, btn) {
+  currentMetric = metric;
+  document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  chart.data.datasets[0].data = data[metric].closed;
+  chart.data.datasets[1].data = data[metric].pending;
+  chart.update();
+}
 </script>
 {% endblock %}
