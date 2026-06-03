@@ -91,6 +91,27 @@ class Transaction(db.Model):
     secondary_agent_name = db.Column(db.String(100))
     secondary_agent_pct = db.Column(db.Float)
     secondary_agent_gci = db.Column(db.Float)
+    # Team members 3 & 4
+    member3_name = db.Column(db.String(100))
+    member3_pct = db.Column(db.Float)
+    member3_gci = db.Column(db.Float)
+    member4_name = db.Column(db.String(100))
+    member4_pct = db.Column(db.Float)
+    member4_gci = db.Column(db.Float)
+
+    # Additional financials (CTE parity)
+    units = db.Column(db.Float)             # number of units in the deal
+    eo_fee = db.Column(db.Float)            # E&O fee
+    donation = db.Column(db.Float)          # donation deduction
+    other_fee = db.Column(db.Float)         # miscellaneous fee
+    old_list_price = db.Column(db.Float)    # price before reduction
+
+    # Extra dates (CTE parity)
+    list_date = db.Column(db.Date)          # when listing originally went live
+
+    # Status/flags
+    paid = db.Column(db.Boolean, default=False)  # Paid?
+    link_to_file = db.Column(db.String(500))     # ∞ link to file
 
     # Vendors
     mortgage_company = db.Column(db.String(100))
@@ -107,6 +128,62 @@ class Transaction(db.Model):
     docusign_id = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # ── Computed Properties (CTE formula parity) ─────────────────────────────
+
+    @property
+    def dom(self):
+        """Days on Market: list_date → close_date (or today if active)."""
+        from datetime import date
+        start = self.list_date or self.mls_live_date or self.signed_date
+        if not start:
+            return None
+        end = self.close_date or date.today()
+        return (end - start).days
+
+    @property
+    def dsc(self):
+        """Days Since Close: close_date → today."""
+        from datetime import date
+        if not self.close_date:
+            return None
+        return (date.today() - self.close_date).days
+
+    @property
+    def exp_in(self):
+        """Days until expiry: today → expiry_date."""
+        from datetime import date
+        if not self.expiry_date:
+            return None
+        return (self.expiry_date - date.today()).days
+
+    @property
+    def up_closing(self):
+        """Days until projected close: today → projected_close_date."""
+        from datetime import date
+        if not self.projected_close_date:
+            return None
+        return (self.projected_close_date - date.today()).days
+
+    @property
+    def company_dollar(self):
+        """GCI − all agent splits − referral − tx fee − franchise − E&O − donation − other."""
+        if not self.gci:
+            return None
+        deductions = sum(filter(None, [
+            self.primary_agent_gci,
+            self.secondary_agent_gci,
+            self.member3_gci,
+            self.member4_gci,
+            self.referral_fee,
+            self.transaction_fee,
+            self.franchise_split,
+            self.eo_fee,
+            self.donation,
+            self.other_fee,
+            self.bonus,
+        ]))
+        return round(self.gci - deductions, 2)
 
     def __repr__(self):
         return f'<Transaction {self.address} - {self.status}>'

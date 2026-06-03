@@ -406,16 +406,21 @@ def patch_transaction(tid):
     # Allowed fields for inline editing (whitelist for security)
     TEXT_FIELDS = {'transaction_type','status','sub_status','lead_source','address',
                    'client_name','location','primary_agent_name','secondary_agent_name',
-                   'mortgage_company','title_company','lead_type','notes','admin_name'}
-    FLOAT_FIELDS = {'sale_price','list_price','commission_pct','gci','bonus',
+                   'mortgage_company','title_company','lead_type','notes','admin_name',
+                   'member3_name','member4_name','link_to_file'}
+    FLOAT_FIELDS = {'sale_price','list_price','old_list_price','commission_pct','gci','bonus',
                     'transaction_fee','broker_split','franchise_split','referral_fee',
                     'taxes','net_after_taxes','primary_agent_pct','primary_agent_gci',
-                    'secondary_agent_pct','secondary_agent_gci'}
+                    'secondary_agent_pct','secondary_agent_gci',
+                    'member3_pct','member3_gci','member4_pct','member4_gci',
+                    'units','eo_fee','donation','other_fee'}
     DATE_FIELDS  = {'signed_date','mls_live_date','expiry_date','under_contract_date',
-                    'projected_close_date','close_date','inspection_date','appraisal_date'}
+                    'projected_close_date','close_date','inspection_date','appraisal_date',
+                    'list_date'}
     INT_FIELDS   = {'year','month'}
+    BOOL_FIELDS  = {'paid'}
 
-    if field not in TEXT_FIELDS | FLOAT_FIELDS | DATE_FIELDS | INT_FIELDS:
+    if field not in TEXT_FIELDS | FLOAT_FIELDS | DATE_FIELDS | INT_FIELDS | BOOL_FIELDS:
         return jsonify({'error': f'Field not editable: {field}'}), 400
 
     try:
@@ -424,7 +429,8 @@ def patch_transaction(tid):
         elif field in FLOAT_FIELDS:
             # commission_pct and agent pcts are stored as decimals
             v = float(value) if value.strip() else None
-            if field in ('commission_pct','primary_agent_pct','secondary_agent_pct') and v:
+            if field in ('commission_pct','primary_agent_pct','secondary_agent_pct',
+                         'member3_pct','member4_pct') and v:
                 v = v / 100  # form sends %, store as decimal
             setattr(t, field, v)
         elif field in DATE_FIELDS:
@@ -432,6 +438,8 @@ def patch_transaction(tid):
             setattr(t, field, date.fromisoformat(value) if value.strip() else None)
         elif field in INT_FIELDS:
             setattr(t, field, int(value) if value.strip() else None)
+        elif field in BOOL_FIELDS:
+            setattr(t, field, value.strip().lower() in ('true','1','yes'))
 
         # Auto-recalculate GCI if sale_price or commission_pct changed
         if field in ('sale_price', 'commission_pct') and t.sale_price and t.commission_pct:
@@ -441,6 +449,10 @@ def patch_transaction(tid):
             t.primary_agent_gci = round(t.gci * t.primary_agent_pct, 2)
         if field in ('gci', 'secondary_agent_pct') and t.gci and t.secondary_agent_pct:
             t.secondary_agent_gci = round(t.gci * t.secondary_agent_pct, 2)
+        if field in ('gci', 'member3_pct') and t.gci and t.member3_pct:
+            t.member3_gci = round(t.gci * t.member3_pct, 2)
+        if field in ('gci', 'member4_pct') and t.gci and t.member4_pct:
+            t.member4_gci = round(t.gci * t.member4_pct, 2)
 
         t.updated_at = datetime.utcnow()
         db.session.commit()
@@ -456,6 +468,26 @@ def set_transaction_admin(tid):
     t.admin_name = request.form.get('admin_name') or None
     db.session.commit()
     return redirect(request.referrer or url_for('main.my_business'))
+
+
+@bp.route('/api/transaction/<int:tid>/computed')
+@login_required
+def transaction_computed(tid):
+    """Return computed/formula fields for a transaction (called after inline edits)."""
+    t = Transaction.query.get_or_404(tid)
+    return jsonify({
+        'ok': True,
+        'dom': t.dom,
+        'dsc': t.dsc,
+        'exp_in': t.exp_in,
+        'up_closing': t.up_closing,
+        'company_dollar': t.company_dollar,
+        'gci': t.gci,
+        'primary_agent_gci': t.primary_agent_gci,
+        'secondary_agent_gci': t.secondary_agent_gci,
+        'member3_gci': t.member3_gci,
+        'member4_gci': t.member4_gci,
+    })
 
 
 

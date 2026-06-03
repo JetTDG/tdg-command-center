@@ -21,221 +21,290 @@
   {% endfor %}
 </div>
 
-<!-- Filters -->
-<form method="GET" class="row g-2 mb-3">
+<!-- Year filter bar -->
+<form method="GET" class="row g-2 mb-2 align-items-center" id="year-form">
   <div class="col-auto">
-    <select name="year" class="form-select form-select-sm">
+    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
       {% for y in years %}<option value="{{ y }}" {% if y==selected_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
     </select>
   </div>
-  <div class="col-auto">
-    <select name="agent_id" class="form-select form-select-sm">
-      <option value="">All Agents</option>
-      {% for a in agents %}<option value="{{ a.id }}" {% if selected_agent|string == a.id|string %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
-    </select>
+  <div class="col-auto text-muted small">{{ transactions|length }} records</div>
+  <div class="col-auto ms-auto">
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-filters-btn">Clear All Filters</button>
   </div>
-  <div class="col-auto">
-    <select name="status" class="form-select form-select-sm">
-      <option value="">All Statuses</option>
-      {% for s in statuses %}<option {% if selected_status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
-    </select>
-  </div>
-  <div class="col-auto">
-    <select name="type" class="form-select form-select-sm">
-      <option value="">All Types</option>
-      {% for t in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
-      <option {% if selected_type==t %}selected{% endif %}>{{ t }}</option>{% endfor %}
-    </select>
-  </div>
-  <div class="col-auto">
-    <select name="lead_source" class="form-select form-select-sm">
-      <option value="">All Lead Sources</option>
-      {% for ls in lead_sources %}<option {% if selected_lead_source==ls %}selected{% endif %}>{{ ls }}</option>{% endfor %}
-    </select>
-  </div>
-  <div class="col-auto">
-    <select name="admin_name" class="form-select form-select-sm">
-      <option value="">All Admins</option>
-      {% for a in admin_names %}<option {% if selected_admin==a %}selected{% endif %} value="{{ a }}">{{ a }}</option>{% endfor %}
-    </select>
-  </div>
-  <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">Filter</button></div>
-  <div class="col-auto"><a href="{{ url_for('main.my_business') }}" class="btn btn-sm btn-outline-secondary">Reset</a></div>
 </form>
 
-<div class="card mt-3 p-0">
-  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:76vh;position:relative;">
-    <table class="table table-hover table-bordered mb-0 small" id="mb-table" style="min-width:3800px;table-layout:fixed;font-size:0.76rem">
-      <thead style="position:sticky;top:0;z-index:20;background:#fff;">
-        <tr>
+<!-- Table -->
+<div class="card mt-1 p-0">
+  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:74vh;position:relative;">
+    <table class="table table-hover table-bordered mb-0" id="mb-table" style="min-width:5200px;table-layout:fixed;font-size:0.74rem">
+      <thead style="position:sticky;top:0;z-index:20;background:#f8f9fa;">
+        <tr id="header-row">
           {# Sticky cols #}
-          <th class="sticky-col" style="left:0;min-width:36px;width:36px;z-index:25;background:#f8f9fa">#</th>
-          <th class="sticky-col" style="left:36px;min-width:140px;width:140px;z-index:25;background:#f8f9fa">Agent</th>
-          <th class="sticky-col" style="left:176px;min-width:200px;width:200px;z-index:25;background:#f8f9fa">Address</th>
-          {# Scrollable cols #}
-          <th style="min-width:90px">Client</th>
-          <th style="min-width:80px">Type</th>
-          <th style="min-width:90px">Status</th>
-          <th style="min-width:100px">Sub Status</th>
-          <th style="min-width:100px">Lead Source</th>
-          <th style="min-width:90px">Location</th>
-          <th style="min-width:90px">Lead Type</th>
-          <th style="min-width:90px">Signed</th>
-          <th style="min-width:90px">MLS Live</th>
-          <th style="min-width:90px">Expiry</th>
-          <th style="min-width:90px">Under Contr</th>
-          <th style="min-width:90px">Proj Close</th>
-          <th style="min-width:90px">Close Date</th>
-          <th style="min-width:90px">Inspection</th>
-          <th style="min-width:90px">Appraisal</th>
-          <th style="min-width:90px">List Price</th>
-          <th style="min-width:90px">Sale Price</th>
-          <th style="min-width:55px">Comm%</th>
-          <th style="min-width:90px">GCI</th>
-          <th style="min-width:80px">Bonus</th>
-          <th style="min-width:80px">Tx Fee</th>
-          <th style="min-width:90px">Broker Split</th>
-          <th style="min-width:90px">Franchise</th>
-          <th style="min-width:80px">Referral</th>
-          <th style="min-width:70px">E&amp;O</th>
-          <th style="min-width:80px">Other Fees</th>
-          <th style="min-width:130px">Primary Agent</th>
-          <th style="min-width:55px">Pri%</th>
-          <th style="min-width:90px">Primary GCI</th>
-          <th style="min-width:130px">Secondary Agent</th>
-          <th style="min-width:55px">Sec%</th>
-          <th style="min-width:90px">Secondary GCI</th>
-          <th style="min-width:130px">Mortgage Co</th>
-          <th style="min-width:130px">Title Co</th>
-          <th style="min-width:110px">Admin</th>
-          <th style="min-width:120px;z-index:21;position:sticky;right:0;background:#f8f9fa">Actions</th>
+          <th class="sticky-col th-sort" data-col="idx" style="left:0;min-width:36px;width:36px;z-index:25;background:#f8f9fa">#</th>
+          <th class="sticky-col th-filter" data-col="agent" style="left:36px;min-width:140px;width:140px;z-index:25;background:#f8f9fa">Agent<span class="filter-btn">▾</span></th>
+          <th class="sticky-col th-filter" data-col="address" style="left:176px;min-width:200px;width:200px;z-index:25;background:#f8f9fa">Address<span class="filter-btn">▾</span></th>
+          {# Scrollable — CTE column order #}
+          <th class="th-filter" data-col="client_name" style="min-width:120px">Client(s)<span class="filter-btn">▾</span></th>
+          <th class="th-filter" data-col="transaction_type" style="min-width:80px">Type<span class="filter-btn">▾</span></th>
+          <th class="th-filter" data-col="status" style="min-width:90px">Status<span class="filter-btn">▾</span></th>
+          <th class="th-filter" data-col="sub_status" style="min-width:100px">Sub Status<span class="filter-btn">▾</span></th>
+          <th class="th-filter" data-col="lead_source" style="min-width:110px">Source<span class="filter-btn">▾</span></th>
+          <th class="th-sort" data-col="signed_date" style="min-width:90px">Signed<span class="sort-btn">⇅</span></th>
+          <th class="th-sort" data-col="mls_live_date" style="min-width:90px">MLS Live<span class="sort-btn">⇅</span></th>
+          <th class="th-sort" data-col="list_date" style="min-width:90px">List Date<span class="sort-btn">⇅</span></th>
+          <th class="th-sort" data-col="expiry_date" style="min-width:90px">Exp Date<span class="sort-btn">⇅</span></th>
+          <th class="th-sort" data-col="under_contract_date" style="min-width:90px">Under Contr<span class="sort-btn">⇅</span></th>
+          <th class="th-sort" data-col="projected_close_date" style="min-width:90px">Proj Close<span class="sort-btn">⇅</span></th>
+          <th class="th-sort" data-col="close_date" style="min-width:90px">Close Date<span class="sort-btn">⇅</span></th>
+          <th data-col="dom" style="min-width:55px">DOM</th>
+          <th data-col="dsc" style="min-width:55px">DSC</th>
+          <th data-col="exp_in" style="min-width:60px">EXP in</th>
+          <th data-col="up_closing" style="min-width:60px">↑Close</th>
+          <th data-col="old_list_price" style="min-width:100px">Old List $</th>
+          <th data-col="list_price" style="min-width:100px">List Price</th>
+          <th data-col="sale_price" style="min-width:100px">Sale Price</th>
+          <th data-col="commission_pct" style="min-width:60px">Comm%</th>
+          <th data-col="units" style="min-width:55px">Units</th>
+          <th data-col="gci" style="min-width:100px;color:var(--tdg-gold)">GCI</th>
+          <th data-col="bonus" style="min-width:80px">Bonus</th>
+          <th data-col="transaction_fee" style="min-width:80px">Tx Fee</th>
+          <th data-col="broker_split" style="min-width:90px">Broker Split</th>
+          <th data-col="franchise_split" style="min-width:90px">Franchise</th>
+          <th data-col="referral_fee" style="min-width:80px">Referral</th>
+          <th data-col="eo_fee" style="min-width:70px">E&amp;O</th>
+          <th data-col="donation" style="min-width:80px">Donation</th>
+          <th data-col="other_fee" style="min-width:80px">Other Fee</th>
+          <th data-col="company_dollar" style="min-width:110px;background:#f0fdf4">Co. Dollar</th>
+          <th class="th-filter" data-col="primary_agent_name" style="min-width:130px">Primary Agent<span class="filter-btn">▾</span></th>
+          <th data-col="primary_agent_pct" style="min-width:55px">Pri%</th>
+          <th data-col="primary_agent_gci" style="min-width:90px">Primary GCI</th>
+          <th class="th-filter" data-col="secondary_agent_name" style="min-width:130px">2nd Agent<span class="filter-btn">▾</span></th>
+          <th data-col="secondary_agent_pct" style="min-width:55px">2nd%</th>
+          <th data-col="secondary_agent_gci" style="min-width:90px">2nd GCI</th>
+          <th data-col="member3_name" style="min-width:130px">Member 3</th>
+          <th data-col="member3_pct" style="min-width:55px">M3%</th>
+          <th data-col="member3_gci" style="min-width:90px">M3 GCI</th>
+          <th data-col="member4_name" style="min-width:130px">Member 4</th>
+          <th data-col="member4_pct" style="min-width:55px">M4%</th>
+          <th data-col="member4_gci" style="min-width:90px">M4 GCI</th>
+          <th data-col="inspection_date" style="min-width:90px">Inspection</th>
+          <th data-col="appraisal_date" style="min-width:90px">Appraisal</th>
+          <th class="th-filter" data-col="mortgage_company" style="min-width:130px">Mortgage Co<span class="filter-btn">▾</span></th>
+          <th class="th-filter" data-col="title_company" style="min-width:130px">Title Co<span class="filter-btn">▾</span></th>
+          <th class="th-filter" data-col="lead_type" style="min-width:80px">Lead Type<span class="filter-btn">▾</span></th>
+          <th class="th-filter" data-col="location" style="min-width:100px">Location<span class="filter-btn">▾</span></th>
+          <th class="th-filter" data-col="admin_name" style="min-width:110px">Admin<span class="filter-btn">▾</span></th>
+          <th data-col="paid" style="min-width:60px">Paid?</th>
+          <th data-col="link_to_file" style="min-width:80px">File Link</th>
+          <th data-col="notes" style="min-width:150px">Notes</th>
+          <th class="sticky-col-right" style="min-width:110px;position:sticky;right:0;z-index:25;background:#f8f9fa">Actions</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="mb-tbody">
         {% for t in transactions %}
-        <tr data-tid="{{ t.id }}">
+        <tr data-tid="{{ t.id }}" data-row>
           {# Sticky: row number #}
-          <td class="sticky-col text-muted text-center" style="left:0;background:#fafafa">{{ loop.index }}</td>
+          <td class="sticky-col text-muted text-center" style="left:0;background:#fafafa" data-val="{{ loop.index }}">{{ loop.index }}</td>
           {# Sticky: agent #}
-          <td class="sticky-col" style="left:36px;background:#fff">
+          <td class="sticky-col" style="left:36px;background:#fff" data-val="{{ t.primary_agent_name or (t.agent.name if t.agent else '') }}">
             <span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}">{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</span>
           </td>
           {# Sticky: address #}
-          <td class="sticky-col" style="left:176px;background:#fff">
+          <td class="sticky-col" style="left:176px;background:#fff" data-val="{{ t.address or '' }}">
             <span class="ec" data-field="address" data-tid="{{ t.id }}">{{ t.address or '' }}</span>
           </td>
-          {# Scrollable cells #}
-          <td><span class="ec" data-field="client_name" data-tid="{{ t.id }}">{{ t.client_name or '' }}</span></td>
-          <td>
+          {# Client #}
+          <td data-val="{{ t.client_name or '' }}"><span class="ec" data-field="client_name" data-tid="{{ t.id }}">{{ t.client_name or '' }}</span></td>
+          {# Type #}
+          <td data-val="{{ t.transaction_type or '' }}">
             <select class="es form-select form-select-sm p-0" data-field="transaction_type" data-tid="{{ t.id }}" style="font-size:0.74rem;border:0;background:transparent">
               {% for opt in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
               <option {% if t.transaction_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
             </select>
           </td>
-          <td>
+          {# Status #}
+          <td data-val="{{ t.status or '' }}">
             <select class="es form-select form-select-sm p-0" data-field="status" data-tid="{{ t.id }}" style="font-size:0.74rem;border:0;background:transparent">
-              {% for opt in ['Active','Pending','Closed','Pipeline','Pre-Signed','Coming Soon','x-Cancelled','y-Sale Failed','z-Expired','Temp Off Market'] %}
+              {% for opt in ['Active','Pending','Closed','Pre-Signed','Coming Soon','Pipeline','x-Cancelled','y-Sale Failed','z-Expired','Temp Off Market'] %}
               <option {% if t.status==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
             </select>
           </td>
-          <td>
+          {# Sub Status #}
+          <td data-val="{{ t.sub_status or '' }}">
             <select class="es form-select form-select-sm p-0" data-field="sub_status" data-tid="{{ t.id }}" style="font-size:0.74rem;border:0;background:transparent">
               <option value="">—</option>
               {% for opt in ['CRE Buyer','CRE Listing','CRE Lease','Landlord Rep','Tenant Rep','Business-only'] %}
               <option {% if t.sub_status==opt %}selected{% endif %} value="{{ opt }}">{{ opt }}</option>{% endfor %}
             </select>
           </td>
-          <td><span class="ec" data-field="lead_source" data-tid="{{ t.id }}">{{ t.lead_source or '' }}</span></td>
-          <td><span class="ec" data-field="location" data-tid="{{ t.id }}">{{ t.location or '' }}</span></td>
-          <td>
+          {# Source #}
+          <td data-val="{{ t.lead_source or '' }}"><span class="ec" data-field="lead_source" data-tid="{{ t.id }}">{{ t.lead_source or '' }}</span></td>
+          {# Dates #}
+          <td data-val="{{ t.signed_date.isoformat() if t.signed_date else '' }}"><span class="ec" data-field="signed_date" data-tid="{{ t.id }}" data-type="date">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '' }}</span></td>
+          <td data-val="{{ t.mls_live_date.isoformat() if t.mls_live_date else '' }}"><span class="ec" data-field="mls_live_date" data-tid="{{ t.id }}" data-type="date">{{ t.mls_live_date.strftime('%m/%d/%y') if t.mls_live_date else '' }}</span></td>
+          <td data-val="{{ t.list_date.isoformat() if t.list_date else '' }}"><span class="ec" data-field="list_date" data-tid="{{ t.id }}" data-type="date">{{ t.list_date.strftime('%m/%d/%y') if t.list_date else '' }}</span></td>
+          <td data-val="{{ t.expiry_date.isoformat() if t.expiry_date else '' }}"><span class="ec" data-field="expiry_date" data-tid="{{ t.id }}" data-type="date">{{ t.expiry_date.strftime('%m/%d/%y') if t.expiry_date else '' }}</span></td>
+          <td data-val="{{ t.under_contract_date.isoformat() if t.under_contract_date else '' }}"><span class="ec" data-field="under_contract_date" data-tid="{{ t.id }}" data-type="date">{{ t.under_contract_date.strftime('%m/%d/%y') if t.under_contract_date else '' }}</span></td>
+          <td data-val="{{ t.projected_close_date.isoformat() if t.projected_close_date else '' }}"><span class="ec" data-field="projected_close_date" data-tid="{{ t.id }}" data-type="date">{{ t.projected_close_date.strftime('%m/%d/%y') if t.projected_close_date else '' }}</span></td>
+          <td data-val="{{ t.close_date.isoformat() if t.close_date else '' }}"><span class="ec" data-field="close_date" data-tid="{{ t.id }}" data-type="date">{{ t.close_date.strftime('%m/%d/%y') if t.close_date else '' }}</span></td>
+          {# Computed fields (read-only) #}
+          <td class="text-muted text-center" data-val="{{ t.dom or '' }}">{{ t.dom if t.dom is not none else '' }}</td>
+          <td class="text-muted text-center" data-val="{{ t.dsc or '' }}">{{ t.dsc if t.dsc is not none else '' }}</td>
+          <td class="text-muted text-center {% if t.exp_in is not none and t.exp_in < 30 %}text-danger{% endif %}" data-val="{{ t.exp_in or '' }}">{{ t.exp_in if t.exp_in is not none else '' }}</td>
+          <td class="text-muted text-center {% if t.up_closing is not none and t.up_closing < 14 %}text-warning{% endif %}" data-val="{{ t.up_closing or '' }}">{{ t.up_closing if t.up_closing is not none else '' }}</td>
+          {# Financials #}
+          <td data-val="{{ t.old_list_price or '' }}"><span class="ec num" data-field="old_list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.old_list_price) if t.old_list_price else '' }}</span></td>
+          <td data-val="{{ t.list_price or '' }}"><span class="ec num" data-field="list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.list_price) if t.list_price else '' }}</span></td>
+          <td data-val="{{ t.sale_price or '' }}"><span class="ec num" data-field="sale_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.sale_price) if t.sale_price else '' }}</span></td>
+          <td data-val="{{ t.commission_pct or '' }}"><span class="ec num" data-field="commission_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.2f}".format(t.commission_pct*100) if t.commission_pct else '' }}</span></td>
+          <td data-val="{{ t.units or '' }}"><span class="ec num" data-field="units" data-tid="{{ t.id }}">{{ t.units if t.units else '' }}</span></td>
+          <td class="fw-semibold" style="color:var(--tdg-gold)" data-val="{{ t.gci or '' }}"><span class="ec num" data-field="gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.gci) if t.gci else '' }}</span></td>
+          <td data-val="{{ t.bonus or '' }}"><span class="ec num" data-field="bonus" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.bonus) if t.bonus else '' }}</span></td>
+          <td data-val="{{ t.transaction_fee or '' }}"><span class="ec num" data-field="transaction_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.transaction_fee) if t.transaction_fee else '' }}</span></td>
+          <td data-val="{{ t.broker_split or '' }}"><span class="ec num" data-field="broker_split" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.broker_split) if t.broker_split else '' }}</span></td>
+          <td data-val="{{ t.franchise_split or '' }}"><span class="ec num" data-field="franchise_split" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.franchise_split) if t.franchise_split else '' }}</span></td>
+          <td data-val="{{ t.referral_fee or '' }}"><span class="ec num" data-field="referral_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.referral_fee) if t.referral_fee else '' }}</span></td>
+          <td data-val="{{ t.eo_fee or '' }}"><span class="ec num" data-field="eo_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.eo_fee) if t.eo_fee else '' }}</span></td>
+          <td data-val="{{ t.donation or '' }}"><span class="ec num" data-field="donation" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.donation) if t.donation else '' }}</span></td>
+          <td data-val="{{ t.other_fee or '' }}"><span class="ec num" data-field="other_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.other_fee) if t.other_fee else '' }}</span></td>
+          {# Company Dollar — computed, read-only, green background #}
+          <td class="fw-semibold" style="background:#f0fdf4;color:#166534" data-val="{{ t.company_dollar or '' }}">
+            {{ "{:,.0f}".format(t.company_dollar) if t.company_dollar else '' }}
+          </td>
+          {# Agent splits #}
+          <td data-val="{{ t.primary_agent_name or '' }}"><span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}">{{ t.primary_agent_name or '' }}</span></td>
+          <td data-val="{{ t.primary_agent_pct or '' }}"><span class="ec num" data-field="primary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.primary_agent_pct*100) if t.primary_agent_pct else '' }}</span></td>
+          <td data-val="{{ t.primary_agent_gci or '' }}"><span class="ec num" data-field="primary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.primary_agent_gci) if t.primary_agent_gci else '' }}</span></td>
+          <td data-val="{{ t.secondary_agent_name or '' }}"><span class="ec" data-field="secondary_agent_name" data-tid="{{ t.id }}">{{ t.secondary_agent_name or '' }}</span></td>
+          <td data-val="{{ t.secondary_agent_pct or '' }}"><span class="ec num" data-field="secondary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.secondary_agent_pct*100) if t.secondary_agent_pct else '' }}</span></td>
+          <td data-val="{{ t.secondary_agent_gci or '' }}"><span class="ec num" data-field="secondary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.secondary_agent_gci) if t.secondary_agent_gci else '' }}</span></td>
+          <td data-val="{{ t.member3_name or '' }}"><span class="ec" data-field="member3_name" data-tid="{{ t.id }}">{{ t.member3_name or '' }}</span></td>
+          <td data-val="{{ t.member3_pct or '' }}"><span class="ec num" data-field="member3_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member3_pct*100) if t.member3_pct else '' }}</span></td>
+          <td data-val="{{ t.member3_gci or '' }}"><span class="ec num" data-field="member3_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.member3_gci) if t.member3_gci else '' }}</span></td>
+          <td data-val="{{ t.member4_name or '' }}"><span class="ec" data-field="member4_name" data-tid="{{ t.id }}">{{ t.member4_name or '' }}</span></td>
+          <td data-val="{{ t.member4_pct or '' }}"><span class="ec num" data-field="member4_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member4_pct*100) if t.member4_pct else '' }}</span></td>
+          <td data-val="{{ t.member4_gci or '' }}"><span class="ec num" data-field="member4_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.member4_gci) if t.member4_gci else '' }}</span></td>
+          {# Vendor dates #}
+          <td data-val="{{ t.inspection_date.isoformat() if t.inspection_date else '' }}"><span class="ec" data-field="inspection_date" data-tid="{{ t.id }}" data-type="date">{{ t.inspection_date.strftime('%m/%d/%y') if t.inspection_date else '' }}</span></td>
+          <td data-val="{{ t.appraisal_date.isoformat() if t.appraisal_date else '' }}"><span class="ec" data-field="appraisal_date" data-tid="{{ t.id }}" data-type="date">{{ t.appraisal_date.strftime('%m/%d/%y') if t.appraisal_date else '' }}</span></td>
+          {# Vendors #}
+          <td data-val="{{ t.mortgage_company or '' }}"><span class="ec" data-field="mortgage_company" data-tid="{{ t.id }}">{{ t.mortgage_company or '' }}</span></td>
+          <td data-val="{{ t.title_company or '' }}"><span class="ec" data-field="title_company" data-tid="{{ t.id }}">{{ t.title_company or '' }}</span></td>
+          {# Lead Type #}
+          <td data-val="{{ t.lead_type or '' }}">
             <select class="es form-select form-select-sm p-0" data-field="lead_type" data-tid="{{ t.id }}" style="font-size:0.74rem;border:0;background:transparent">
               {% for opt in ['Team','Agent'] %}<option {% if t.lead_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
             </select>
           </td>
-          <td><span class="ec" data-field="signed_date" data-tid="{{ t.id }}" data-type="date">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '' }}</span></td>
-          <td><span class="ec" data-field="mls_live_date" data-tid="{{ t.id }}" data-type="date">{{ t.mls_live_date.strftime('%m/%d/%y') if t.mls_live_date else '' }}</span></td>
-          <td><span class="ec" data-field="expiry_date" data-tid="{{ t.id }}" data-type="date">{{ t.expiry_date.strftime('%m/%d/%y') if t.expiry_date else '' }}</span></td>
-          <td><span class="ec" data-field="under_contract_date" data-tid="{{ t.id }}" data-type="date">{{ t.under_contract_date.strftime('%m/%d/%y') if t.under_contract_date else '' }}</span></td>
-          <td><span class="ec" data-field="projected_close_date" data-tid="{{ t.id }}" data-type="date">{{ t.projected_close_date.strftime('%m/%d/%y') if t.projected_close_date else '' }}</span></td>
-          <td><span class="ec" data-field="close_date" data-tid="{{ t.id }}" data-type="date">{{ t.close_date.strftime('%m/%d/%y') if t.close_date else '' }}</span></td>
-          <td><span class="ec" data-field="inspection_date" data-tid="{{ t.id }}" data-type="date">{{ t.inspection_date.strftime('%m/%d/%y') if t.inspection_date else '' }}</span></td>
-          <td><span class="ec" data-field="appraisal_date" data-tid="{{ t.id }}" data-type="date">{{ t.appraisal_date.strftime('%m/%d/%y') if t.appraisal_date else '' }}</span></td>
-          <td><span class="ec num" data-field="list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.list_price) if t.list_price else '' }}</span></td>
-          <td><span class="ec num" data-field="sale_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.sale_price) if t.sale_price else '' }}</span></td>
-          <td><span class="ec num" data-field="commission_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.2f}".format(t.commission_pct*100) if t.commission_pct else '' }}</span></td>
-          <td class="fw-semibold" style="color:var(--tdg-gold)"><span class="ec num" data-field="gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.gci) if t.gci else '' }}</span></td>
-          <td><span class="ec num" data-field="bonus" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.bonus) if t.bonus else '' }}</span></td>
-          <td><span class="ec num" data-field="transaction_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.transaction_fee) if t.transaction_fee else '' }}</span></td>
-          <td><span class="ec num" data-field="broker_split" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.broker_split) if t.broker_split else '' }}</span></td>
-          <td><span class="ec num" data-field="franchise_split" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.franchise_split) if t.franchise_split else '' }}</span></td>
-          <td><span class="ec num" data-field="referral_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.referral_fee) if t.referral_fee else '' }}</span></td>
-          <td><span class="ec num" data-field="taxes" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.taxes) if t.taxes else '' }}</span></td>
-          <td><span class="ec num" data-field="net_after_taxes" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.net_after_taxes) if t.net_after_taxes else '' }}</span></td>
-          <td><span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}">{{ t.primary_agent_name or '' }}</span></td>
-          <td><span class="ec num" data-field="primary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.primary_agent_pct*100) if t.primary_agent_pct else '' }}</span></td>
-          <td><span class="ec num" data-field="primary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.primary_agent_gci) if t.primary_agent_gci else '' }}</span></td>
-          <td><span class="ec" data-field="secondary_agent_name" data-tid="{{ t.id }}">{{ t.secondary_agent_name or '' }}</span></td>
-          <td><span class="ec num" data-field="secondary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.secondary_agent_pct*100) if t.secondary_agent_pct else '' }}</span></td>
-          <td><span class="ec num" data-field="secondary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.secondary_agent_gci) if t.secondary_agent_gci else '' }}</span></td>
-          <td><span class="ec" data-field="mortgage_company" data-tid="{{ t.id }}">{{ t.mortgage_company or '' }}</span></td>
-          <td><span class="ec" data-field="title_company" data-tid="{{ t.id }}">{{ t.title_company or '' }}</span></td>
-          <td>
+          {# Location #}
+          <td data-val="{{ t.location or '' }}"><span class="ec" data-field="location" data-tid="{{ t.id }}">{{ t.location or '' }}</span></td>
+          {# Admin #}
+          <td data-val="{{ t.admin_name or '' }}">
             <select class="es form-select form-select-sm p-0" data-field="admin_name" data-tid="{{ t.id }}" style="font-size:0.74rem;border:0;background:transparent">
               <option value="">— assign —</option>
               {% for a in admin_names %}<option {% if t.admin_name==a %}selected{% endif %} value="{{ a }}">{{ a }}</option>{% endfor %}
             </select>
           </td>
-          <td style="position:sticky;right:0;background:#fff;white-space:nowrap">
+          {# Paid #}
+          <td class="text-center" data-val="{{ 'Yes' if t.paid else 'No' }}">
+            <input type="checkbox" class="ec-bool" data-field="paid" data-tid="{{ t.id }}" {% if t.paid %}checked{% endif %} title="Paid?">
+          </td>
+          {# Link to file #}
+          <td data-val="{{ t.link_to_file or '' }}">
+            {% if t.link_to_file %}
+              <a href="{{ t.link_to_file }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0 px-1">∞</a>
+            {% endif %}
+            <span class="ec" data-field="link_to_file" data-tid="{{ t.id }}" style="display:{{ 'none' if t.link_to_file else 'block' }}">{{ t.link_to_file or '' }}</span>
+          </td>
+          {# Notes #}
+          <td data-val="{{ t.notes or '' }}"><span class="ec" data-field="notes" data-tid="{{ t.id }}">{{ t.notes or '' }}</span></td>
+          {# Actions — sticky right #}
+          <td style="position:sticky;right:0;background:#fff;white-space:nowrap;z-index:10">
             <a href="{{ url_for('main.edit_transaction', tid=t.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-1">Edit</a>
-            <form method="POST" action="{{ url_for('main.delete_transaction', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Delete?')">
+            <form method="POST" action="{{ url_for('main.delete_transaction', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Delete this transaction?')">
               <button class="btn btn-sm btn-outline-danger py-0 px-1">Del</button>
             </form>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="40" class="text-center text-muted py-4">No transactions found. <a href="{{ url_for('main.add_transaction') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>
+        <tr><td colspan="60" class="text-center text-muted py-4">No transactions found. <a href="{{ url_for('main.add_transaction') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
 
+<!-- ── Filter Dropdown (shared, repositioned per column) ────────────────── -->
+<div id="col-filter-dropdown" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #dee2e6;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:200px;max-width:280px;padding:8px;">
+  <input type="text" id="filter-search" placeholder="Search…" class="form-control form-control-sm mb-2" style="font-size:0.8rem">
+  <div style="max-height:220px;overflow-y:auto" id="filter-checkboxes"></div>
+  <div class="d-flex gap-1 mt-2">
+    <button class="btn btn-sm btn-gold w-50" id="filter-apply">Apply</button>
+    <button class="btn btn-sm btn-outline-secondary w-50" id="filter-clear">Clear</button>
+  </div>
+</div>
+
 <style>
+/* ── Table base ─────────────────────────────────────── */
 .sticky-col { position:sticky; z-index:10; }
-#mb-table td, #mb-table th { white-space:nowrap; padding:4px 8px; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; }
-#mb-table thead th { font-size:0.72rem; font-weight:600; color:#555; background:#f8f9fa; border-bottom:2px solid #dee2e6; }
-.ec { cursor:pointer; display:block; min-width:40px; min-height:18px; border-radius:3px; padding:1px 3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ec:hover { background:#fff8e6; outline:1px solid var(--tdg-gold); overflow:visible; z-index:5; position:relative; }
+#mb-table td, #mb-table th {
+  white-space:nowrap; padding:3px 6px; vertical-align:middle;
+  overflow:hidden; text-overflow:ellipsis;
+}
+#mb-table thead th {
+  font-size:0.71rem; font-weight:600; color:#555;
+  background:#f8f9fa; border-bottom:2px solid #dee2e6;
+  cursor:default; user-select:none;
+}
+/* ── Editable cell ─────────────────────────────────── */
+.ec {
+  cursor:pointer; display:block; min-width:30px; min-height:16px;
+  border-radius:3px; padding:1px 3px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.ec:hover { background:#fff8e6; outline:1px solid var(--tdg-gold); }
 .ec.editing { display:none; }
-.ec-input { display:none; width:100%; border:1px solid var(--tdg-gold); border-radius:3px; padding:1px 4px; font-size:0.74rem; background:#fffbf0; }
-.ec-input.active { display:block; }
-.ec.saving { opacity:0.5; }
 .ec.saved { background:#d1fae5; transition:background 1s; }
 .ec.error { background:#fee2e2; }
 .num { text-align:right; }
+/* ── Filter button in header ───────────────────────── */
+.th-filter { cursor:pointer; }
+.filter-btn {
+  margin-left:4px; font-size:0.65rem; color:#aaa;
+  transition:color .15s;
+}
+.th-filter:hover .filter-btn, .th-filter.filtered .filter-btn {
+  color:var(--tdg-gold);
+}
+.th-filter.filtered { background:#fffbf0 !important; }
+.sort-btn { margin-left:4px; font-size:0.65rem; color:#bbb; }
+/* ── Hidden row ────────────────────────────────────── */
+tr.row-hidden { display:none; }
+/* ── Float scrollbar ───────────────────────────────── */
+#mb-float-scroll { scrollbar-width:thin; scrollbar-color:#888 #c0c0c0; }
+#mb-float-scroll::-webkit-scrollbar { height:8px; }
+#mb-float-scroll::-webkit-scrollbar-track { background:#c0c0c0; }
+#mb-float-scroll::-webkit-scrollbar-thumb { background:#888; border-radius:4px; }
 </style>
 
-{% block extra_js %}{{ super() if super is defined else '' }}{% endblock %}
 <script>
 // ── Inline text/date cell editing ──────────────────────────────────────────
 document.querySelectorAll('.ec').forEach(function(span) {
-  span.addEventListener('click', function() {
+  span.addEventListener('click', function(e) {
+    e.stopPropagation();
     if (span.classList.contains('editing')) return;
     const field = span.dataset.field;
     const tid   = span.dataset.tid;
     const isPct = span.dataset.pct;
     const dtype = span.dataset.type;
 
-    // Build inline input
-    const inp = document.createElement(dtype === 'date' ? 'input' : 'input');
+    const inp = document.createElement('input');
     inp.type = dtype === 'date' ? 'date' : 'text';
-    inp.className = 'ec-input active';
-    inp.style.cssText = 'width:100%;border:1px solid #d4a017;border-radius:3px;padding:1px 4px;font-size:0.74rem;background:#fffbf0';
+    inp.style.cssText = 'width:100%;border:1px solid #d4a017;border-radius:3px;padding:1px 4px;font-size:0.74rem;background:#fffbf0;';
 
-    // Set current value
     let rawVal = span.textContent.trim();
     if (dtype === 'date' && rawVal) {
-      // Convert mm/dd/yy to yyyy-mm-dd for date input
       const p = rawVal.split('/');
       if (p.length === 3) {
         const yr = p[2].length === 2 ? '20' + p[2] : p[2];
@@ -250,130 +319,255 @@ document.querySelectorAll('.ec').forEach(function(span) {
 
     span.classList.add('editing');
     span.parentNode.insertBefore(inp, span.nextSibling);
-    inp.focus();
-    inp.select();
+    inp.focus(); inp.select();
 
     function save() {
       const newVal = inp.value.trim();
       inp.remove();
       span.classList.remove('editing');
-
       fetch('/api/transaction/' + tid + '/patch', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({field: field, value: newVal})
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({field:field, value:newVal})
       })
-      .then(r => r.json())
-      .then(data => {
+      .then(r=>r.json()).then(data=>{
         if (data.ok) {
-          // Update display
-          if (dtype === 'date' && newVal) {
-            const p = newVal.split('-');
-            span.textContent = p[1] + '/' + p[2] + '/' + p[0].slice(2);
+          if (dtype==='date' && newVal) {
+            const p=newVal.split('-');
+            span.textContent = p[1]+'/'+p[2]+'/'+p[0].slice(2);
           } else if (isPct) {
-            span.textContent = newVal ? parseFloat(newVal).toFixed(newVal.includes('.') ? 2 : 0) : '';
+            span.textContent = newVal ? parseFloat(newVal).toFixed(0) : '';
           } else if (span.classList.contains('num') && newVal) {
-            span.textContent = parseFloat(newVal.replace(/,/g,'')).toLocaleString('en-US', {maximumFractionDigits:0});
+            span.textContent = parseFloat(newVal.replace(/,/g,'')).toLocaleString('en-US',{maximumFractionDigits:0});
           } else {
             span.textContent = newVal;
           }
+          // Update parent cell data-val for filters
+          span.closest('td').dataset.val = newVal;
           span.classList.add('saved');
-          setTimeout(() => span.classList.remove('saved'), 1500);
+          setTimeout(()=>span.classList.remove('saved'),1500);
+          // Reload row's computed cells (DOM, DSC, Company Dollar etc)
+          refreshComputedCells(tid);
         } else {
           span.classList.add('error');
-          setTimeout(() => span.classList.remove('error'), 2000);
-          alert('Save failed: ' + (data.error || 'unknown'));
+          setTimeout(()=>span.classList.remove('error'),2000);
+          alert('Save failed: '+(data.error||'unknown'));
         }
       })
-      .catch(() => { span.classList.add('error'); setTimeout(() => span.classList.remove('error'), 2000); });
+      .catch(()=>{span.classList.add('error');setTimeout(()=>span.classList.remove('error'),2000);});
     }
-
     inp.addEventListener('blur', save);
-    inp.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') { e.preventDefault(); save(); }
-      if (e.key === 'Escape') { inp.remove(); span.classList.remove('editing'); }
+    inp.addEventListener('keydown',function(e){
+      if(e.key==='Enter'){e.preventDefault();save();}
+      if(e.key==='Escape'){inp.remove();span.classList.remove('editing');}
     });
   });
 });
 
-
 // ── Inline select editing ──────────────────────────────────────────────────
 document.querySelectorAll('.es').forEach(function(sel) {
   sel.addEventListener('change', function() {
-    const field = sel.dataset.field;
-    const tid   = sel.dataset.tid;
-    fetch('/api/transaction/' + tid + '/patch', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({field: field, value: sel.value})
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.ok) {
-        sel.style.background = '#d1fae5';
-        setTimeout(() => sel.style.background = 'transparent', 1200);
+    const field=sel.dataset.field, tid=sel.dataset.tid;
+    fetch('/api/transaction/'+tid+'/patch',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({field:field,value:sel.value})
+    }).then(r=>r.json()).then(data=>{
+      if(data.ok){
+        sel.closest('td').dataset.val = sel.value;
+        sel.style.background='#d1fae5';
+        setTimeout(()=>sel.style.background='transparent',1200);
       } else {
-        sel.style.background = '#fee2e2';
-        setTimeout(() => sel.style.background = 'transparent', 2000);
+        sel.style.background='#fee2e2';
+        setTimeout(()=>sel.style.background='transparent',2000);
       }
     });
   });
-}); // end .es forEach
+});
+
+// ── Checkbox (Paid?) editing ───────────────────────────────────────────────
+document.querySelectorAll('.ec-bool').forEach(function(cb){
+  cb.addEventListener('change', function(){
+    const field=cb.dataset.field, tid=cb.dataset.tid;
+    fetch('/api/transaction/'+tid+'/patch',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({field:field,value:cb.checked?'true':'false'})
+    }).then(r=>r.json()).then(data=>{
+      if(data.ok){
+        cb.closest('td').dataset.val = cb.checked?'Yes':'No';
+      }
+    });
+  });
+});
+
+// ── Refresh computed cells after save ─────────────────────────────────────
+function refreshComputedCells(tid){
+  fetch('/api/transaction/'+tid+'/computed')
+    .then(r=>r.json()).then(data=>{
+      if(!data.ok) return;
+      const row = document.querySelector('tr[data-tid="'+tid+'"]');
+      if(!row) return;
+      // Column index map (0-based) for computed cols: dom=15, dsc=16, exp_in=17, up_closing=18, company_dollar=32
+      const computed = [
+        {idx:15, val:data.dom},
+        {idx:16, val:data.dsc},
+        {idx:17, val:data.exp_in},
+        {idx:18, val:data.up_closing},
+        {idx:32, val:data.company_dollar, fmt:'currency'},
+      ];
+      const cells = row.querySelectorAll('td');
+      computed.forEach(c=>{
+        if(cells[c.idx]){
+          const v = c.val != null ? c.val : '';
+          cells[c.idx].dataset.val = v;
+          cells[c.idx].textContent = (c.fmt==='currency' && v!=='') ? parseFloat(v).toLocaleString('en-US',{maximumFractionDigits:0}) : v;
+        }
+      });
+    }).catch(()=>{});
+}
+
+// ── Excel-style column multi-select filters ────────────────────────────────
+const dropdown    = document.getElementById('col-filter-dropdown');
+const filterSearch= document.getElementById('filter-search');
+const filterBoxes = document.getElementById('filter-checkboxes');
+const applyBtn    = document.getElementById('filter-apply');
+const clearBtn    = document.getElementById('filter-clear');
+
+// activeFilters: { colIndex: Set of allowed values }
+const activeFilters = {};
+let currentTh = null, currentColIdx = -1;
+
+// Build unique values for a column
+function getColValues(colIdx){
+  const vals = new Set();
+  document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row=>{
+    const td = row.querySelectorAll('td')[colIdx];
+    if(td) vals.add((td.dataset.val||'').trim());
+  });
+  return [...vals].sort((a,b)=>a.localeCompare(b, undefined, {sensitivity:'base'}));
+}
+
+function openDropdown(th, colIdx, event){
+  currentTh = th; currentColIdx = colIdx;
+  const vals = getColValues(colIdx);
+  const active = activeFilters[colIdx] || null;
+  filterSearch.value = '';
+  filterBoxes.innerHTML = '';
+  vals.forEach(v=>{
+    const id='fc_'+Math.random().toString(36).slice(2);
+    const checked = !active || active.has(v);
+    const label = v==='' ? '(Blank)' : v;
+    filterBoxes.innerHTML += `<label class="d-flex align-items-center gap-1 mb-1" style="font-size:0.8rem;cursor:pointer">
+      <input type="checkbox" id="${id}" value="${v}" ${checked?'checked':''} style="margin:0"> ${label}
+    </label>`;
+  });
+  // Position
+  const rect = th.getBoundingClientRect();
+  dropdown.style.top  = (rect.bottom+2)+'px';
+  dropdown.style.left = Math.min(rect.left, window.innerWidth-290)+'px';
+  dropdown.style.display = 'block';
+  filterSearch.focus();
+  event.stopPropagation();
+}
+
+document.querySelectorAll('.th-filter').forEach(function(th){
+  th.addEventListener('click', function(e){
+    if(dropdown.style.display==='block' && currentTh===th){
+      dropdown.style.display='none'; return;
+    }
+    const colIdx = Array.from(th.parentNode.children).indexOf(th);
+    openDropdown(th, colIdx, e);
+  });
+});
+
+// Filter search box
+filterSearch.addEventListener('input', function(){
+  const q = this.value.toLowerCase();
+  filterBoxes.querySelectorAll('label').forEach(lbl=>{
+    lbl.style.display = lbl.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+
+// Apply filters
+applyBtn.addEventListener('click', function(){
+  const checked = [...filterBoxes.querySelectorAll('input:checked')].map(i=>i.value);
+  const all     = [...filterBoxes.querySelectorAll('input')].map(i=>i.value);
+  if(checked.length === all.length){
+    delete activeFilters[currentColIdx];
+    if(currentTh) currentTh.classList.remove('filtered');
+  } else {
+    activeFilters[currentColIdx] = new Set(checked);
+    if(currentTh) currentTh.classList.add('filtered');
+  }
+  applyAllFilters();
+  dropdown.style.display='none';
+});
+
+// Clear this column's filter
+clearBtn.addEventListener('click', function(){
+  delete activeFilters[currentColIdx];
+  if(currentTh) currentTh.classList.remove('filtered');
+  filterBoxes.querySelectorAll('input').forEach(i=>i.checked=true);
+  applyAllFilters();
+  dropdown.style.display='none';
+});
+
+// Clear ALL filters
+document.getElementById('clear-filters-btn').addEventListener('click', function(){
+  Object.keys(activeFilters).forEach(k=>delete activeFilters[k]);
+  document.querySelectorAll('.th-filter.filtered').forEach(th=>th.classList.remove('filtered'));
+  applyAllFilters();
+});
+
+function applyAllFilters(){
+  let visible=0;
+  document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row=>{
+    let show = true;
+    for(const [colIdx, allowed] of Object.entries(activeFilters)){
+      const td = row.querySelectorAll('td')[colIdx];
+      const val = td ? (td.dataset.val||'').trim() : '';
+      if(!allowed.has(val)){ show=false; break; }
+    }
+    row.classList.toggle('row-hidden', !show);
+    if(show) visible++;
+  });
+  // Update record count
+  document.querySelector('#year-form .text-muted').textContent = visible+' records';
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', function(e){
+  if(!dropdown.contains(e.target) && !e.target.closest('.th-filter')){
+    dropdown.style.display='none';
+  }
+});
 
 // ── Fixed floating scrollbar ─────────────────────────────────────────────────
-(function initFloatScroll() {
-  var wrap = document.getElementById('mb-table-wrap');
-  if (!wrap) return;
-
-  var rail = document.createElement('div');
-  rail.id = 'mb-float-scroll';
-  rail.style.position  = 'fixed';
-  rail.style.bottom    = '0';
-  rail.style.height    = '14px';
-  rail.style.overflowX = 'auto';
-  rail.style.overflowY = 'hidden';
-  rail.style.zIndex    = '9999';
-  rail.style.background = '#c0c0c0';
-  rail.style.borderTop  = '1px solid #999';
-  rail.style.display    = 'none';
-
-  var inner = document.createElement('div');
-  inner.style.height = '1px';
+(function initFloatScroll(){
+  var wrap=document.getElementById('mb-table-wrap');
+  if(!wrap) return;
+  var rail=document.createElement('div');
+  rail.id='mb-float-scroll';
+  rail.style.cssText='position:fixed;bottom:0;height:14px;overflow-x:auto;overflow-y:hidden;z-index:9999;background:#c0c0c0;border-top:1px solid #999;display:none;';
+  var inner=document.createElement('div');
+  inner.style.height='1px';
   rail.appendChild(inner);
   document.body.appendChild(rail);
-
-  function positionRail() {
-    var rect = wrap.getBoundingClientRect();
-    rail.style.left  = rect.left + 'px';
-    rail.style.width = rect.width + 'px';
-    inner.style.width = wrap.scrollWidth + 'px';
+  function pos(){
+    var r=wrap.getBoundingClientRect();
+    rail.style.left=r.left+'px'; rail.style.width=r.width+'px';
+    inner.style.width=wrap.scrollWidth+'px';
   }
-
-  function updateVisibility() {
-    positionRail();
-    var rect = wrap.getBoundingClientRect();
-    var inView      = rect.top < window.innerHeight && rect.bottom > 0;
-    var needsScroll = wrap.scrollWidth > wrap.clientWidth;
-    rail.style.display = (inView && needsScroll) ? 'block' : 'none';
+  function upd(){
+    pos();
+    var r=wrap.getBoundingClientRect();
+    rail.style.display=(r.top<window.innerHeight&&r.bottom>0&&wrap.scrollWidth>wrap.clientWidth)?'block':'none';
   }
-
-  positionRail();
-  updateVisibility();
-  window.addEventListener('scroll', updateVisibility, { passive: true });
-  window.addEventListener('resize', updateVisibility, { passive: true });
-  new ResizeObserver(updateVisibility).observe(wrap);
-
-  var syncing = false;
-  rail.addEventListener('scroll', function() {
-    if (syncing) return; syncing = true;
-    wrap.scrollLeft = rail.scrollLeft;
-    syncing = false;
-  });
-  wrap.addEventListener('scroll', function() {
-    if (syncing) return; syncing = true;
-    rail.scrollLeft = wrap.scrollLeft;
-    syncing = false;
-  });
+  pos(); upd();
+  window.addEventListener('scroll',upd,{passive:true});
+  window.addEventListener('resize',upd,{passive:true});
+  new ResizeObserver(upd).observe(wrap);
+  var sync=false;
+  rail.addEventListener('scroll',function(){if(sync)return;sync=true;wrap.scrollLeft=rail.scrollLeft;sync=false;});
+  wrap.addEventListener('scroll',function(){if(sync)return;sync=true;rail.scrollLeft=wrap.scrollLeft;sync=false;});
 })();
 </script>
 {% endblock %}
