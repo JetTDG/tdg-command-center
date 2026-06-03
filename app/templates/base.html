@@ -599,6 +599,10 @@
            href="{{ url_for('main.ceo_summary') }}">
           <i class="bi bi-bar-chart-line"></i> CEO Summary
         </a>
+        <a class="nav-link {% if 'ask' in request.endpoint %}active{% endif %}"
+           href="{{ url_for('main.ask') }}">
+          <i class="bi bi-chat-dots"></i> Ask TDG
+        </a>
       </nav>
 
       <hr class="divider my-2">
