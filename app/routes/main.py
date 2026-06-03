@@ -7,6 +7,7 @@ from datetime import datetime, date
 from sqlalchemy import func, extract, or_, and_
 import calendar
 import psycopg2
+import requests
 
 bp = Blueprint('main', __name__)
 

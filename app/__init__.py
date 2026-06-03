@@ -18,6 +18,10 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///tdg_command_center.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+    # Trust Railway's HTTPS proxy so redirect_uri uses https://
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
