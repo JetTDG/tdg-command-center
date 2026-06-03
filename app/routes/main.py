@@ -700,6 +700,76 @@ def leaderboard():
 
 # ─── ASK / NLQ ──────────────────────────────────────────────────────────────
 
+GDRIVE_FOLDER_ID = '1Ntaaxh51HpLC4lQ_oTozUd254qr0ewK9'
+
+def load_knowledge_base():
+    """Load the TDG static knowledge base (Canva site + docs index)."""
+    try:
+        import os
+        kb_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'tdg_knowledge_base.txt')
+        with open(os.path.abspath(kb_path), 'r') as f:
+            return f.read()
+    except Exception:
+        return ''
+
+def fetch_gdrive_context(question, api_key):
+    """Fetch relevant content from Google Drive folder for the question."""
+    try:
+        import os, json
+        sa_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_JSON')
+        if not sa_key:
+            return ''
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build as gbuild
+        creds = service_account.Credentials.from_service_account_info(
+            json.loads(sa_key),
+            scopes=['https://www.googleapis.com/auth/drive.readonly',
+                    'https://www.googleapis.com/auth/spreadsheets.readonly']
+        )
+        drive_svc = gbuild('drive', 'v3', credentials=creds)
+        sheets_svc = gbuild('sheets', 'v4', credentials=creds)
+
+        # List files in folder
+        files = drive_svc.files().list(
+            q=f"'{GDRIVE_FOLDER_ID}' in parents",
+            fields='files(id, name, mimeType)'
+        ).execute().get('files', [])
+
+        if not files:
+            return ''
+
+        # Pull first 3 sheets worth of data (keep context manageable)
+        context_parts = []
+        for f in files[:6]:
+            name = f['name']
+            mime = f['mimeType']
+            try:
+                if 'spreadsheet' in mime:
+                    meta = sheets_svc.spreadsheets().get(spreadsheetId=f['id']).execute()
+                    for sheet in meta.get('sheets', [])[:3]:
+                        tab = sheet['properties']['title']
+                        rows = sheets_svc.spreadsheets().values().get(
+                            spreadsheetId=f['id'],
+                            range=f"'{tab}'!A1:Z50"
+                        ).execute().get('values', [])
+                        if rows:
+                            text = f"\n[{name} — {tab}]\n"
+                            text += '\n'.join(['\t'.join(r) for r in rows[:30]])
+                            context_parts.append(text)
+                elif 'document' in mime:
+                    exported = drive_svc.files().export(
+                        fileId=f['id'], mimeType='text/plain'
+                    ).execute()
+                    text = exported.decode('utf-8')[:2000] if exported else ''
+                    if text:
+                        context_parts.append(f"\n[{name}]\n{text}")
+            except Exception:
+                continue
+
+        return '\n'.join(context_parts)[:4000]
+    except Exception:
+        return ''
+
 @bp.route('/ask')
 @login_required
 def ask():
@@ -750,47 +820,83 @@ Agent name matching: use ILIKE '%name%'
         )
         return resp.json()['content'][0]['text'].strip()
 
-    sql_prompt = f"""Generate a single safe read-only PostgreSQL SELECT query.
+    # Load static knowledge base (TDG Canva site + docs)
+    kb_context = load_knowledge_base()
+
+    # Fetch Drive context
+    drive_context = fetch_gdrive_context(question, api_key)
+
+    # Decide: does this look like a DB question or a docs question?
+    classify_prompt = f"""Is this question best answered from a database of real estate transactions/agents, or from reference documents (offers, records, lead sheets)?
+Answer with ONE word: DATABASE or DOCS or BOTH.
+Question: {question}"""
+    try:
+        q_type = claude(classify_prompt, max_tokens=10).upper().strip()
+    except Exception:
+        q_type = 'BOTH'
+
+    db_result_text = ''
+    sql_used = ''
+
+    if q_type in ('DATABASE', 'BOTH'):
+        sql_prompt = f"""Generate a single safe read-only PostgreSQL SELECT query.
 Rules: SELECT only. Use ILIKE for names. Default year=2026.
 Return ONLY the SQL, no markdown, no explanation.
 
 Schema:{schema}
 Question: {question}
 SQL:"""
+        try:
+            sql = claude(sql_prompt)
+            sql = re.sub(r'^```\w*\n?', '', sql)
+            sql = re.sub(r'\n?```$', '', sql).strip()
+            if sql.upper().lstrip().startswith('SELECT'):
+                conn = psycopg2.connect(
+                    host='ballast.proxy.rlwy.net', port=34083,
+                    dbname='railway', user='postgres',
+                    password='SiAmCHSPejkeAVLMAOaZPvUjccxWtTVb'
+                )
+                cur = conn.cursor()
+                cur.execute(sql)
+                rows = cur.fetchall()
+                cols = [d[0] for d in cur.description]
+                conn.close()
+                db_result_text = f"DB Results — Columns: {cols}\nRows: {rows[:20]}"
+                sql_used = sql
+        except Exception as e:
+            db_result_text = f'(DB query failed: {e})'
+
+    # Build final answer with all available context
+    context_sections = []
+    if db_result_text:
+        context_sections.append(db_result_text)
+    if drive_context:
+        context_sections.append(f"Reference Documents (Google Drive):\n{drive_context}")
+    if kb_context:
+        context_sections.append(f"TDG Company Resources & Links:\n{kb_context}")
+
+    if not context_sections:
+        return jsonify({'answer': "I couldn't find relevant data for that question.", 'sql': ''})
+
+    answer_prompt = f"""You are an assistant for The Delia Group real estate team. Answer the question using the data below.
+Be concise, specific, and use $ for money amounts.
+
+Question: "{question}"
+
+{chr(10).join(context_sections)}
+
+Answer in 1-3 sentences:"""
 
     try:
-        sql = claude(sql_prompt)
-        sql = re.sub(r'^```\w*\n?', '', sql)
-        sql = re.sub(r'\n?```$', '', sql).strip()
-
-        if not sql.upper().lstrip().startswith('SELECT'):
-            return jsonify({'answer': 'I can only answer read-only questions about your data.', 'sql': ''})
-
-        conn = psycopg2.connect(
-            host='ballast.proxy.rlwy.net', port=34083,
-            dbname='railway', user='postgres',
-            password='SiAmCHSPejkeAVLMAOaZPvUjccxWtTVb'
-        )
-        cur = conn.cursor()
-        cur.execute(sql)
-        rows = cur.fetchall()
-        cols = [d[0] for d in cur.description]
-        conn.close()
-
-        result_text = f"Columns: {cols}\nRows: {rows[:20]}"
-        answer_prompt = f"""The user asked: "{question}"
-The database returned: {result_text}
-Write a clear, concise 1-2 sentence plain English answer. Use $ for money. Be specific."""
-
-        answer = claude(answer_prompt, max_tokens=200)
-        return jsonify({'answer': answer, 'sql': sql, 'rows': len(rows)})
-
+        answer = claude(answer_prompt, max_tokens=300)
+        return jsonify({'answer': answer, 'sql': sql_used, 'rows': len(rows) if db_result_text and 'rows' in dir() else 0})
     except Exception as e:
         return jsonify({'answer': f"Sorry, I couldn't answer that: {str(e)}", 'sql': ''}), 200
 
 
-# ─── CEO SUMMARY ────────────────────────────────────────────────────────────
 
+
+# ─── CEO SUMMARY ────────────────────────────────────────────────────────────
 @bp.route('/ceo-summary')
 @login_required
 def ceo_summary():
