@@ -1,0 +1,14 @@
+{
+  "name": "TDG Command Center",
+  "short_name": "TDG",
+  "description": "The Delia Group operations dashboard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F6FA",
+  "theme_color": "#C9A84C",
+  "orientation": "portrait",
+  "icons": [
+    {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}

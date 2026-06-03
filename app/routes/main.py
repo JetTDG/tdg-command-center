@@ -6,6 +6,7 @@ from app import db
 from datetime import datetime, date
 from sqlalchemy import func, extract, or_, and_
 import calendar
+import psycopg2
 
 bp = Blueprint('main', __name__)
 
@@ -695,6 +696,104 @@ def leaderboard():
         months=months,
         years=list(range(2020, current_year()+1))
     )
+
+# ─── ASK / NLQ ──────────────────────────────────────────────────────────────
+
+@bp.route('/ask')
+@login_required
+def ask():
+    return render_template('main/ask.html')
+
+@bp.route('/api/ask', methods=['POST'])
+@login_required
+def api_ask():
+    import anthropic, re
+    question = (request.json or {}).get('question', '').strip()
+    if not question:
+        return jsonify({'error': 'No question provided'}), 400
+
+    # DB schema context (compact)
+    schema = """
+DB: PostgreSQL. Tables:
+- transactions(id, primary_agent_name, transaction_type, status, client_name, address, 
+  sale_price, list_price, gci, commission_pct, signed_date, close_date, projected_close_date,
+  year, month, lead_source, sub_status, admin_name, primary_agent_gci, secondary_agent_name,
+  secondary_agent_gci, referral_fee, transaction_fee, franchise_split, broker_split,
+  mortgage_company, title_company, notes, paid)
+- agents(id, name, status, role, split_pct, cap_amount, email)
+- lead_gen_log(id, agent_id, log_date, listing_appts_set, listing_appts_held, 
+  listings_signed, buyer_appts_set, buyer_appts_held, buyers_signed, contacts)
+- business_plans(id, agent_id, year, gci_goal, listing_unit_goal, buyer_unit_goal)
+
+Key values:
+- status: Active, Pending, Closed, Pre-Signed, x-Cancelled, y-Sale Failed, z-Expired
+- transaction_type: Listing, Buyer, Commercial, Referral, Lease
+- year: 2025, 2026
+
+Agent name matching: use ILIKE '%name%' for fuzzy matching.
+"""
+
+    prompt = f"""You are a SQL expert for a real estate company database. Generate a single safe read-only PostgreSQL SELECT query to answer the user's question.
+
+Rules:
+- Only SELECT statements. No INSERT/UPDATE/DELETE/DROP.
+- Use ILIKE for agent name matching (e.g. WHERE primary_agent_name ILIKE '%laith%')
+- For "pending" count, filter status = 'Pending'
+- For "active" filter status = 'Active'  
+- For "closed" filter status = 'Closed'
+- Default to year=2026 unless another year is specified
+- Return ONLY the SQL query, nothing else, no markdown, no explanation
+
+Schema:
+{schema}
+
+Question: {question}
+SQL:"""
+
+    try:
+        anth = anthropic.Anthropic()
+        sql_resp = anth.messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=300,
+            messages=[{'role': 'user', 'content': prompt}]
+        )
+        sql = sql_resp.content[0].text.strip().strip('`').strip()
+        # Remove any markdown code fences
+        sql = re.sub(r'^```\w*\n?', '', sql)
+        sql = re.sub(r'\n?```$', '', sql).strip()
+
+        # Safety check — only allow SELECT
+        if not sql.upper().lstrip().startswith('SELECT'):
+            return jsonify({'answer': "I can only answer read-only questions about your data.", 'sql': ''})
+
+        # Run query
+        conn = psycopg2.connect(
+            host='ballast.proxy.rlwy.net', port=34083,
+            dbname='railway', user='postgres',
+            password='SiAmCHSPejkeAVLMAOaZPvUjccxWtTVb'
+        )
+        cur = conn.cursor()
+        cur.execute(sql)
+        rows = cur.fetchall()
+        cols = [d[0] for d in cur.description]
+        conn.close()
+
+        # Format result as natural language via Claude
+        result_text = f"Columns: {cols}\nRows: {rows[:20]}"
+        answer_prompt = f"""The user asked: "{question}"
+The database returned: {result_text}
+Write a clear, concise 1-2 sentence plain English answer. Use $ for money. Be specific with numbers."""
+
+        answer_resp = anth.messages.create(
+            model='claude-haiku-4-5',
+            max_tokens=200,
+            messages=[{'role': 'user', 'content': answer_prompt}]
+        )
+        answer = answer_resp.content[0].text.strip()
+        return jsonify({'answer': answer, 'sql': sql, 'rows': len(rows)})
+
+    except Exception as e:
+        return jsonify({'answer': f"Sorry, I couldn't answer that: {str(e)}", 'sql': ''}), 200
 
 # ─── CEO SUMMARY ────────────────────────────────────────────────────────────
 

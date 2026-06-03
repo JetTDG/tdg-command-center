@@ -488,7 +488,57 @@
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--tdg-border); border-radius: 99px; }
+
+    /* ── Mobile: bottom nav bar ──────────────────────────── */
+    .mobile-bottom-nav {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 60px;
+      background: var(--tdg-surface);
+      border-top: 1px solid var(--tdg-border);
+      z-index: 1100;
+      justify-content: space-around;
+      align-items: center;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+    }
+    .mobile-bottom-nav a {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      color: var(--tdg-muted);
+      text-decoration: none;
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 6px 10px;
+      border-radius: 8px;
+      min-width: 56px;
+      transition: color 0.12s;
+    }
+    .mobile-bottom-nav a i { font-size: 1.3rem; }
+    .mobile-bottom-nav a.active, .mobile-bottom-nav a:hover { color: var(--tdg-gold-dark); }
+    .mobile-bottom-nav a.active i { color: var(--tdg-gold); }
+
+    @media (max-width: 768px) {
+      .sidebar { display: none !important; }
+      .main-content { margin-left: 0 !important; padding: 1rem !important; padding-bottom: 72px !important; }
+      .top-navbar { padding: 0 1rem; }
+      .top-navbar .brand span em { display: none; }
+      .mobile-bottom-nav { display: flex !important; }
+      .stat-card .stat-value { font-size: 1.4rem; }
+      .page-title { font-size: 1.1rem; }
+    }
   </style>
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TDG">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <meta name="theme-color" content="#C9A84C">
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -560,6 +610,25 @@
         {% endif %}
       </nav>
     </aside>
+
+    <!-- Mobile Bottom Nav -->
+    <nav class="mobile-bottom-nav">
+      <a href="{{ url_for('main.home') }}" {% if request.endpoint == 'main.home' %}class="active"{% endif %}>
+        <i class="bi bi-house-door"></i>Home
+      </a>
+      <a href="{{ url_for('main.leaderboard') }}" {% if 'leaderboard' in request.endpoint %}class="active"{% endif %}>
+        <i class="bi bi-trophy"></i>Board
+      </a>
+      <a href="{{ url_for('main.ask') }}" {% if 'ask' in request.endpoint %}class="active"{% endif %}>
+        <i class="bi bi-chat-dots"></i>Ask
+      </a>
+      <a href="{{ url_for('main.my_business') }}" {% if 'my_business' in request.endpoint %}class="active"{% endif %}>
+        <i class="bi bi-briefcase"></i>Deals
+      </a>
+      <a href="{{ url_for('main.ceo_summary') }}" {% if 'ceo_summary' in request.endpoint %}class="active"{% endif %}>
+        <i class="bi bi-bar-chart-line"></i>CEO
+      </a>
+    </nav>
 
     <!-- Main Content -->
     <main class="main-content">
