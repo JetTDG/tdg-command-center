@@ -1,589 +1,611 @@
-{% extends 'base.html' %}
-{% block title %}My Business — TDG Command Center{% endblock %}
-{% block content %}
-<div class="d-flex justify-content-between align-items-start mb-1">
-  <div>
-    <div class="page-title">My Business</div>
-    <div class="page-subtitle">Transaction records — all agents</div>
-  </div>
-  <a href="{{ url_for('main.add_transaction') }}" class="btn btn-gold"><i class="bi bi-plus-lg me-1"></i>Add Transaction</a>
-</div>
+     1|{% extends 'base.html' %}
+     2|{% block title %}My Business — TDG Command Center{% endblock %}
+     3|{% block content %}
+     4|<div class="d-flex justify-content-between align-items-start mb-1">
+     5|  <div>
+     6|    <div class="page-title">My Business</div>
+     7|    <div class="page-subtitle">Transaction records — all agents</div>
+     8|  </div>
+     9|  <a href="{{ url_for('main.add_transaction') }}" class="btn btn-gold"><i class="bi bi-plus-lg me-1"></i>Add Transaction</a>
+    10|</div>
+    11|
+    12|<!-- Summary bar -->
+    13|<div class="row g-2 mb-3">
+    14|  {% for label, val in [('Active Listings', summary.active_listings), ('Active Buyers', summary.active_buyers), ('Pending', summary.pending), ('Closed', summary.closed), ('Pre-Signed', summary.pipeline)] %}
+    15|  <div class="col">
+    16|    <div class="stat-card text-center py-2">
+    17|      <div style="font-size:1.4rem;font-weight:700;color:var(--tdg-gold)">{{ val }}</div>
+    18|      <div style="font-size:0.72rem;color:var(--tdg-muted);text-transform:uppercase">{{ label }}</div>
+    19|    </div>
+    20|  </div>
+    21|  {% endfor %}
+    22|</div>
+    23|
+    24|<!-- Year filter + record count -->
+    25|<form method="GET" class="row g-2 mb-2 align-items-center" id="year-form">
+    26|  <div class="col-auto">
+    27|    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+    28|      {% for y in years %}<option value="{{ y }}" {% if y==selected_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+    29|    </select>
+    30|  </div>
+    31|  <div class="col-auto text-muted small" id="rec-count">{{ transactions|length }} records</div>
+    32|  <div class="col-auto ms-auto">
+    33|    <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-filters-btn">Clear All Filters</button>
+    34|  </div>
+    35|</form>
+    36|
+    37|<!-- Table -->
+    38|<div class="card mt-1 p-0">
+    39|  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:74vh;position:relative;">
+    40|    <table class="table table-hover table-bordered mb-0" id="mb-table" style="min-width:5600px;table-layout:fixed;font-size:0.74rem">
+    41|      <thead style="position:sticky;top:0;z-index:20;background:#f8f9fa;">
+    42|        <tr>
+    43|          {# ── STICKY LEFT: #, Agent, Address ── #}
+    44|          <th class="sticky-col" style="left:0;min-width:36px;width:36px;z-index:25;background:#f8f9fa">#</th>
+    45|          <th class="sticky-col th-filter" data-col="1" style="left:36px;min-width:140px;width:140px;z-index:25;background:#f8f9fa">Agent<span class="fbtn">▾</span></th>
+    46|          <th class="sticky-col th-filter" data-col="2" style="left:176px;min-width:200px;width:200px;z-index:25;background:#f8f9fa">Address<span class="fbtn">▾</span></th>
+    47|
+    48|
+    49|          {# ── CTE COLUMN ORDER (left→right as in CTE row 21) ── #}
+    50|          {# Col S/T: DSC, EXP in #}
+    51|          <th style="min-width:55px">DSC</th>
+    52|          <th style="min-width:60px">EXP in</th>
+    53|          {# Col U: DOM #}
+    54|          <th style="min-width:55px">DOM</th>
+    55|          {# Col J/K/L: Up Closing, Close to Ex, Exp Date (computed) #}
+    56|          <th style="min-width:65px">↑Close</th>
+    57|          {# Col X: Status #}
+    58|          <th class="th-filter" data-col="7" style="min-width:90px">Status<span class="fbtn">▾</span></th>
+    59|          {# Col Y: Sub Status #}
+    60|          <th class="th-filter" data-col="8" style="min-width:100px">Sub Status<span class="fbtn">▾</span></th>
+    61|          {# Col AA: Client(s) #}
+    62|          <th class="th-filter" data-col="9" style="min-width:130px">Client(s)<span class="fbtn">▾</span></th>
+    63|          {# Col AB: Source #}
+    64|          <th class="th-filter" data-col="10" style="min-width:110px">Source<span class="fbtn">▾</span></th>
+    65|          {# Col AC: Signed Date #}
+    66|          <th style="min-width:90px">Signed Date</th>
+    67|          {# Col AD: MLS Live Date #}
+    68|          <th style="min-width:90px">MLS Live</th>
+    69|          {# Col AE: Exp Date #}
+    70|          <th style="min-width:90px">Exp Date</th>
+    71|          {# Col AF: Under Contr Date #}
+    72|          <th style="min-width:95px">Under Contr</th>
+    73|          {# Col AG: Proj Close #}
+    74|          <th style="min-width:90px">Proj Close</th>
+    75|          {# Col AH: Close Date #}
+    76|          <th style="min-width:90px">Close Date</th>
+    77|          {# Col AI: List Price / Buyer Rep Price #}
+    78|          <th style="min-width:100px">List Price</th>
+    79|          {# Col AJ: Sale Price #}
+    80|          <th style="min-width:100px">Sale Price</th>
+    81|          {# Col AK: T (type) — shown as Type dropdown #}
+    82|          <th class="th-filter" data-col="19" style="min-width:90px">Type<span class="fbtn">▾</span></th>
+    83|          {# Col AL: % (commission %) #}
+    84|          <th style="min-width:60px">Comm%</th>
+    85|          {# Col AM: Units #}
+    86|          <th style="min-width:60px">Units</th>
+    87|          {# Col AN: GCI #}
+    88|          <th style="min-width:100px;color:var(--tdg-gold)">GCI</th>
+    89|          {# Col AO: Bonus #}
+    90|          <th style="min-width:80px">Bonus</th>
+    91|          {# Col AP: Transaction Fee #}
+    92|          <th style="min-width:85px">Tx Fee</th>
+    93|          {# Col AQ: Broker Split #}
+    94|          <th style="min-width:90px">Broker Split</th>
+    95|          {# Col AR: Franchise Split #}
+    96|          <th style="min-width:90px">Franchise</th>
+    97|          {# Col AS: Referral #}
+    98|          <th style="min-width:80px">Referral</th>
+    99|          {# Col AT/AU/AV: Primary Agent, %, GCI #}
+   100|          <th class="th-filter" data-col="28" style="min-width:130px">Primary Agent<span class="fbtn">▾</span></th>
+   101|          <th style="min-width:55px">Pri%</th>
+   102|          <th style="min-width:90px">Primary GCI</th>
+   103|          {# Col AW/AX/AY: Secondary Agent, %, GCI #}
+   104|          <th class="th-filter" data-col="31" style="min-width:130px">2nd Agent<span class="fbtn">▾</span></th>
+   105|          <th style="min-width:55px">2nd%</th>
+   106|          <th style="min-width:90px">2nd GCI</th>
+   107|          {# Col AZ/BA/BB: Member 3, %, GCI #}
+   108|          <th style="min-width:130px">Member 3</th>
+   109|          <th style="min-width:55px">M3%</th>
+   110|          <th style="min-width:90px">M3 GCI</th>
+   111|          {# Col BC/BD/BE: Member 4, %, GCI #}
+   112|          <th style="min-width:130px">Member 4</th>
+   113|          <th style="min-width:55px">M4%</th>
+   114|          <th style="min-width:90px">M4 GCI</th>
+   115|          {# Col BF: E&O #}
+   116|          <th style="min-width:70px">E&amp;O</th>
+   117|          {# Col BH: Donation #}
+   118|          <th style="min-width:80px">Donation</th>
+   119|          {# Col BI: Other #}
+   120|          <th style="min-width:80px">Other Fee</th>
+   121|          {# Col BK/BL: Inspection Date, Appraisal Date #}
+   122|          <th style="min-width:95px">Inspection</th>
+   123|          <th style="min-width:90px">Appraisal</th>
+   124|          {# Col BM/BN: Mortgage Co, Title Co #}
+   125|          <th class="th-filter" data-col="45" style="min-width:130px">Mortgage Co<span class="fbtn">▾</span></th>
+   126|          <th class="th-filter" data-col="46" style="min-width:130px">Title Co<span class="fbtn">▾</span></th>
+   127|          {# Col BO: Team/Agent (Lead Type) #}
+   128|          <th class="th-filter" data-col="47" style="min-width:85px">Lead Type<span class="fbtn">▾</span></th>
+   129|          {# Col BP: ∞ (link to file) #}
+   130|          <th style="min-width:70px">∞ File</th>
+   131|          {# Col BQ: Location #}
+   132|          <th class="th-filter" data-col="49" style="min-width:100px">Location<span class="fbtn">▾</span></th>
+   133|          {# Col BR: Paid? #}
+   134|          <th style="min-width:60px">Paid?</th>
+   135|          {# Col BS: Company Dollar (Team TDG in CTE = company net) #}
+   136|          <th style="min-width:110px;background:#f0fdf4">Co. Dollar</th>
+   137|          {# Col BT: 1099 Income #}
+   138|          <th style="min-width:90px">1099 Income</th>
+   139|          {# Col BU: Net Income #}
+   140|          <th style="min-width:90px">Net Income</th>
+   141|          {# Col BV: Taxes #}
+   142|          <th style="min-width:80px">Taxes</th>
+   143|          {# Col BW: Net After Taxes #}
+   144|          <th style="min-width:100px">Net After Tax</th>
+   145|          {# Extra: Admin, Old List, List Date, Notes #}
+   146|          <th style="min-width:100px">Old List $</th>
+   147|          <th style="min-width:90px">List Date</th>
+   148|          <th class="th-filter" data-col="58" style="min-width:110px">Admin<span class="fbtn">▾</span></th>
+   149|          <th style="min-width:150px">Notes</th>
+   150|          {# STICKY RIGHT: Actions #}
+   151|          <th style="position:sticky;right:0;min-width:110px;z-index:25;background:#f8f9fa">Actions</th>
+   152|        </tr>
+   153|      </thead>
+   154|      <tbody id="mb-tbody">
+   155|        {% for t in transactions %}
+   156|        <tr data-tid="{{ t.id }}" data-row>
+   157|          {# # #}
+   158|          <td class="sticky-col text-muted text-center" style="left:0;background:#fafafa">{{ loop.index }}</td>
+   159|          {# Agent — sticky #}
+   160|          <td class="sticky-col" style="left:36px;background:#fff" data-val="{{ t.primary_agent_name or (t.agent.name if t.agent else '') }}">
+   161|            <span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}">{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</span>
+   162|          </td>
+   163|          {# Address — sticky #}
+   164|          <td class="sticky-col" style="left:176px;background:#fff" data-val="{{ t.address or '' }}">
+   165|            <span class="ec" data-field="address" data-tid="{{ t.id }}">{{ t.address or '' }}</span>
+   166|          </td>
+   167|
+   168|          {# DSC #}
+   169|          <td class="text-muted text-center ro" data-val="{{ t.dsc if t.dsc is not none else '' }}">{{ t.dsc if t.dsc is not none else '' }}</td>
+   170|          {# EXP in #}
+   171|          <td class="text-center ro {% if t.exp_in is not none and t.exp_in < 30 %}text-danger{% endif %}" data-val="{{ t.exp_in if t.exp_in is not none else '' }}">{{ t.exp_in if t.exp_in is not none else '' }}</td>
+   172|          {# DOM #}
+   173|          <td class="text-muted text-center ro" data-val="{{ t.dom if t.dom is not none else '' }}">{{ t.dom if t.dom is not none else '' }}</td>
+   174|          {# Up Closing #}
+   175|          <td class="text-center ro {% if t.up_closing is not none and t.up_closing < 14 %}text-warning fw-semibold{% endif %}" data-val="{{ t.up_closing if t.up_closing is not none else '' }}">{{ t.up_closing if t.up_closing is not none else '' }}</td>
+   176|
+   177|          {# Status #}
+   178|          <td data-val="{{ t.status or '' }}">
+   179|            <select class="es" data-field="status" data-tid="{{ t.id }}">
+   180|              {% for opt in ['Active','Pending','Closed','Pre-Signed','Coming Soon','Pipeline','Signed','Temp Off Market','Temp off Mark','x-Cancelled','y-Sale Failed','z-Expired'] %}
+   181|              <option {% if t.status==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+   182|            </select>
+   183|          </td>
+   184|          {# Sub Status #}
+   185|          <td data-val="{{ t.sub_status or '' }}">
+   186|            <select class="es" data-field="sub_status" data-tid="{{ t.id }}">
+   187|              <option value="">—</option>
+   188|              {% for opt in ['CRE Buyer','CRE Listing','CRE Lease','Landlord Rep','Tenant Rep','Business-only'] %}
+   189|              <option {% if t.sub_status==opt %}selected{% endif %} value="{{ opt }}">{{ opt }}</option>{% endfor %}
+   190|            </select>
+   191|          </td>
+   192|          {# Client(s) #}
+   193|          <td data-val="{{ t.client_name or '' }}"><span class="ec" data-field="client_name" data-tid="{{ t.id }}">{{ t.client_name or '' }}</span></td>
+   194|          {# Source #}
+   195|          <td data-val="{{ t.lead_source or '' }}"><span class="ec" data-field="lead_source" data-tid="{{ t.id }}">{{ t.lead_source or '' }}</span></td>
+   196|          {# Signed Date #}
+   197|          <td data-val="{{ t.signed_date.isoformat() if t.signed_date else '' }}"><span class="ec" data-field="signed_date" data-tid="{{ t.id }}" data-type="date">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '' }}</span></td>
+   198|          {# MLS Live #}
+   199|          <td data-val="{{ t.mls_live_date.isoformat() if t.mls_live_date else '' }}"><span class="ec" data-field="mls_live_date" data-tid="{{ t.id }}" data-type="date">{{ t.mls_live_date.strftime('%m/%d/%y') if t.mls_live_date else '' }}</span></td>
+   200|          {# Exp Date #}
+   201|          <td data-val="{{ t.expiry_date.isoformat() if t.expiry_date else '' }}"><span class="ec" data-field="expiry_date" data-tid="{{ t.id }}" data-type="date">{{ t.expiry_date.strftime('%m/%d/%y') if t.expiry_date else '' }}</span></td>
+   202|          {# Under Contr #}
+   203|          <td data-val="{{ t.under_contract_date.isoformat() if t.under_contract_date else '' }}"><span class="ec" data-field="under_contract_date" data-tid="{{ t.id }}" data-type="date">{{ t.under_contract_date.strftime('%m/%d/%y') if t.under_contract_date else '' }}</span></td>
+   204|          {# Proj Close #}
+   205|          <td data-val="{{ t.projected_close_date.isoformat() if t.projected_close_date else '' }}"><span class="ec" data-field="projected_close_date" data-tid="{{ t.id }}" data-type="date">{{ t.projected_close_date.strftime('%m/%d/%y') if t.projected_close_date else '' }}</span></td>
+   206|          {# Close Date #}
+   207|          <td data-val="{{ t.close_date.isoformat() if t.close_date else '' }}"><span class="ec" data-field="close_date" data-tid="{{ t.id }}" data-type="date">{{ t.close_date.strftime('%m/%d/%y') if t.close_date else '' }}</span></td>
+   208|          {# List Price #}
+   209|          <td data-val="{{ t.list_price or '' }}"><span class="ec num" data-field="list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.list_price) if t.list_price else '' }}</span></td>
+   210|          {# Sale Price #}
+   211|          <td data-val="{{ t.sale_price or '' }}"><span class="ec num" data-field="sale_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.sale_price) if t.sale_price else '' }}</span></td>
+   212|          {# Type #}
+   213|          <td data-val="{{ t.transaction_type or '' }}">
+   214|            <select class="es" data-field="transaction_type" data-tid="{{ t.id }}">
+   215|              {% for opt in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
+   216|              <option {% if t.transaction_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+   217|            </select>
+   218|          </td>
+   219|          {# Comm% #}
+   220|          <td data-val="{{ t.commission_pct or '' }}"><span class="ec num" data-field="commission_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.2f}".format(t.commission_pct*100) if t.commission_pct else '' }}</span></td>
+   221|          {# Units #}
+   222|          <td data-val="{{ t.units or '' }}"><span class="ec num" data-field="units" data-tid="{{ t.id }}">{{ t.units if t.units else '' }}</span></td>
+   223|          {# GCI #}
+   224|          <td class="fw-semibold" style="color:var(--tdg-gold)" data-val="{{ t.gci or '' }}"><span class="ec num" data-field="gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.gci) if t.gci else '' }}</span></td>
+   225|          {# Bonus #}
+   226|          <td data-val="{{ t.bonus or '' }}"><span class="ec num" data-field="bonus" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.bonus) if t.bonus else '' }}</span></td>
+   227|          {# Tx Fee #}
+   228|          <td data-val="{{ t.transaction_fee or '' }}"><span class="ec num" data-field="transaction_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.transaction_fee) if t.transaction_fee else '' }}</span></td>
+   229|          {# Broker Split #}
+   230|          <td data-val="{{ t.broker_split or '' }}"><span class="ec num" data-field="broker_split" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.broker_split) if t.broker_split else '' }}</span></td>
+   231|          {# Franchise #}
+   232|          <td data-val="{{ t.franchise_split or '' }}"><span class="ec num" data-field="franchise_split" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.franchise_split) if t.franchise_split else '' }}</span></td>
+   233|          {# Referral #}
+   234|          <td data-val="{{ t.referral_fee or '' }}"><span class="ec num" data-field="referral_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.referral_fee) if t.referral_fee else '' }}</span></td>
+   235|          {# Primary Agent / % / GCI #}
+   236|          <td data-val="{{ t.primary_agent_name or '' }}"><span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}">{{ t.primary_agent_name or '' }}</span></td>
+   237|          <td data-val="{{ t.primary_agent_pct or '' }}"><span class="ec num" data-field="primary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.primary_agent_pct*100) if t.primary_agent_pct else '' }}</span></td>
+   238|          <td data-val="{{ t.primary_agent_gci or '' }}"><span class="ec num" data-field="primary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.primary_agent_gci) if t.primary_agent_gci else '' }}</span></td>
+   239|          {# Secondary Agent / % / GCI #}
+   240|          <td data-val="{{ t.secondary_agent_name or '' }}"><span class="ec" data-field="secondary_agent_name" data-tid="{{ t.id }}">{{ t.secondary_agent_name or '' }}</span></td>
+   241|          <td data-val="{{ t.secondary_agent_pct or '' }}"><span class="ec num" data-field="secondary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.secondary_agent_pct*100) if t.secondary_agent_pct else '' }}</span></td>
+   242|          <td data-val="{{ t.secondary_agent_gci or '' }}"><span class="ec num" data-field="secondary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.secondary_agent_gci) if t.secondary_agent_gci else '' }}</span></td>
+   243|          {# Member 3 / % / GCI #}
+   244|          <td data-val="{{ t.member3_name or '' }}"><span class="ec" data-field="member3_name" data-tid="{{ t.id }}">{{ t.member3_name or '' }}</span></td>
+   245|          <td data-val="{{ t.member3_pct or '' }}"><span class="ec num" data-field="member3_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member3_pct*100) if t.member3_pct else '' }}</span></td>
+   246|          <td data-val="{{ t.member3_gci or '' }}"><span class="ec num" data-field="member3_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.member3_gci) if t.member3_gci else '' }}</span></td>
+   247|          {# Member 4 / % / GCI #}
+   248|          <td data-val="{{ t.member4_name or '' }}"><span class="ec" data-field="member4_name" data-tid="{{ t.id }}">{{ t.member4_name or '' }}</span></td>
+   249|          <td data-val="{{ t.member4_pct or '' }}"><span class="ec num" data-field="member4_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member4_pct*100) if t.member4_pct else '' }}</span></td>
+   250|          <td data-val="{{ t.member4_gci or '' }}"><span class="ec num" data-field="member4_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.member4_gci) if t.member4_gci else '' }}</span></td>
+   251|          {# E&O #}
+   252|          <td data-val="{{ t.eo_fee or '' }}"><span class="ec num" data-field="eo_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.eo_fee) if t.eo_fee else '' }}</span></td>
+   253|          {# Donation #}
+   254|          <td data-val="{{ t.donation or '' }}"><span class="ec num" data-field="donation" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.donation) if t.donation else '' }}</span></td>
+   255|          {# Other Fee #}
+   256|          <td data-val="{{ t.other_fee or '' }}"><span class="ec num" data-field="other_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.other_fee) if t.other_fee else '' }}</span></td>
+   257|          {# Inspection Date #}
+   258|          <td data-val="{{ t.inspection_date.isoformat() if t.inspection_date else '' }}"><span class="ec" data-field="inspection_date" data-tid="{{ t.id }}" data-type="date">{{ t.inspection_date.strftime('%m/%d/%y') if t.inspection_date else '' }}</span></td>
+   259|          {# Appraisal Date #}
+   260|          <td data-val="{{ t.appraisal_date.isoformat() if t.appraisal_date else '' }}"><span class="ec" data-field="appraisal_date" data-tid="{{ t.id }}" data-type="date">{{ t.appraisal_date.strftime('%m/%d/%y') if t.appraisal_date else '' }}</span></td>
+   261|          {# Mortgage Co #}
+   262|          <td data-val="{{ t.mortgage_company or '' }}"><span class="ec" data-field="mortgage_company" data-tid="{{ t.id }}">{{ t.mortgage_company or '' }}</span></td>
+   263|          {# Title Co #}
+   264|          <td data-val="{{ t.title_company or '' }}"><span class="ec" data-field="title_company" data-tid="{{ t.id }}">{{ t.title_company or '' }}</span></td>
+   265|          {# Lead Type (Team/Agent) #}
+   266|          <td data-val="{{ t.lead_type or '' }}">
+   267|            <select class="es" data-field="lead_type" data-tid="{{ t.id }}">
+   268|              {% for opt in ['Team','Agent'] %}<option {% if t.lead_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+   269|            </select>
+   270|          </td>
+   271|          {# ∞ File Link #}
+   272|          <td class="text-center" data-val="{{ t.link_to_file or '' }}">
+   273|            {% if t.link_to_file %}<a href="{{ t.link_to_file }}" target="_blank" title="{{ t.link_to_file }}" style="color:var(--tdg-gold);font-weight:bold">∞</a>{% endif %}
+   274|            <span class="ec" data-field="link_to_file" data-tid="{{ t.id }}" style="{% if t.link_to_file %}display:none{% endif %}font-size:0.65rem;color:#aaa">edit</span>
+   275|          </td>
+   276|          {# Location #}
+   277|          <td data-val="{{ t.location or '' }}"><span class="ec" data-field="location" data-tid="{{ t.id }}">{{ t.location or '' }}</span></td>
+   278|          {# Paid? #}
+   279|          <td class="text-center" data-val="{{ 'Yes' if t.paid else '' }}">
+   280|            <input type="checkbox" class="ec-bool" data-field="paid" data-tid="{{ t.id }}" {% if t.paid %}checked{% endif %}>
+   281|          </td>
+   282|          {# Company Dollar — computed, green #}
+   283|          <td class="fw-semibold ro" style="background:#f0fdf4;color:#166534" data-val="{{ t.company_dollar or '' }}">
+   284|            {{ "{:,.0f}".format(t.company_dollar) if t.company_dollar else '' }}
+   285|          </td>
+   286|          {# 1099 Income = Company Dollar #}
+   287|          <td class="ro text-muted" data-val="{{ t.company_dollar or '' }}">
+   288|            {{ "{:,.0f}".format(t.company_dollar) if t.company_dollar else '' }}
+   289|          </td>
+   290|          {# Net Income #}
+   291|          <td data-val="{{ t.net_income or '' }}"><span class="ec num" data-field="net_income" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.net_income) if t.net_income else '' }}</span></td>
+   292|          {# Taxes #}
+   293|          <td data-val="{{ t.taxes or '' }}"><span class="ec num" data-field="taxes" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.taxes) if t.taxes else '' }}</span></td>
+   294|          {# Net After Taxes #}
+   295|          <td data-val="{{ t.net_after_taxes or '' }}"><span class="ec num" data-field="net_after_taxes" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.net_after_taxes) if t.net_after_taxes else '' }}</span></td>
+   296|          {# Old List Price #}
+   297|          <td data-val="{{ t.old_list_price or '' }}"><span class="ec num" data-field="old_list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.old_list_price) if t.old_list_price else '' }}</span></td>
+   298|          {# List Date #}
+   299|          <td data-val="{{ t.list_date.isoformat() if t.list_date else '' }}"><span class="ec" data-field="list_date" data-tid="{{ t.id }}" data-type="date">{{ t.list_date.strftime('%m/%d/%y') if t.list_date else '' }}</span></td>
+   300|          {# Admin #}
+   301|          <td data-val="{{ t.admin_name or '' }}">
+   302|            <select class="es" data-field="admin_name" data-tid="{{ t.id }}">
+   303|              <option value="">— assign —</option>
+   304|              {% for a in admin_names %}<option {% if t.admin_name==a %}selected{% endif %} value="{{ a }}">{{ a }}</option>{% endfor %}
+   305|            </select>
+   306|          </td>
+   307|          {# Notes #}
+   308|          <td data-val="{{ t.notes or '' }}"><span class="ec" data-field="notes" data-tid="{{ t.id }}">{{ t.notes or '' }}</span></td>
+   309|          {# Actions — sticky right #}
+   310|          <td style="position:sticky;right:0;background:#fff;white-space:nowrap;z-index:10">
+   311|            <a href="{{ url_for('main.edit_transaction', tid=t.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-1">Edit</a>
+   312|            <form method="POST" action="{{ url_for('main.delete_transaction', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Delete this transaction?')">
+   313|              <button class="btn btn-sm btn-outline-danger py-0 px-1">Del</button>
+   314|            </form>
+   315|          </td>
+   316|        </tr>
+   317|        {% else %}
+   318|        <tr><td colspan="65" class="text-center text-muted py-4">No transactions found. <a href="{{ url_for('main.add_transaction') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>
+   319|        {% endfor %}
+   320|      </tbody>
+   321|    </table>
+   322|  </div>
+   323|</div>
+   324|
+   <!-- ── Column Filter Dropdown ───────────────────────────────────────────── -->
+   <div id="col-filter-dd" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #dee2e6;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);min-width:210px;max-width:280px;padding:8px;">
+     <input type="text" id="fdd-search" placeholder="Search…" class="form-control form-control-sm mb-1" style="font-size:0.8rem">
+     <div class="d-flex gap-2 mb-2" style="font-size:0.78rem">
+       <a href="#" id="fdd-select-all" style="color:var(--tdg-gold);text-decoration:none">Select All</a>
+       <span style="color:#ccc">|</span>
+       <a href="#" id="fdd-select-blank" style="color:var(--tdg-gold);text-decoration:none">Blank Only</a>
+       <span style="color:#ccc">|</span>
+       <a href="#" id="fdd-select-none" style="color:#aaa;text-decoration:none">None</a>
+     </div>
+     <div style="max-height:220px;overflow-y:auto" id="fdd-boxes"></div>
+     <div class="d-flex gap-1 mt-2">
+       <button class="btn btn-sm btn-gold w-50" id="fdd-apply">Apply</button>
+       <button class="btn btn-sm btn-outline-secondary w-50" id="fdd-clear">Clear</button>
+     </div>
+   </div>
+   334|
+   335|<style>
+   336|.sticky-col { position:sticky; z-index:10; }
+   337|#mb-table td, #mb-table th {
+   338|  white-space:nowrap; padding:3px 6px; vertical-align:middle;
+   339|  overflow:hidden; text-overflow:ellipsis;
+   340|}
+   341|#mb-table thead th {
+   342|  font-size:0.71rem; font-weight:600; color:#555;
+   343|  background:#f8f9fa; border-bottom:2px solid #dee2e6;
+   344|  user-select:none;
+   345|}
+   346|/* Editable cell */
+   347|.ec {
+   348|  cursor:pointer; display:block; min-width:30px; min-height:16px;
+   349|  border-radius:3px; padding:1px 3px;
+   350|  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+   351|}
+   352|.ec:hover { background:#fff8e6; outline:1px solid var(--tdg-gold); }
+   353|.ec.editing { display:none; }
+   354|.ec.saved { background:#d1fae5; transition:background 1.2s; }
+   355|.ec.error { background:#fee2e2; }
+   356|.num { text-align:right; }
+   357|/* Select inline */
+   358|.es {
+   359|  font-size:0.74rem; border:0; background:transparent;
+   360|  padding:0; width:100%; cursor:pointer;
+   361|}
+   362|.es:focus { outline:1px solid var(--tdg-gold); background:#fffbf0; }
+   363|/* Read-only cells */
+   364|.ro { background:#fafafa; cursor:default; }
+   365|/* Filter header */
+   366|.th-filter { cursor:pointer; }
+   367|.fbtn { margin-left:3px; font-size:0.62rem; color:#bbb; }
+   368|.th-filter:hover .fbtn, .th-filter.filtered .fbtn { color:var(--tdg-gold); }
+   369|.th-filter.filtered { background:#fffbf0 !important; }
+   370|/* Hidden rows */
+   371|tr.row-hidden { display:none; }
+   372|/* Float scrollbar */
+   373|#mb-float-scroll { scrollbar-width:thin; scrollbar-color:#888 #c0c0c0; }
+   374|#mb-float-scroll::-webkit-scrollbar { height:8px; }
+   375|#mb-float-scroll::-webkit-scrollbar-track { background:#c0c0c0; }
+   376|#mb-float-scroll::-webkit-scrollbar-thumb { background:#888; border-radius:4px; }
+   377|</style>
+   378|
+   379|<script>
+   380|// ── Inline text/date cell editing ──────────────────────────────────────────
+   381|document.querySelectorAll('.ec').forEach(function(span){
+   382|  span.addEventListener('click', function(e){
+   383|    e.stopPropagation();
+   384|    if(span.classList.contains('editing')) return;
+   385|    const field=span.dataset.field, tid=span.dataset.tid;
+   386|    const isPct=span.dataset.pct, dtype=span.dataset.type;
+   387|
+   388|    const inp=document.createElement('input');
+   389|    inp.type=dtype==='date'?'date':'text';
+   390|    inp.style.cssText='width:100%;border:1px solid #d4a017;border-radius:3px;padding:1px 4px;font-size:0.74rem;background:#fffbf0;';
+   391|
+   392|    let raw=span.textContent.trim();
+   393|    if(dtype==='date'&&raw){
+   394|      const p=raw.split('/');
+   395|      if(p.length===3){const yr=p[2].length===2?'20'+p[2]:p[2]; raw=yr+'-'+p[0].padStart(2,'0')+'-'+p[1].padStart(2,'0');}
+   396|    } else if(isPct){ raw=raw.replace(/[^0-9.]/g,'');
+   397|    } else { raw=raw.replace(/[$,]/g,''); }
+   398|    inp.value=raw;
+   399|
+   400|    span.classList.add('editing');
+   401|    span.parentNode.insertBefore(inp,span.nextSibling);
+   402|    inp.focus(); inp.select();
+   403|
+   404|    function save(){
+   405|      const nv=inp.value.trim(); inp.remove(); span.classList.remove('editing');
+   406|      fetch('/api/transaction/'+tid+'/patch',{
+   407|        method:'POST',headers:{'Content-Type':'application/json'},
+   408|        body:JSON.stringify({field:field,value:nv})
+   409|      }).then(r=>r.json()).then(d=>{
+   410|        if(d.ok){
+   411|          if(dtype==='date'&&nv){const p=nv.split('-');span.textContent=p[1]+'/'+p[2]+'/'+p[0].slice(2);}
+   412|          else if(isPct){span.textContent=nv?parseFloat(nv).toFixed(0):'';}
+   413|          else if(span.classList.contains('num')&&nv){span.textContent=parseFloat(nv.replace(/,/g,'')).toLocaleString('en-US',{maximumFractionDigits:0});}
+   414|          else{span.textContent=nv;}
+   415|          span.closest('td').dataset.val=nv;
+   416|          span.classList.add('saved');
+   417|          setTimeout(()=>span.classList.remove('saved'),1500);
+   418|          refreshComputed(tid);
+   419|        } else {
+   420|          span.classList.add('error');
+   421|          setTimeout(()=>span.classList.remove('error'),2000);
+   422|          alert('Save failed: '+(d.error||'unknown'));
+   423|        }
+   424|      }).catch(()=>{span.classList.add('error');setTimeout(()=>span.classList.remove('error'),2000);});
+   425|    }
+   426|    inp.addEventListener('blur',save);
+   427|    inp.addEventListener('keydown',e=>{
+   428|      if(e.key==='Enter'){e.preventDefault();save();}
+   429|      if(e.key==='Escape'){inp.remove();span.classList.remove('editing');}
+   430|    });
+   431|  });
+   432|});
+   433|
+   434|// ── Inline select editing ──────────────────────────────────────────────────
+   435|document.querySelectorAll('.es').forEach(sel=>{
+   436|  sel.addEventListener('change',function(){
+   437|    const field=sel.dataset.field,tid=sel.dataset.tid;
+   438|    fetch('/api/transaction/'+tid+'/patch',{
+   439|      method:'POST',headers:{'Content-Type':'application/json'},
+   440|      body:JSON.stringify({field:field,value:sel.value})
+   441|    }).then(r=>r.json()).then(d=>{
+   442|      if(d.ok){
+   443|        sel.closest('td').dataset.val=sel.value;
+   444|        sel.style.background='#d1fae5';
+   445|        setTimeout(()=>sel.style.background='transparent',1200);
+   446|      } else {sel.style.background='#fee2e2';setTimeout(()=>sel.style.background='transparent',2000);}
+   447|    });
+   448|  });
+   449|});
+   450|
+   451|// ── Checkbox (Paid?) ─────────────────────────────────────────────────────
+   452|document.querySelectorAll('.ec-bool').forEach(cb=>{
+   453|  cb.addEventListener('change',function(){
+   454|    fetch('/api/transaction/'+cb.dataset.tid+'/patch',{
+   455|      method:'POST',headers:{'Content-Type':'application/json'},
+   456|      body:JSON.stringify({field:cb.dataset.field,value:cb.checked?'true':'false'})
+   457|    }).then(r=>r.json()).then(d=>{
+   458|      if(d.ok) cb.closest('td').dataset.val=cb.checked?'Yes':'';
+   459|    });
+   460|  });
+   461|});
+   462|
+   // ── Refresh computed cells after any save ─────────────────────────────────
+   // td indices (0-based): dsc=3, exp_in=4, dom=5, up_closing=6, company_dollar=51, 1099=52
+   function refreshComputed(tid){
+     fetch('/api/transaction/'+tid+'/computed').then(r=>r.json()).then(d=>{
+       if(!d.ok) return;
+       const row=document.querySelector('tr[data-tid="'+tid+'"]');
+       if(!row) return;
+       const cells=row.querySelectorAll('td');
+       const fmt=v=>v!=null&&v!==''?parseFloat(v).toLocaleString('en-US',{maximumFractionDigits:0}):'';
+       const set=(i,v,f)=>{if(cells[i]){cells[i].dataset.val=v??'';cells[i].textContent=f?fmt(v):(v??'');}};
+       set(3, d.dsc);
+       set(4, d.exp_in);
+       set(5, d.dom);
+       set(6, d.up_closing);
+       set(51, d.company_dollar, true);
+       set(52, d.company_dollar, true);
+     }).catch(()=>{});
+   }
+   482|
+   483|// ── Excel-style multi-select column filters ────────────────────────────────
+   484|const dd=document.getElementById('col-filter-dd');
+   485|const fddSearch=document.getElementById('fdd-search');
+   486|const fddBoxes=document.getElementById('fdd-boxes');
+   487|const activeFilters={};
+   488|let curTh=null, curCol=-1;
+   489|
+   490|function getColVals(colIdx){
+   491|  const vals=new Set();
+   492|  document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row=>{
+   493|    const td=row.querySelectorAll('td')[colIdx];
+   494|    if(td) vals.add((td.dataset.val||'').trim());
+   495|  });
+   496|  return [...vals].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+   497|}
+   498|
+   499|function openDD(th, colIdx, e){
+   500|  curTh=th; curCol=colIdx;
+   501|  const vals=getColVals(colIdx);
+   502|  const active=activeFilters[colIdx]||null;
+   503|  fddSearch.value=''; fddBoxes.innerHTML='';
+   504|  vals.forEach(v=>{
+   505|    const id='fc_'+Math.random().toString(36).slice(2);
+   506|    const chk=!active||active.has(v);
+   507|    fddBoxes.innerHTML+=`<label class="d-flex align-items-center gap-1 mb-1" style="font-size:0.8rem;cursor:pointer">
+   508|      <input type="checkbox" id="${id}" value="${v}" ${chk?'checked':''}> ${v===''?'(Blank)':v}
+   509|    </label>`;
+   510|  });
+   511|  const rect=th.getBoundingClientRect();
+   512|  dd.style.top=(rect.bottom+2)+'px';
+   513|  dd.style.left=Math.min(rect.left,window.innerWidth-290)+'px';
+   514|  dd.style.display='block';
+   515|  fddSearch.focus();
+   516|  e.stopPropagation();
+   517|}
+   518|
+   519|document.querySelectorAll('.th-filter').forEach(th=>{
+   520|  th.addEventListener('click',function(e){
+   521|    if(dd.style.display==='block'&&curTh===th){dd.style.display='none';return;}
+   522|    const colIdx=parseInt(th.dataset.col);
+   523|    openDD(th,colIdx,e);
+   524|  });
+   525|});
+   526|
+   fddSearch.addEventListener('input',function(){
+     const q=this.value.toLowerCase();
+     fddBoxes.querySelectorAll('label').forEach(l=>l.style.display=l.textContent.toLowerCase().includes(q)?'':'none');
+   });
 
-<!-- Summary bar -->
-<div class="row g-2 mb-3">
-  {% for label, val in [('Active Listings', summary.active_listings), ('Active Buyers', summary.active_buyers), ('Pending', summary.pending), ('Closed', summary.closed), ('Pre-Signed', summary.pipeline)] %}
-  <div class="col">
-    <div class="stat-card text-center py-2">
-      <div style="font-size:1.4rem;font-weight:700;color:var(--tdg-gold)">{{ val }}</div>
-      <div style="font-size:0.72rem;color:var(--tdg-muted);text-transform:uppercase">{{ label }}</div>
-    </div>
-  </div>
-  {% endfor %}
-</div>
-
-<!-- Year filter + record count -->
-<form method="GET" class="row g-2 mb-2 align-items-center" id="year-form">
-  <div class="col-auto">
-    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
-      {% for y in years %}<option value="{{ y }}" {% if y==selected_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
-    </select>
-  </div>
-  <div class="col-auto text-muted small" id="rec-count">{{ transactions|length }} records</div>
-  <div class="col-auto ms-auto">
-    <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-filters-btn">Clear All Filters</button>
-  </div>
-</form>
-
-<!-- Table -->
-<div class="card mt-1 p-0">
-  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:74vh;position:relative;">
-    <table class="table table-hover table-bordered mb-0" id="mb-table" style="min-width:5600px;table-layout:fixed;font-size:0.74rem">
-      <thead style="position:sticky;top:0;z-index:20;background:#f8f9fa;">
-        <tr>
-          {# ── STICKY LEFT: #, Agent, Address ── #}
-          <th class="sticky-col" style="left:0;min-width:36px;width:36px;z-index:25;background:#f8f9fa">#</th>
-          <th class="sticky-col th-filter" data-col="1" style="left:36px;min-width:140px;width:140px;z-index:25;background:#f8f9fa">Agent<span class="fbtn">▾</span></th>
-          <th class="sticky-col th-filter" data-col="2" style="left:176px;min-width:200px;width:200px;z-index:25;background:#f8f9fa">Address<span class="fbtn">▾</span></th>
-
-          {# ── CTE COLUMN ORDER (left→right as in CTE row 21) ── #}
-          {# Col S/T: DSC, EXP in #}
-          <th style="min-width:55px">DSC</th>
-          <th style="min-width:60px">EXP in</th>
-          {# Col U: DOM #}
-          <th style="min-width:55px">DOM</th>
-          {# Col J/K/L: Up Closing, Close to Ex, Exp Date (computed) #}
-          <th style="min-width:65px">↑Close</th>
-          {# Col X: Status #}
-          <th class="th-filter" data-col="8" style="min-width:90px">Status<span class="fbtn">▾</span></th>
-          {# Col Y: Sub Status #}
-          <th class="th-filter" data-col="9" style="min-width:100px">Sub Status<span class="fbtn">▾</span></th>
-          {# Col AA: Client(s) #}
-          <th class="th-filter" data-col="10" style="min-width:130px">Client(s)<span class="fbtn">▾</span></th>
-          {# Col AB: Source #}
-          <th class="th-filter" data-col="11" style="min-width:110px">Source<span class="fbtn">▾</span></th>
-          {# Col AC: Signed Date #}
-          <th style="min-width:90px">Signed Date</th>
-          {# Col AD: MLS Live Date #}
-          <th style="min-width:90px">MLS Live</th>
-          {# Col AE: Exp Date #}
-          <th style="min-width:90px">Exp Date</th>
-          {# Col AF: Under Contr Date #}
-          <th style="min-width:95px">Under Contr</th>
-          {# Col AG: Proj Close #}
-          <th style="min-width:90px">Proj Close</th>
-          {# Col AH: Close Date #}
-          <th style="min-width:90px">Close Date</th>
-          {# Col AI: List Price / Buyer Rep Price #}
-          <th style="min-width:100px">List Price</th>
-          {# Col AJ: Sale Price #}
-          <th style="min-width:100px">Sale Price</th>
-          {# Col AK: T (type) — shown as Type dropdown #}
-          <th class="th-filter" data-col="20" style="min-width:90px">Type<span class="fbtn">▾</span></th>
-          {# Col AL: % (commission %) #}
-          <th style="min-width:60px">Comm%</th>
-          {# Col AM: Units #}
-          <th style="min-width:60px">Units</th>
-          {# Col AN: GCI #}
-          <th style="min-width:100px;color:var(--tdg-gold)">GCI</th>
-          {# Col AO: Bonus #}
-          <th style="min-width:80px">Bonus</th>
-          {# Col AP: Transaction Fee #}
-          <th style="min-width:85px">Tx Fee</th>
-          {# Col AQ: Broker Split #}
-          <th style="min-width:90px">Broker Split</th>
-          {# Col AR: Franchise Split #}
-          <th style="min-width:90px">Franchise</th>
-          {# Col AS: Referral #}
-          <th style="min-width:80px">Referral</th>
-          {# Col AT/AU/AV: Primary Agent, %, GCI #}
-          <th class="th-filter" data-col="29" style="min-width:130px">Primary Agent<span class="fbtn">▾</span></th>
-          <th style="min-width:55px">Pri%</th>
-          <th style="min-width:90px">Primary GCI</th>
-          {# Col AW/AX/AY: Secondary Agent, %, GCI #}
-          <th class="th-filter" data-col="32" style="min-width:130px">2nd Agent<span class="fbtn">▾</span></th>
-          <th style="min-width:55px">2nd%</th>
-          <th style="min-width:90px">2nd GCI</th>
-          {# Col AZ/BA/BB: Member 3, %, GCI #}
-          <th style="min-width:130px">Member 3</th>
-          <th style="min-width:55px">M3%</th>
-          <th style="min-width:90px">M3 GCI</th>
-          {# Col BC/BD/BE: Member 4, %, GCI #}
-          <th style="min-width:130px">Member 4</th>
-          <th style="min-width:55px">M4%</th>
-          <th style="min-width:90px">M4 GCI</th>
-          {# Col BF: E&O #}
-          <th style="min-width:70px">E&amp;O</th>
-          {# Col BH: Donation #}
-          <th style="min-width:80px">Donation</th>
-          {# Col BI: Other #}
-          <th style="min-width:80px">Other Fee</th>
-          {# Col BK/BL: Inspection Date, Appraisal Date #}
-          <th style="min-width:95px">Inspection</th>
-          <th style="min-width:90px">Appraisal</th>
-          {# Col BM/BN: Mortgage Co, Title Co #}
-          <th class="th-filter" data-col="44" style="min-width:130px">Mortgage Co<span class="fbtn">▾</span></th>
-          <th class="th-filter" data-col="45" style="min-width:130px">Title Co<span class="fbtn">▾</span></th>
-          {# Col BO: Team/Agent (Lead Type) #}
-          <th class="th-filter" data-col="46" style="min-width:85px">Lead Type<span class="fbtn">▾</span></th>
-          {# Col BP: ∞ (link to file) #}
-          <th style="min-width:70px">∞ File</th>
-          {# Col BQ: Location #}
-          <th class="th-filter" data-col="48" style="min-width:100px">Location<span class="fbtn">▾</span></th>
-          {# Col BR: Paid? #}
-          <th style="min-width:60px">Paid?</th>
-          {# Col BS: Company Dollar (Team TDG in CTE = company net) #}
-          <th style="min-width:110px;background:#f0fdf4">Co. Dollar</th>
-          {# Col BT: 1099 Income #}
-          <th style="min-width:90px">1099 Income</th>
-          {# Col BU: Net Income #}
-          <th style="min-width:90px">Net Income</th>
-          {# Col BV: Taxes #}
-          <th style="min-width:80px">Taxes</th>
-          {# Col BW: Net After Taxes #}
-          <th style="min-width:100px">Net After Tax</th>
-          {# Extra: Admin, Old List, List Date, Notes #}
-          <th style="min-width:100px">Old List $</th>
-          <th style="min-width:90px">List Date</th>
-          <th class="th-filter" data-col="56" style="min-width:110px">Admin<span class="fbtn">▾</span></th>
-          <th style="min-width:150px">Notes</th>
-          {# STICKY RIGHT: Actions #}
-          <th style="position:sticky;right:0;min-width:110px;z-index:25;background:#f8f9fa">Actions</th>
-        </tr>
-      </thead>
-      <tbody id="mb-tbody">
-        {% for t in transactions %}
-        <tr data-tid="{{ t.id }}" data-row>
-          {# # #}
-          <td class="sticky-col text-muted text-center" style="left:0;background:#fafafa">{{ loop.index }}</td>
-          {# Agent — sticky #}
-          <td class="sticky-col" style="left:36px;background:#fff" data-val="{{ t.primary_agent_name or (t.agent.name if t.agent else '') }}">
-            <span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}">{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</span>
-          </td>
-          {# Address — sticky #}
-          <td class="sticky-col" style="left:176px;background:#fff" data-val="{{ t.address or '' }}">
-            <span class="ec" data-field="address" data-tid="{{ t.id }}">{{ t.address or '' }}</span>
-          </td>
-
-          {# DSC #}
-          <td class="text-muted text-center ro" data-val="{{ t.dsc if t.dsc is not none else '' }}">{{ t.dsc if t.dsc is not none else '' }}</td>
-          {# EXP in #}
-          <td class="text-center ro {% if t.exp_in is not none and t.exp_in < 30 %}text-danger{% endif %}" data-val="{{ t.exp_in if t.exp_in is not none else '' }}">{{ t.exp_in if t.exp_in is not none else '' }}</td>
-          {# DOM #}
-          <td class="text-muted text-center ro" data-val="{{ t.dom if t.dom is not none else '' }}">{{ t.dom if t.dom is not none else '' }}</td>
-          {# Up Closing #}
-          <td class="text-center ro {% if t.up_closing is not none and t.up_closing < 14 %}text-warning fw-semibold{% endif %}" data-val="{{ t.up_closing if t.up_closing is not none else '' }}">{{ t.up_closing if t.up_closing is not none else '' }}</td>
-
-          {# Status #}
-          <td data-val="{{ t.status or '' }}">
-            <select class="es" data-field="status" data-tid="{{ t.id }}">
-              {% for opt in ['Active','Pending','Closed','Pre-Signed','Coming Soon','Pipeline','x-Cancelled','y-Sale Failed','z-Expired','Temp Off Market'] %}
-              <option {% if t.status==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
-            </select>
-          </td>
-          {# Sub Status #}
-          <td data-val="{{ t.sub_status or '' }}">
-            <select class="es" data-field="sub_status" data-tid="{{ t.id }}">
-              <option value="">—</option>
-              {% for opt in ['CRE Buyer','CRE Listing','CRE Lease','Landlord Rep','Tenant Rep','Business-only'] %}
-              <option {% if t.sub_status==opt %}selected{% endif %} value="{{ opt }}">{{ opt }}</option>{% endfor %}
-            </select>
-          </td>
-          {# Client(s) #}
-          <td data-val="{{ t.client_name or '' }}"><span class="ec" data-field="client_name" data-tid="{{ t.id }}">{{ t.client_name or '' }}</span></td>
-          {# Source #}
-          <td data-val="{{ t.lead_source or '' }}"><span class="ec" data-field="lead_source" data-tid="{{ t.id }}">{{ t.lead_source or '' }}</span></td>
-          {# Signed Date #}
-          <td data-val="{{ t.signed_date.isoformat() if t.signed_date else '' }}"><span class="ec" data-field="signed_date" data-tid="{{ t.id }}" data-type="date">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '' }}</span></td>
-          {# MLS Live #}
-          <td data-val="{{ t.mls_live_date.isoformat() if t.mls_live_date else '' }}"><span class="ec" data-field="mls_live_date" data-tid="{{ t.id }}" data-type="date">{{ t.mls_live_date.strftime('%m/%d/%y') if t.mls_live_date else '' }}</span></td>
-          {# Exp Date #}
-          <td data-val="{{ t.expiry_date.isoformat() if t.expiry_date else '' }}"><span class="ec" data-field="expiry_date" data-tid="{{ t.id }}" data-type="date">{{ t.expiry_date.strftime('%m/%d/%y') if t.expiry_date else '' }}</span></td>
-          {# Under Contr #}
-          <td data-val="{{ t.under_contract_date.isoformat() if t.under_contract_date else '' }}"><span class="ec" data-field="under_contract_date" data-tid="{{ t.id }}" data-type="date">{{ t.under_contract_date.strftime('%m/%d/%y') if t.under_contract_date else '' }}</span></td>
-          {# Proj Close #}
-          <td data-val="{{ t.projected_close_date.isoformat() if t.projected_close_date else '' }}"><span class="ec" data-field="projected_close_date" data-tid="{{ t.id }}" data-type="date">{{ t.projected_close_date.strftime('%m/%d/%y') if t.projected_close_date else '' }}</span></td>
-          {# Close Date #}
-          <td data-val="{{ t.close_date.isoformat() if t.close_date else '' }}"><span class="ec" data-field="close_date" data-tid="{{ t.id }}" data-type="date">{{ t.close_date.strftime('%m/%d/%y') if t.close_date else '' }}</span></td>
-          {# List Price #}
-          <td data-val="{{ t.list_price or '' }}"><span class="ec num" data-field="list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.list_price) if t.list_price else '' }}</span></td>
-          {# Sale Price #}
-          <td data-val="{{ t.sale_price or '' }}"><span class="ec num" data-field="sale_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.sale_price) if t.sale_price else '' }}</span></td>
-          {# Type #}
-          <td data-val="{{ t.transaction_type or '' }}">
-            <select class="es" data-field="transaction_type" data-tid="{{ t.id }}">
-              {% for opt in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
-              <option {% if t.transaction_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
-            </select>
-          </td>
-          {# Comm% #}
-          <td data-val="{{ t.commission_pct or '' }}"><span class="ec num" data-field="commission_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.2f}".format(t.commission_pct*100) if t.commission_pct else '' }}</span></td>
-          {# Units #}
-          <td data-val="{{ t.units or '' }}"><span class="ec num" data-field="units" data-tid="{{ t.id }}">{{ t.units if t.units else '' }}</span></td>
-          {# GCI #}
-          <td class="fw-semibold" style="color:var(--tdg-gold)" data-val="{{ t.gci or '' }}"><span class="ec num" data-field="gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.gci) if t.gci else '' }}</span></td>
-          {# Bonus #}
-          <td data-val="{{ t.bonus or '' }}"><span class="ec num" data-field="bonus" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.bonus) if t.bonus else '' }}</span></td>
-          {# Tx Fee #}
-          <td data-val="{{ t.transaction_fee or '' }}"><span class="ec num" data-field="transaction_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.transaction_fee) if t.transaction_fee else '' }}</span></td>
-          {# Broker Split #}
-          <td data-val="{{ t.broker_split or '' }}"><span class="ec num" data-field="broker_split" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.broker_split) if t.broker_split else '' }}</span></td>
-          {# Franchise #}
-          <td data-val="{{ t.franchise_split or '' }}"><span class="ec num" data-field="franchise_split" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.franchise_split) if t.franchise_split else '' }}</span></td>
-          {# Referral #}
-          <td data-val="{{ t.referral_fee or '' }}"><span class="ec num" data-field="referral_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.referral_fee) if t.referral_fee else '' }}</span></td>
-          {# Primary Agent / % / GCI #}
-          <td data-val="{{ t.primary_agent_name or '' }}"><span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}">{{ t.primary_agent_name or '' }}</span></td>
-          <td data-val="{{ t.primary_agent_pct or '' }}"><span class="ec num" data-field="primary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.primary_agent_pct*100) if t.primary_agent_pct else '' }}</span></td>
-          <td data-val="{{ t.primary_agent_gci or '' }}"><span class="ec num" data-field="primary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.primary_agent_gci) if t.primary_agent_gci else '' }}</span></td>
-          {# Secondary Agent / % / GCI #}
-          <td data-val="{{ t.secondary_agent_name or '' }}"><span class="ec" data-field="secondary_agent_name" data-tid="{{ t.id }}">{{ t.secondary_agent_name or '' }}</span></td>
-          <td data-val="{{ t.secondary_agent_pct or '' }}"><span class="ec num" data-field="secondary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.secondary_agent_pct*100) if t.secondary_agent_pct else '' }}</span></td>
-          <td data-val="{{ t.secondary_agent_gci or '' }}"><span class="ec num" data-field="secondary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.secondary_agent_gci) if t.secondary_agent_gci else '' }}</span></td>
-          {# Member 3 / % / GCI #}
-          <td data-val="{{ t.member3_name or '' }}"><span class="ec" data-field="member3_name" data-tid="{{ t.id }}">{{ t.member3_name or '' }}</span></td>
-          <td data-val="{{ t.member3_pct or '' }}"><span class="ec num" data-field="member3_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member3_pct*100) if t.member3_pct else '' }}</span></td>
-          <td data-val="{{ t.member3_gci or '' }}"><span class="ec num" data-field="member3_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.member3_gci) if t.member3_gci else '' }}</span></td>
-          {# Member 4 / % / GCI #}
-          <td data-val="{{ t.member4_name or '' }}"><span class="ec" data-field="member4_name" data-tid="{{ t.id }}">{{ t.member4_name or '' }}</span></td>
-          <td data-val="{{ t.member4_pct or '' }}"><span class="ec num" data-field="member4_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member4_pct*100) if t.member4_pct else '' }}</span></td>
-          <td data-val="{{ t.member4_gci or '' }}"><span class="ec num" data-field="member4_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.member4_gci) if t.member4_gci else '' }}</span></td>
-          {# E&O #}
-          <td data-val="{{ t.eo_fee or '' }}"><span class="ec num" data-field="eo_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.eo_fee) if t.eo_fee else '' }}</span></td>
-          {# Donation #}
-          <td data-val="{{ t.donation or '' }}"><span class="ec num" data-field="donation" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.donation) if t.donation else '' }}</span></td>
-          {# Other Fee #}
-          <td data-val="{{ t.other_fee or '' }}"><span class="ec num" data-field="other_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.other_fee) if t.other_fee else '' }}</span></td>
-          {# Inspection Date #}
-          <td data-val="{{ t.inspection_date.isoformat() if t.inspection_date else '' }}"><span class="ec" data-field="inspection_date" data-tid="{{ t.id }}" data-type="date">{{ t.inspection_date.strftime('%m/%d/%y') if t.inspection_date else '' }}</span></td>
-          {# Appraisal Date #}
-          <td data-val="{{ t.appraisal_date.isoformat() if t.appraisal_date else '' }}"><span class="ec" data-field="appraisal_date" data-tid="{{ t.id }}" data-type="date">{{ t.appraisal_date.strftime('%m/%d/%y') if t.appraisal_date else '' }}</span></td>
-          {# Mortgage Co #}
-          <td data-val="{{ t.mortgage_company or '' }}"><span class="ec" data-field="mortgage_company" data-tid="{{ t.id }}">{{ t.mortgage_company or '' }}</span></td>
-          {# Title Co #}
-          <td data-val="{{ t.title_company or '' }}"><span class="ec" data-field="title_company" data-tid="{{ t.id }}">{{ t.title_company or '' }}</span></td>
-          {# Lead Type (Team/Agent) #}
-          <td data-val="{{ t.lead_type or '' }}">
-            <select class="es" data-field="lead_type" data-tid="{{ t.id }}">
-              {% for opt in ['Team','Agent'] %}<option {% if t.lead_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
-            </select>
-          </td>
-          {# ∞ File Link #}
-          <td class="text-center" data-val="{{ t.link_to_file or '' }}">
-            {% if t.link_to_file %}<a href="{{ t.link_to_file }}" target="_blank" title="{{ t.link_to_file }}" style="color:var(--tdg-gold);font-weight:bold">∞</a>{% endif %}
-            <span class="ec" data-field="link_to_file" data-tid="{{ t.id }}" style="{% if t.link_to_file %}display:none{% endif %}font-size:0.65rem;color:#aaa">edit</span>
-          </td>
-          {# Location #}
-          <td data-val="{{ t.location or '' }}"><span class="ec" data-field="location" data-tid="{{ t.id }}">{{ t.location or '' }}</span></td>
-          {# Paid? #}
-          <td class="text-center" data-val="{{ 'Yes' if t.paid else '' }}">
-            <input type="checkbox" class="ec-bool" data-field="paid" data-tid="{{ t.id }}" {% if t.paid %}checked{% endif %}>
-          </td>
-          {# Company Dollar — computed, green #}
-          <td class="fw-semibold ro" style="background:#f0fdf4;color:#166534" data-val="{{ t.company_dollar or '' }}">
-            {{ "{:,.0f}".format(t.company_dollar) if t.company_dollar else '' }}
-          </td>
-          {# 1099 Income = Company Dollar #}
-          <td class="ro text-muted" data-val="{{ t.company_dollar or '' }}">
-            {{ "{:,.0f}".format(t.company_dollar) if t.company_dollar else '' }}
-          </td>
-          {# Net Income #}
-          <td data-val="{{ t.net_income or '' }}"><span class="ec num" data-field="net_income" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.net_income) if t.net_income else '' }}</span></td>
-          {# Taxes #}
-          <td data-val="{{ t.taxes or '' }}"><span class="ec num" data-field="taxes" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.taxes) if t.taxes else '' }}</span></td>
-          {# Net After Taxes #}
-          <td data-val="{{ t.net_after_taxes or '' }}"><span class="ec num" data-field="net_after_taxes" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.net_after_taxes) if t.net_after_taxes else '' }}</span></td>
-          {# Old List Price #}
-          <td data-val="{{ t.old_list_price or '' }}"><span class="ec num" data-field="old_list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.old_list_price) if t.old_list_price else '' }}</span></td>
-          {# List Date #}
-          <td data-val="{{ t.list_date.isoformat() if t.list_date else '' }}"><span class="ec" data-field="list_date" data-tid="{{ t.id }}" data-type="date">{{ t.list_date.strftime('%m/%d/%y') if t.list_date else '' }}</span></td>
-          {# Admin #}
-          <td data-val="{{ t.admin_name or '' }}">
-            <select class="es" data-field="admin_name" data-tid="{{ t.id }}">
-              <option value="">— assign —</option>
-              {% for a in admin_names %}<option {% if t.admin_name==a %}selected{% endif %} value="{{ a }}">{{ a }}</option>{% endfor %}
-            </select>
-          </td>
-          {# Notes #}
-          <td data-val="{{ t.notes or '' }}"><span class="ec" data-field="notes" data-tid="{{ t.id }}">{{ t.notes or '' }}</span></td>
-          {# Actions — sticky right #}
-          <td style="position:sticky;right:0;background:#fff;white-space:nowrap;z-index:10">
-            <a href="{{ url_for('main.edit_transaction', tid=t.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-1">Edit</a>
-            <form method="POST" action="{{ url_for('main.delete_transaction', tid=t.id) }}" style="display:inline" onsubmit="return confirm('Delete this transaction?')">
-              <button class="btn btn-sm btn-outline-danger py-0 px-1">Del</button>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="65" class="text-center text-muted py-4">No transactions found. <a href="{{ url_for('main.add_transaction') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- ── Column Filter Dropdown ───────────────────────────────────────────── -->
-<div id="col-filter-dd" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #dee2e6;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);min-width:210px;max-width:280px;padding:8px;">
-  <input type="text" id="fdd-search" placeholder="Search…" class="form-control form-control-sm mb-2" style="font-size:0.8rem">
-  <div style="max-height:220px;overflow-y:auto" id="fdd-boxes"></div>
-  <div class="d-flex gap-1 mt-2">
-    <button class="btn btn-sm btn-gold w-50" id="fdd-apply">Apply</button>
-    <button class="btn btn-sm btn-outline-secondary w-50" id="fdd-clear">Clear</button>
-  </div>
-</div>
-
-<style>
-.sticky-col { position:sticky; z-index:10; }
-#mb-table td, #mb-table th {
-  white-space:nowrap; padding:3px 6px; vertical-align:middle;
-  overflow:hidden; text-overflow:ellipsis;
-}
-#mb-table thead th {
-  font-size:0.71rem; font-weight:600; color:#555;
-  background:#f8f9fa; border-bottom:2px solid #dee2e6;
-  user-select:none;
-}
-/* Editable cell */
-.ec {
-  cursor:pointer; display:block; min-width:30px; min-height:16px;
-  border-radius:3px; padding:1px 3px;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
-.ec:hover { background:#fff8e6; outline:1px solid var(--tdg-gold); }
-.ec.editing { display:none; }
-.ec.saved { background:#d1fae5; transition:background 1.2s; }
-.ec.error { background:#fee2e2; }
-.num { text-align:right; }
-/* Select inline */
-.es {
-  font-size:0.74rem; border:0; background:transparent;
-  padding:0; width:100%; cursor:pointer;
-}
-.es:focus { outline:1px solid var(--tdg-gold); background:#fffbf0; }
-/* Read-only cells */
-.ro { background:#fafafa; cursor:default; }
-/* Filter header */
-.th-filter { cursor:pointer; }
-.fbtn { margin-left:3px; font-size:0.62rem; color:#bbb; }
-.th-filter:hover .fbtn, .th-filter.filtered .fbtn { color:var(--tdg-gold); }
-.th-filter.filtered { background:#fffbf0 !important; }
-/* Hidden rows */
-tr.row-hidden { display:none; }
-/* Float scrollbar */
-#mb-float-scroll { scrollbar-width:thin; scrollbar-color:#888 #c0c0c0; }
-#mb-float-scroll::-webkit-scrollbar { height:8px; }
-#mb-float-scroll::-webkit-scrollbar-track { background:#c0c0c0; }
-#mb-float-scroll::-webkit-scrollbar-thumb { background:#888; border-radius:4px; }
-</style>
-
-<script>
-// ── Inline text/date cell editing ──────────────────────────────────────────
-document.querySelectorAll('.ec').forEach(function(span){
-  span.addEventListener('click', function(e){
-    e.stopPropagation();
-    if(span.classList.contains('editing')) return;
-    const field=span.dataset.field, tid=span.dataset.tid;
-    const isPct=span.dataset.pct, dtype=span.dataset.type;
-
-    const inp=document.createElement('input');
-    inp.type=dtype==='date'?'date':'text';
-    inp.style.cssText='width:100%;border:1px solid #d4a017;border-radius:3px;padding:1px 4px;font-size:0.74rem;background:#fffbf0;';
-
-    let raw=span.textContent.trim();
-    if(dtype==='date'&&raw){
-      const p=raw.split('/');
-      if(p.length===3){const yr=p[2].length===2?'20'+p[2]:p[2]; raw=yr+'-'+p[0].padStart(2,'0')+'-'+p[1].padStart(2,'0');}
-    } else if(isPct){ raw=raw.replace(/[^0-9.]/g,'');
-    } else { raw=raw.replace(/[$,]/g,''); }
-    inp.value=raw;
-
-    span.classList.add('editing');
-    span.parentNode.insertBefore(inp,span.nextSibling);
-    inp.focus(); inp.select();
-
-    function save(){
-      const nv=inp.value.trim(); inp.remove(); span.classList.remove('editing');
-      fetch('/api/transaction/'+tid+'/patch',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({field:field,value:nv})
-      }).then(r=>r.json()).then(d=>{
-        if(d.ok){
-          if(dtype==='date'&&nv){const p=nv.split('-');span.textContent=p[1]+'/'+p[2]+'/'+p[0].slice(2);}
-          else if(isPct){span.textContent=nv?parseFloat(nv).toFixed(0):'';}
-          else if(span.classList.contains('num')&&nv){span.textContent=parseFloat(nv.replace(/,/g,'')).toLocaleString('en-US',{maximumFractionDigits:0});}
-          else{span.textContent=nv;}
-          span.closest('td').dataset.val=nv;
-          span.classList.add('saved');
-          setTimeout(()=>span.classList.remove('saved'),1500);
-          refreshComputed(tid);
-        } else {
-          span.classList.add('error');
-          setTimeout(()=>span.classList.remove('error'),2000);
-          alert('Save failed: '+(d.error||'unknown'));
-        }
-      }).catch(()=>{span.classList.add('error');setTimeout(()=>span.classList.remove('error'),2000);});
-    }
-    inp.addEventListener('blur',save);
-    inp.addEventListener('keydown',e=>{
-      if(e.key==='Enter'){e.preventDefault();save();}
-      if(e.key==='Escape'){inp.remove();span.classList.remove('editing');}
-    });
-  });
-});
-
-// ── Inline select editing ──────────────────────────────────────────────────
-document.querySelectorAll('.es').forEach(sel=>{
-  sel.addEventListener('change',function(){
-    const field=sel.dataset.field,tid=sel.dataset.tid;
-    fetch('/api/transaction/'+tid+'/patch',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({field:field,value:sel.value})
-    }).then(r=>r.json()).then(d=>{
-      if(d.ok){
-        sel.closest('td').dataset.val=sel.value;
-        sel.style.background='#d1fae5';
-        setTimeout(()=>sel.style.background='transparent',1200);
-      } else {sel.style.background='#fee2e2';setTimeout(()=>sel.style.background='transparent',2000);}
-    });
-  });
-});
-
-// ── Checkbox (Paid?) ─────────────────────────────────────────────────────
-document.querySelectorAll('.ec-bool').forEach(cb=>{
-  cb.addEventListener('change',function(){
-    fetch('/api/transaction/'+cb.dataset.tid+'/patch',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({field:cb.dataset.field,value:cb.checked?'true':'false'})
-    }).then(r=>r.json()).then(d=>{
-      if(d.ok) cb.closest('td').dataset.val=cb.checked?'Yes':'';
-    });
-  });
-});
-
-// ── Refresh computed cells after any save ─────────────────────────────────
-// Column index map (0-based) for computed cols in this template:
-// dsc=3, exp_in=4, dom=5, up_closing=6, company_dollar=50, 1099=51
-function refreshComputed(tid){
-  fetch('/api/transaction/'+tid+'/computed').then(r=>r.json()).then(d=>{
-    if(!d.ok) return;
-    const row=document.querySelector('tr[data-tid="'+tid+'"]');
-    if(!row) return;
-    const cells=row.querySelectorAll('td');
-    const fmt=v=>v!=null&&v!==''?parseFloat(v).toLocaleString('en-US',{maximumFractionDigits:0}):'';
-    const set=(i,v,f)=>{if(cells[i]){cells[i].dataset.val=v??'';cells[i].textContent=f?fmt(v):(v??'');}};
-    set(3, d.dsc);
-    set(4, d.exp_in);
-    set(5, d.dom);
-    set(6, d.up_closing);
-    set(50, d.company_dollar, true);
-    set(51, d.company_dollar, true);
-  }).catch(()=>{});
-}
-
-// ── Excel-style multi-select column filters ────────────────────────────────
-const dd=document.getElementById('col-filter-dd');
-const fddSearch=document.getElementById('fdd-search');
-const fddBoxes=document.getElementById('fdd-boxes');
-const activeFilters={};
-let curTh=null, curCol=-1;
-
-function getColVals(colIdx){
-  const vals=new Set();
-  document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row=>{
-    const td=row.querySelectorAll('td')[colIdx];
-    if(td) vals.add((td.dataset.val||'').trim());
-  });
-  return [...vals].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
-}
-
-function openDD(th, colIdx, e){
-  curTh=th; curCol=colIdx;
-  const vals=getColVals(colIdx);
-  const active=activeFilters[colIdx]||null;
-  fddSearch.value=''; fddBoxes.innerHTML='';
-  vals.forEach(v=>{
-    const id='fc_'+Math.random().toString(36).slice(2);
-    const chk=!active||active.has(v);
-    fddBoxes.innerHTML+=`<label class="d-flex align-items-center gap-1 mb-1" style="font-size:0.8rem;cursor:pointer">
-      <input type="checkbox" id="${id}" value="${v}" ${chk?'checked':''}> ${v===''?'(Blank)':v}
-    </label>`;
-  });
-  const rect=th.getBoundingClientRect();
-  dd.style.top=(rect.bottom+2)+'px';
-  dd.style.left=Math.min(rect.left,window.innerWidth-290)+'px';
-  dd.style.display='block';
-  fddSearch.focus();
-  e.stopPropagation();
-}
-
-document.querySelectorAll('.th-filter').forEach(th=>{
-  th.addEventListener('click',function(e){
-    if(dd.style.display==='block'&&curTh===th){dd.style.display='none';return;}
-    const colIdx=parseInt(th.dataset.col);
-    openDD(th,colIdx,e);
-  });
-});
-
-fddSearch.addEventListener('input',function(){
-  const q=this.value.toLowerCase();
-  fddBoxes.querySelectorAll('label').forEach(l=>l.style.display=l.textContent.toLowerCase().includes(q)?'':'none');
-});
-
-document.getElementById('fdd-apply').addEventListener('click',function(){
-  const checked=[...fddBoxes.querySelectorAll('input:checked')].map(i=>i.value);
-  const all=[...fddBoxes.querySelectorAll('input')].map(i=>i.value);
-  if(checked.length===all.length){delete activeFilters[curCol];if(curTh)curTh.classList.remove('filtered');}
-  else{activeFilters[curCol]=new Set(checked);if(curTh)curTh.classList.add('filtered');}
-  applyFilters(); dd.style.display='none';
-});
-
-document.getElementById('fdd-clear').addEventListener('click',function(){
-  delete activeFilters[curCol]; if(curTh)curTh.classList.remove('filtered');
-  fddBoxes.querySelectorAll('input').forEach(i=>i.checked=true);
-  applyFilters(); dd.style.display='none';
-});
-
-document.getElementById('clear-filters-btn').addEventListener('click',function(){
-  Object.keys(activeFilters).forEach(k=>delete activeFilters[k]);
-  document.querySelectorAll('.th-filter.filtered').forEach(th=>th.classList.remove('filtered'));
-  applyFilters();
-});
-
-function applyFilters(){
-  let vis=0;
-  document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row=>{
-    let show=true;
-    for(const[ci,allowed] of Object.entries(activeFilters)){
-      const td=row.querySelectorAll('td')[parseInt(ci)];
-      if(!allowed.has((td?td.dataset.val:'').trim())){show=false;break;}
-    }
-    row.classList.toggle('row-hidden',!show);
-    if(show) vis++;
-  });
-  document.getElementById('rec-count').textContent=vis+' records';
-}
-
-document.addEventListener('click',e=>{
-  if(!dd.contains(e.target)&&!e.target.closest('.th-filter')) dd.style.display='none';
-});
-
-// ── Floating scrollbar ─────────────────────────────────────────────────────
-(function(){
-  const wrap=document.getElementById('mb-table-wrap');
-  if(!wrap) return;
-  const rail=document.createElement('div');
-  rail.id='mb-float-scroll';
-  rail.style.cssText='position:fixed;bottom:0;height:14px;overflow-x:auto;overflow-y:hidden;z-index:9999;background:#c0c0c0;border-top:1px solid #999;display:none;';
-  const inner=document.createElement('div'); inner.style.height='1px';
-  rail.appendChild(inner); document.body.appendChild(rail);
-  function pos(){const r=wrap.getBoundingClientRect();rail.style.left=r.left+'px';rail.style.width=r.width+'px';inner.style.width=wrap.scrollWidth+'px';}
-  function upd(){pos();const r=wrap.getBoundingClientRect();rail.style.display=(r.top<window.innerHeight&&r.bottom>0&&wrap.scrollWidth>wrap.clientWidth)?'block':'none';}
-  pos();upd();
-  window.addEventListener('scroll',upd,{passive:true});
-  window.addEventListener('resize',upd,{passive:true});
-  new ResizeObserver(upd).observe(wrap);
-  let sync=false;
-  rail.addEventListener('scroll',()=>{if(sync)return;sync=true;wrap.scrollLeft=rail.scrollLeft;sync=false;});
-  wrap.addEventListener('scroll',()=>{if(sync)return;sync=true;rail.scrollLeft=wrap.scrollLeft;sync=false;});
-})();
-</script>
-{% endblock %}
+   // Select All / Blank Only / None shortcuts
+   document.getElementById('fdd-select-all').addEventListener('click',function(e){
+     e.preventDefault();
+     fddBoxes.querySelectorAll('input').forEach(i=>i.checked=true);
+   });
+   document.getElementById('fdd-select-blank').addEventListener('click',function(e){
+     e.preventDefault();
+     fddBoxes.querySelectorAll('input').forEach(i=>{ i.checked = i.value===''; });
+   });
+   document.getElementById('fdd-select-none').addEventListener('click',function(e){
+     e.preventDefault();
+     fddBoxes.querySelectorAll('input').forEach(i=>i.checked=false);
+   });
+   531|
+   532|document.getElementById('fdd-apply').addEventListener('click',function(){
+   533|  const checked=[...fddBoxes.querySelectorAll('input:checked')].map(i=>i.value);
+   534|  const all=[...fddBoxes.querySelectorAll('input')].map(i=>i.value);
+   535|  if(checked.length===all.length){delete activeFilters[curCol];if(curTh)curTh.classList.remove('filtered');}
+   536|  else{activeFilters[curCol]=new Set(checked);if(curTh)curTh.classList.add('filtered');}
+   537|  applyFilters(); dd.style.display='none';
+   538|});
+   539|
+   540|document.getElementById('fdd-clear').addEventListener('click',function(){
+   541|  delete activeFilters[curCol]; if(curTh)curTh.classList.remove('filtered');
+   542|  fddBoxes.querySelectorAll('input').forEach(i=>i.checked=true);
+   543|  applyFilters(); dd.style.display='none';
+   544|});
+   545|
+   546|document.getElementById('clear-filters-btn').addEventListener('click',function(){
+   547|  Object.keys(activeFilters).forEach(k=>delete activeFilters[k]);
+   548|  document.querySelectorAll('.th-filter.filtered').forEach(th=>th.classList.remove('filtered'));
+   549|  applyFilters();
+   550|});
+   551|
+   552|function applyFilters(){
+   553|  let vis=0;
+   554|  document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row=>{
+   555|    let show=true;
+   556|    for(const[ci,allowed] of Object.entries(activeFilters)){
+   557|      const td=row.querySelectorAll('td')[parseInt(ci)];
+   558|      if(!allowed.has((td?td.dataset.val:'').trim())){show=false;break;}
+   559|    }
+   560|    row.classList.toggle('row-hidden',!show);
+   561|    if(show) vis++;
+   562|  });
+   563|  document.getElementById('rec-count').textContent=vis+' records';
+   564|}
+   565|
+   566|document.addEventListener('click',e=>{
+   567|  if(!dd.contains(e.target)&&!e.target.closest('.th-filter')) dd.style.display='none';
+   568|});
+   569|
+   570|// ── Floating scrollbar ─────────────────────────────────────────────────────
+   571|(function(){
+   572|  const wrap=document.getElementById('mb-table-wrap');
+   573|  if(!wrap) return;
+   574|  const rail=document.createElement('div');
+   575|  rail.id='mb-float-scroll';
+   576|  rail.style.cssText='position:fixed;bottom:0;height:14px;overflow-x:auto;overflow-y:hidden;z-index:9999;background:#c0c0c0;border-top:1px solid #999;display:none;';
+   577|  const inner=document.createElement('div'); inner.style.height='1px';
+   578|  rail.appendChild(inner); document.body.appendChild(rail);
+   579|  function pos(){const r=wrap.getBoundingClientRect();rail.style.left=r.left+'px';rail.style.width=r.width+'px';inner.style.width=wrap.scrollWidth+'px';}
+   580|  function upd(){pos();const r=wrap.getBoundingClientRect();rail.style.display=(r.top<window.innerHeight&&r.bottom>0&&wrap.scrollWidth>wrap.clientWidth)?'block':'none';}
+   581|  pos();upd();
+   582|  window.addEventListener('scroll',upd,{passive:true});
+   583|  window.addEventListener('resize',upd,{passive:true});
+   584|  new ResizeObserver(upd).observe(wrap);
+   585|  let sync=false;
+   586|  rail.addEventListener('scroll',()=>{if(sync)return;sync=true;wrap.scrollLeft=rail.scrollLeft;sync=false;});
+   587|  wrap.addEventListener('scroll',()=>{if(sync)return;sync=true;rail.scrollLeft=wrap.scrollLeft;sync=false;});
+   588|})();
+   589|</script>
+   590|{% endblock %}
+   591|
