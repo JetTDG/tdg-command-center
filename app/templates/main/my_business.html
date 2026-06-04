@@ -40,112 +40,67 @@
     <table class="table table-hover table-bordered mb-0" id="mb-table" style="min-width:5400px;table-layout:fixed;font-size:0.74rem">
       <thead style="position:sticky;top:0;z-index:20;background:#f8f9fa;">
         <tr>
-          {# ── EXACT CTE ORDER ─────────────────────────────────────────────── #}
-          {# Sticky left: Agent (CTE AT) + Address (CTE Z) #}
-          <th class="sticky-col th-filter" data-col="0" style="left:0;min-width:150px;width:150px;z-index:25;background:#f8f9fa">Agent<span class="fbtn">▾</span></th>
-          <th class="sticky-col th-filter" data-col="1" style="left:150px;min-width:200px;width:200px;z-index:25;background:#f8f9fa">Address<span class="fbtn">▾</span></th>
-          {# Renee order: 1=EXP IN, 2=DOM, 3=Type, then rest #}
-          <th style="min-width:60px">EXP IN</th>
-          <th style="min-width:55px">DOM</th>
-          <th class="th-filter" data-col="4" style="min-width:90px">Type<span class="fbtn">▾</span></th>
-          {# CTE cols J,K: Up Closing, Close to Ex #}
-          <th style="min-width:65px">↑Close</th>
-          <th style="min-width:65px">Close to Ex</th>
-          {# CTE col M,N: Old List, New List(List Price) #}
-          <th style="min-width:100px">Old List $</th>
-          <th style="min-width:100px">List Price</th>
-          {# CTE col O: List Date #}
-          <th style="min-width:90px">List Date</th>
-          {# CTE col S,T,U: DSC #}
-          <th style="min-width:55px">DSC</th>
-          {# CTE col X,Y: Status, Sub Status #}
-          <th class="th-filter" data-col="11" style="min-width:100px">Status<span class="fbtn">▾</span></th>
-          <th class="th-filter" data-col="12" style="min-width:110px">Sub Status<span class="fbtn">▾</span></th>
-          {# CTE col AA: Client(s) #}
-          <th class="th-filter" data-col="13" style="min-width:130px">Client(s)<span class="fbtn">▾</span></th>
-          {# CTE col AB: Source #}
-          <th class="th-filter" data-col="14" style="min-width:110px">Source<span class="fbtn">▾</span></th>
-          {# CTE col AC: Signed Date #}
-          <th style="min-width:90px">Signed Date</th>
-          {# CTE col AD: MLS Live #}
-          <th style="min-width:90px">MLS Live</th>
-          {# CTE col AE: Exp Date #}
-          <th style="min-width:90px">Exp Date</th>
-          {# CTE col AF: Under Contr #}
-          <th style="min-width:95px">Under Contr</th>
-          {# CTE col AG: Proj Close #}
-          <th style="min-width:90px">Proj Close</th>
-          {# CTE col AH: Close Date #}
-          <th style="min-width:90px">Close Date</th>
-          {# CTE col AJ: Sale Price #}
-          <th style="min-width:100px">Sale Price</th>
-          {# CTE col AL: % (Comm%) #}
-          <th style="min-width:60px">Comm%</th>
-          {# CTE col AM: Units #}
-          <th style="min-width:60px">Units</th>
-          {# CTE col AN: GCI #}
-          <th style="min-width:100px;color:var(--tdg-gold)">GCI</th>
-          {# CTE col AO: Bonus #}
-          <th style="min-width:80px">Bonus</th>
-          {# CTE col AP: Transaction Fee #}
-          <th style="min-width:85px">Tx Fee</th>
-          {# CTE col AQ: Broker Split #}
-          <th style="min-width:90px">Broker Split</th>
-          {# CTE col AR: Franchise Split #}
-          <th style="min-width:90px">Franchise</th>
-          {# CTE col AS: Referral #}
-          <th style="min-width:80px">Referral</th>
-          {# CTE col AT/AU/AV: Primary Agent, %, GCI #}
-          <th class="th-filter" data-col="31" style="min-width:140px">Primary Agent<span class="fbtn">▾</span></th>
-          <th style="min-width:55px">Pri%</th>
-          <th style="min-width:90px">Primary GCI</th>
-          {# CTE col AW/AX/AY: 2nd Agent, %, GCI #}
-          <th class="th-filter" data-col="34" style="min-width:140px">2nd Agent<span class="fbtn">▾</span></th>
-          <th style="min-width:55px">2nd%</th>
-          <th style="min-width:90px">2nd GCI</th>
-          {# CTE col AZ/BA/BB: Member 3, %, GCI #}
-          <th style="min-width:130px">Member 3</th>
-          <th style="min-width:55px">M3%</th>
-          <th style="min-width:90px">M3 GCI</th>
-          {# CTE col BC/BD/BE: Member 4, %, GCI #}
-          <th style="min-width:130px">Member 4</th>
-          <th style="min-width:55px">M4%</th>
-          <th style="min-width:90px">M4 GCI</th>
-          {# CTE col BF: E&O #}
-          <th style="min-width:70px">E&amp;O</th>
-          {# CTE col BH: Donation #}
-          <th style="min-width:80px">Donation</th>
-          {# CTE col BI: Other #}
-          <th style="min-width:80px">Other Fee</th>
-          {# CTE col BK/BL: Inspection Date / Appraisal Date #}
-          <th style="min-width:95px">Inspection</th>
-          <th style="min-width:90px">Appraisal</th>
-          {# CTE col BM/BN: Mortgage Co / Title Co #}
-          <th class="th-filter" data-col="48" style="min-width:130px">Mortgage Co<span class="fbtn">▾</span></th>
-          <th class="th-filter" data-col="49" style="min-width:130px">Title Co<span class="fbtn">▾</span></th>
-          {# CTE col BO: Team/Agent (Lead Type) #}
-          <th class="th-filter" data-col="50" style="min-width:85px">Lead Type<span class="fbtn">▾</span></th>
-          {# CTE col BP: ∞ (link to file) #}
-          <th style="min-width:60px">∞</th>
-          {# CTE col BQ: Location #}
-          <th class="th-filter" data-col="52" style="min-width:100px">Location<span class="fbtn">▾</span></th>
-          {# CTE col BR: Paid? #}
-          <th style="min-width:60px">Paid?</th>
-          {# CTE col BS: Team TDG = Company Dollar #}
-          <th style="min-width:110px;background:#f0fdf4">Co. Dollar</th>
-          {# CTE col BT: 1099 Income #}
-          <th style="min-width:90px">1099</th>
-          {# CTE col BU: Net Income #}
-          <th style="min-width:90px">Net Income</th>
-          {# CTE col BV: Taxes #}
-          <th style="min-width:80px">Taxes</th>
-          {# CTE col BW: Net After Taxes #}
-          <th style="min-width:100px">Net After Tax</th>
-          {# Extra: Admin, Notes #}
-          <th class="th-filter" data-col="59" style="min-width:110px">Admin<span class="fbtn">▾</span></th>
-          <th style="min-width:150px">Notes</th>
-          {# Sticky right: Actions #}
-          <th style="position:sticky;right:0;min-width:110px;z-index:25;background:#f8f9fa">Actions</th>
+          <th class="col-hdr sticky-col" data-col="0" style="left:0;min-width:150px;width:150px;z-index:25;background:#f8f9fa">Agent<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr sticky-col" data-col="1" style="left:150px;min-width:200px;width:200px;z-index:25;background:#f8f9fa">Address<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="2" style="min-width:60px">EXP IN<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="3" style="min-width:55px">DOM<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="4" style="min-width:90px">Type<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="5" style="min-width:65px">&#8593;Close<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="6" style="min-width:65px">Close to Ex<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="7" style="min-width:100px">Old List $<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="8" style="min-width:100px">List Price<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="9" style="min-width:90px">List Date<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="10" style="min-width:55px">DSC<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="11" style="min-width:100px">Status<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="12" style="min-width:110px">Sub Status<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="13" style="min-width:130px">Client(s)<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="14" style="min-width:110px">Source<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="15" style="min-width:90px">Signed Date<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="16" style="min-width:90px">MLS Live<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="17" style="min-width:90px">Exp Date<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="18" style="min-width:95px">Under Contr<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="19" style="min-width:90px">Proj Close<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="20" style="min-width:90px">Close Date<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="21" style="min-width:100px">Sale Price<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="22" style="min-width:60px">Comm%<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="23" style="min-width:60px">Units<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="24" style="min-width:100px;color:var(--tdg-gold)">GCI<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="25" style="min-width:80px">Bonus<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="26" style="min-width:85px">Tx Fee<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="27" style="min-width:90px">Broker Split<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="28" style="min-width:90px">Franchise<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="29" style="min-width:80px">Referral<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="30" style="min-width:140px">Primary Agent<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="31" style="min-width:55px">Pri%<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="32" style="min-width:90px">Primary GCI<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="33" style="min-width:140px">2nd Agent<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="34" style="min-width:55px">2nd%<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="35" style="min-width:90px">2nd GCI<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="36" style="min-width:130px">Member 3<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="37" style="min-width:55px">M3%<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="38" style="min-width:90px">M3 GCI<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="39" style="min-width:130px">Member 4<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="40" style="min-width:55px">M4%<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="41" style="min-width:90px">M4 GCI<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="42" style="min-width:70px">E&amp;O<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="43" style="min-width:80px">Donation<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="44" style="min-width:80px">Other Fee<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="45" style="min-width:95px">Inspection<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="46" style="min-width:90px">Appraisal<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="47" style="min-width:130px">Mortgage Co<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="48" style="min-width:130px">Title Co<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="49" style="min-width:85px">Lead Type<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="50" style="min-width:60px">&#8734; File<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="51" style="min-width:100px">Location<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="52" style="min-width:60px">Paid?<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="53" style="min-width:110px;background:#f0fdf4">Co. Dollar<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="54" style="min-width:90px">1099<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="55" style="min-width:90px">Net Income<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="56" style="min-width:80px">Taxes<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="57" style="min-width:100px">Net After Tax<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="58" style="min-width:110px">Admin<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" data-col="59" style="min-width:150px">Notes<span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></th>
+          <th class="col-hdr" style="position:sticky;right:0;min-width:110px;z-index:25;background:#f8f9fa">Actions</th>
         </tr>
       </thead>
       <tbody id="mb-tbody">
@@ -423,10 +378,17 @@ td.urgent { color:#c00 !important; font-weight:700; }
 .es { font-size:0.74rem; border:0; background:transparent; padding:0; width:100%; cursor:pointer; }
 .es:focus { outline:1px solid var(--tdg-gold); background:#fffbf0; }
 .ro { cursor:default; }
+/* ── Column header: every col gets filter ▾ + sort ⇅ ── */
+.col-hdr { cursor:pointer; position:relative; }
+.col-hdr:hover { background:#ececec !important; }
+.hdr-btns { float:right; display:inline-flex; gap:3px; margin-left:4px; }
+.fbtn, .sbtn { font-size:0.62rem; color:#bbb; user-select:none; cursor:pointer; }
+.fbtn:hover { color:var(--tdg-gold); }
+.sbtn:hover { color:#333; }
+.col-hdr.filtered .fbtn { color:var(--tdg-gold); }
+.col-hdr.filtered { background:#fffbf0 !important; }
+/* Legacy - keep for any stray references */
 .th-filter { cursor:pointer; }
-.fbtn { margin-left:3px; font-size:0.62rem; color:#bbb; }
-.th-filter:hover .fbtn, .th-filter.filtered .fbtn { color:var(--tdg-gold); }
-.th-filter.filtered { background:#fffbf0 !important; }
 tr.row-hidden { display:none; }
 #mb-float-scroll { scrollbar-width:thin; scrollbar-color:#888 #c0c0c0; }
 #mb-float-scroll::-webkit-scrollbar { height:8px; }
@@ -435,7 +397,11 @@ tr.row-hidden { display:none; }
 </style>
 
 <script>
-// ── Status badge click → show select ─────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+//  MY BUSINESS — unified sort + filter + inline-edit engine
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Status badge & row class helpers ─────────────────────────────────────
 const BADGE_MAP = {
   'Active':'badge-active','Pending':'badge-pending','Signed':'badge-signed',
   'Pre-Signed':'badge-presigned','Closed':'badge-closed',
@@ -445,246 +411,318 @@ const ROW_TYPE_MAP = {
   'Buyer':'row-buyer','Listing':'row-listing','Commercial':'row-commercial',
   'Lease':'row-lease','Referral':'row-referral'
 };
-function getRowTypeClass(row){
-  const typeTd = row.querySelector('td[data-val]'); // type cell — col 22
-  const cells = row.querySelectorAll('td');
-  // Type is col 4 (0-indexed). Get its select value
-  const typeSel = cells[4] && cells[4].querySelector('select');
-  return ROW_TYPE_MAP[typeSel ? typeSel.value : ''] || 'row-other';
-}
-function updateRowClass(row, newStatus){
-  const pendingStatuses = ['Pending','`Pending','Pre-Signed','Signed'];
-  const deadStatuses = ['x-Cancelled','y-Sale Failed','z-Expired'];
+const PENDING_STATUSES = new Set(['Pending','`Pending','Pre-Signed','Signed']);
+const DEAD_STATUSES    = new Set(['x-Cancelled','y-Sale Failed','z-Expired']);
+
+function updateRowClass(row, newStatus) {
   row.classList.remove('row-buyer','row-listing','row-commercial','row-lease','row-referral','row-other','row-pending','row-dead');
-  if(deadStatuses.includes(newStatus)){
+  if (DEAD_STATUSES.has(newStatus)) {
     row.classList.add('row-dead');
-  } else if(pendingStatuses.includes(newStatus)){
+  } else if (PENDING_STATUSES.has(newStatus)) {
     row.classList.add('row-pending');
   } else {
-    row.classList.add(getRowTypeClass(row));
+    const typeSel = row.querySelectorAll('td')[4] && row.querySelectorAll('td')[4].querySelector('select');
+    row.classList.add(ROW_TYPE_MAP[typeSel ? typeSel.value : ''] || 'row-other');
   }
 }
-document.querySelectorAll('.ec-status-badge').forEach(badge=>{
-  badge.addEventListener('click',function(e){
+
+// ── Status badge click → inline select ───────────────────────────────────
+document.querySelectorAll('.ec-status-badge').forEach(badge => {
+  badge.addEventListener('click', function(e) {
     e.stopPropagation();
     const sel = badge.nextElementSibling;
-    badge.style.display='none';
-    sel.style.display='block';
+    badge.style.display = 'none';
+    sel.style.display = 'block';
     sel.focus();
-    function hideSel(){badge.style.display='';sel.style.display='none';}
-    sel.addEventListener('change',function(){
-      const nv=sel.value;
-      const td=badge.closest('td');
-      // Save
-      fetch('/api/transaction/'+badge.dataset.tid+'/patch',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({field:'status',value:nv})
+    function hide() { badge.style.display=''; sel.style.display='none'; }
+    sel.addEventListener('change', function() {
+      const nv = sel.value;
+      fetch('/api/transaction/'+badge.dataset.tid+'/patch', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({field:'status', value:nv})
       }).then(r=>r.json()).then(d=>{
-        if(d.ok){
-          td.dataset.val=nv;
-          // Update badge text + class
-          badge.textContent=nv;
-          badge.className='badge-status '+(BADGE_MAP[nv]||'badge-other')+' ec-status-badge';
-          // Update row highlight
-          updateRowClass(badge.closest('tr'),nv);
+        if (d.ok) {
+          badge.closest('td').dataset.val = nv;
+          badge.textContent = nv;
+          badge.className = 'badge-status '+(BADGE_MAP[nv]||'badge-other')+' ec-status-badge';
+          updateRowClass(badge.closest('tr'), nv);
         }
-        hideSel();
-      }).catch(hideSel);
-    },{once:true});
-    sel.addEventListener('blur',hideSel,{once:true});
+        hide();
+      }).catch(hide);
+    }, {once:true});
+    sel.addEventListener('blur', hide, {once:true});
   });
 });
 
-// Also update row class when Type select changes
-document.querySelectorAll('.es').forEach(sel=>{
-  if(sel.dataset.field==='transaction_type'){
-    sel.addEventListener('change',function(){
-      const row=sel.closest('tr');
-      // Re-evaluate row class based on current status
-      const statusTd=row.querySelectorAll('td')[11];
-      const currentStatus=statusTd?statusTd.dataset.val:'';
-      updateRowClass(row,currentStatus);
-    });
-  }
-});
-
-// ── Inline text/date cell editing ─────────────────────────────────────────
-document.querySelectorAll('.ec').forEach(function(span){
-  span.addEventListener('click', function(e){
+// ── Inline text/date cell editing ────────────────────────────────────────
+document.querySelectorAll('.ec').forEach(function(span) {
+  span.addEventListener('click', function(e) {
     e.stopPropagation();
-    if(span.classList.contains('editing')) return;
+    if (span.classList.contains('editing')) return;
     const field=span.dataset.field, tid=span.dataset.tid;
     const isPct=span.dataset.pct, dtype=span.dataset.type;
-    const inp=document.createElement('input');
-    inp.type=dtype==='date'?'date':'text';
-    inp.style.cssText='width:100%;border:1px solid #d4a017;border-radius:3px;padding:1px 4px;font-size:0.74rem;background:#fffbf0;';
-    let raw=span.textContent.trim();
-    if(dtype==='date'&&raw){const p=raw.split('/');if(p.length===3){const yr=p[2].length===2?'20'+p[2]:p[2];raw=yr+'-'+p[0].padStart(2,'0')+'-'+p[1].padStart(2,'0');}}
-    else if(isPct){raw=raw.replace(/[^0-9.]/g,'');}
-    else{raw=raw.replace(/[$,]/g,'');}
-    inp.value=raw;
+    const inp = document.createElement('input');
+    inp.type = dtype==='date' ? 'date' : 'text';
+    inp.style.cssText = 'width:100%;border:1px solid #d4a017;border-radius:3px;padding:1px 4px;font-size:0.74rem;background:#fffbf0;';
+    let raw = span.textContent.trim();
+    if (dtype==='date' && raw) {
+      const p=raw.split('/');
+      if (p.length===3) { const yr=p[2].length===2?'20'+p[2]:p[2]; raw=yr+'-'+p[0].padStart(2,'0')+'-'+p[1].padStart(2,'0'); }
+    } else if (isPct) { raw=raw.replace(/[^0-9.]/g,'');
+    } else { raw=raw.replace(/[$,]/g,''); }
+    inp.value = raw;
     span.classList.add('editing');
-    span.parentNode.insertBefore(inp,span.nextSibling);
+    span.parentNode.insertBefore(inp, span.nextSibling);
     inp.focus(); inp.select();
-    function save(){
+    function save() {
       const nv=inp.value.trim(); inp.remove(); span.classList.remove('editing');
-      fetch('/api/transaction/'+tid+'/patch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({field:field,value:nv})})
-      .then(r=>r.json()).then(d=>{
-        if(d.ok){
-          if(dtype==='date'&&nv){const p=nv.split('-');span.textContent=p[1]+'/'+p[2]+'/'+p[0].slice(2);}
-          else if(isPct){span.textContent=nv?parseFloat(nv).toFixed(0):'';}
-          else if(span.classList.contains('num')&&nv){span.textContent=parseFloat(nv.replace(/,/g,'')).toLocaleString('en-US',{maximumFractionDigits:0});}
+      fetch('/api/transaction/'+tid+'/patch', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({field:field, value:nv})
+      }).then(r=>r.json()).then(d=>{
+        if (d.ok) {
+          if (dtype==='date'&&nv){const p=nv.split('-');span.textContent=p[1]+'/'+p[2]+'/'+p[0].slice(2);}
+          else if (isPct){span.textContent=nv?parseFloat(nv).toFixed(0):'';}
+          else if (span.classList.contains('num')&&nv){span.textContent=parseFloat(nv.replace(/,/g,'')).toLocaleString('en-US',{maximumFractionDigits:0});}
           else{span.textContent=nv;}
-          span.closest('td').dataset.val=nv;
+          span.closest('td').dataset.val = nv;
           span.classList.add('saved'); setTimeout(()=>span.classList.remove('saved'),1500);
           refreshComputed(tid);
-        } else {span.classList.add('error');setTimeout(()=>span.classList.remove('error'),2000);alert('Save failed: '+(d.error||'unknown'));}
+        } else { span.classList.add('error'); setTimeout(()=>span.classList.remove('error'),2000); alert('Save failed: '+(d.error||'unknown')); }
       }).catch(()=>{span.classList.add('error');setTimeout(()=>span.classList.remove('error'),2000);});
     }
-    inp.addEventListener('blur',save);
-    inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();save();}if(e.key==='Escape'){inp.remove();span.classList.remove('editing');}});
+    inp.addEventListener('blur', save);
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){e.preventDefault();save();} if(e.key==='Escape'){inp.remove();span.classList.remove('editing');} });
   });
 });
 
 // ── Inline select editing ─────────────────────────────────────────────────
-document.querySelectorAll('.es').forEach(sel=>{
-  sel.addEventListener('change',function(){
-    const field=sel.dataset.field,tid=sel.dataset.tid;
-    fetch('/api/transaction/'+tid+'/patch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({field:field,value:sel.value})})
-    .then(r=>r.json()).then(d=>{
-      if(d.ok){sel.closest('td').dataset.val=sel.value;sel.style.background='#d1fae5';setTimeout(()=>sel.style.background='transparent',1200);}
-      else{sel.style.background='#fee2e2';setTimeout(()=>sel.style.background='transparent',2000);}
+document.querySelectorAll('.es').forEach(sel => {
+  sel.addEventListener('change', function() {
+    const field=sel.dataset.field, tid=sel.dataset.tid;
+    fetch('/api/transaction/'+tid+'/patch', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({field:field, value:sel.value})
+    }).then(r=>r.json()).then(d=>{
+      if (d.ok) {
+        sel.closest('td').dataset.val = sel.value;
+        sel.style.background='#d1fae5';
+        setTimeout(()=>sel.style.background='transparent',1200);
+        if (field==='transaction_type') {
+          const statusTd = sel.closest('tr').querySelectorAll('td')[11];
+          updateRowClass(sel.closest('tr'), statusTd ? statusTd.dataset.val : '');
+        }
+      } else { sel.style.background='#fee2e2'; setTimeout(()=>sel.style.background='transparent',2000); }
     });
   });
 });
 
 // ── Checkbox (Paid?) ──────────────────────────────────────────────────────
-document.querySelectorAll('.ec-bool').forEach(cb=>{
-  cb.addEventListener('change',function(){
-    fetch('/api/transaction/'+cb.dataset.tid+'/patch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({field:cb.dataset.field,value:cb.checked?'true':'false'})})
-    .then(r=>r.json()).then(d=>{if(d.ok)cb.closest('td').dataset.val=cb.checked?'Yes':'';});
+document.querySelectorAll('.ec-bool').forEach(cb => {
+  cb.addEventListener('change', function() {
+    fetch('/api/transaction/'+cb.dataset.tid+'/patch', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({field:cb.dataset.field, value:cb.checked?'true':'false'})
+    }).then(r=>r.json()).then(d=>{ if(d.ok) cb.closest('td').dataset.val=cb.checked?'Yes':''; });
   });
 });
 
-// ── Refresh computed cells ────────────────────────────────────────────────
-// td indices (0-based): exp_in=2, dom=3, up_closing=5, dsc=10, co_dollar=52, 1099=53
-function refreshComputed(tid){
+// ── Refresh computed cells after save ─────────────────────────────────────
+// td indices: exp_in=2, dom=3, up_closing=5, close_to_ex=6, dsc=10, co_dollar=53, 1099=54
+function refreshComputed(tid) {
   fetch('/api/transaction/'+tid+'/computed').then(r=>r.json()).then(d=>{
-    if(!d.ok) return;
-    const row=document.querySelector('tr[data-tid="'+tid+'"]');
-    if(!row) return;
-    const cells=row.querySelectorAll('td');
-    const fmt=v=>v!=null&&v!==''?parseFloat(v).toLocaleString('en-US',{maximumFractionDigits:0}):'';
-    const set=(i,v,f)=>{if(cells[i]){cells[i].dataset.val=v??'';cells[i].textContent=f?fmt(v):(v??'');}};
-    set(2, d.exp_in);
-    set(3, d.dom);
-    set(5, d.up_closing);
+    if (!d.ok) return;
+    const row = document.querySelector('tr[data-tid="'+tid+'"]');
+    if (!row) return;
+    const cells = row.querySelectorAll('td');
+    const fmt = v => v!=null&&v!=='' ? parseFloat(v).toLocaleString('en-US',{maximumFractionDigits:0}) : '';
+    const set = (i,v,f) => { if(cells[i]){cells[i].dataset.val=v??'';cells[i].textContent=f?fmt(v):(v??'');} };
+    set(2,  d.exp_in);
+    set(3,  d.dom);
+    set(5,  d.up_closing);
+    set(6,  d.exp_in);
     set(10, d.dsc);
-    set(52, d.company_dollar, true);
     set(53, d.company_dollar, true);
+    set(54, d.company_dollar, true);
   }).catch(()=>{});
 }
 
-// ── Excel-style multi-select column filters ───────────────────────────────
-const dd=document.getElementById('col-filter-dd');
-const fddSearch=document.getElementById('fdd-search');
-const fddBoxes=document.getElementById('fdd-boxes');
-const activeFilters={};
-let curTh=null, curCol=-1;
+// ══════════════════════════════════════════════════════════════════════════
+//  SORT + FILTER ENGINE — every column
+// ══════════════════════════════════════════════════════════════════════════
 
-function getColVals(colIdx){
-  const vals=new Set();
-  document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row=>{
-    const td=row.querySelectorAll('td')[colIdx];
-    if(td) vals.add((td.dataset.val||'').trim());
-  });
-  return [...vals].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+const activeFilters = {};  // colIdx → Set of allowed values
+let sortCol = -1, sortDir = 1;  // 1=asc, -1=desc
+
+// ── Get all visible rows in current DOM order ─────────────────────────────
+function getAllRows() {
+  return [...document.querySelectorAll('#mb-tbody tr[data-row]')];
 }
 
-function openDD(th,colIdx,e){
-  curTh=th; curCol=colIdx;
-  const vals=getColVals(colIdx);
-  const active=activeFilters[colIdx]||null;
-  fddSearch.value=''; fddBoxes.innerHTML='';
-  vals.forEach(v=>{
-    const id='fc_'+Math.random().toString(36).slice(2);
-    const chk=!active||active.has(v);
-    fddBoxes.innerHTML+=`<label class="d-flex align-items-center gap-1 mb-1" style="font-size:0.8rem;cursor:pointer"><input type="checkbox" id="${id}" value="${v}" ${chk?'checked':''}> ${v===''?'(Blank)':v}</label>`;
+// ── Get cell value for sort/filter ───────────────────────────────────────
+function getCellVal(row, colIdx) {
+  const td = row.querySelectorAll('td')[colIdx];
+  return td ? (td.dataset.val || '').trim() : '';
+}
+
+// ── Apply all active filters, hiding non-matching rows ───────────────────
+function applyFilters() {
+  let vis = 0;
+  getAllRows().forEach(row => {
+    let show = true;
+    for (const [ci, allowed] of Object.entries(activeFilters)) {
+      if (!allowed.has(getCellVal(row, parseInt(ci)))) { show=false; break; }
+    }
+    row.classList.toggle('row-hidden', !show);
+    if (show) vis++;
   });
-  const rect=th.getBoundingClientRect();
-  dd.style.top=(rect.bottom+2)+'px';
-  dd.style.left=Math.min(rect.left,window.innerWidth-290)+'px';
-  dd.style.display='block';
+  document.getElementById('rec-count').textContent = vis + ' records';
+}
+
+// ── Sort rows by column ───────────────────────────────────────────────────
+function sortByCol(colIdx, dir) {
+  const tbody = document.getElementById('mb-tbody');
+  const rows = getAllRows();
+  const numeric = (v) => { const n=parseFloat(v.replace(/[$,]/g,'')); return isNaN(n) ? null : n; };
+  rows.sort((a, b) => {
+    const av = getCellVal(a, colIdx);
+    const bv = getCellVal(b, colIdx);
+    const an = numeric(av), bn = numeric(bv);
+    let cmp;
+    if (an !== null && bn !== null) {
+      cmp = an - bn;
+    } else if (an !== null) { cmp = -1;
+    } else if (bn !== null) { cmp = 1;
+    } else { cmp = av.localeCompare(bv, undefined, {sensitivity:'base', numeric:true}); }
+    return cmp * dir;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+// ── Get unique values for a column (from all rows, not just visible) ──────
+function getColUniqueVals(colIdx) {
+  const vals = new Set();
+  getAllRows().forEach(row => vals.add(getCellVal(row, colIdx)));
+  return [...vals].sort((a,b) => {
+    const an=parseFloat(a), bn=parseFloat(b);
+    if (!isNaN(an) && !isNaN(bn)) return an-bn;
+    return a.localeCompare(b,undefined,{sensitivity:'base',numeric:true});
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  HEADER CLICK — opens dropdown with FILTER + SORT options
+// ══════════════════════════════════════════════════════════════════════════
+
+const dd = document.getElementById('col-filter-dd');
+const fddSearch = document.getElementById('fdd-search');
+const fddBoxes  = document.getElementById('fdd-boxes');
+let curTh = null, curCol = -1;
+
+function openDD(th, colIdx, e) {
+  curTh = th; curCol = colIdx;
+  const vals   = getColUniqueVals(colIdx);
+  const active = activeFilters[colIdx] || null;
+  fddSearch.value = '';
+  fddBoxes.innerHTML = '';
+  vals.forEach(v => {
+    const id='fc_'+Math.random().toString(36).slice(2);
+    const chk = !active || active.has(v);
+    fddBoxes.innerHTML += `<label class="d-flex align-items-center gap-1 mb-1" style="font-size:0.8rem;cursor:pointer">
+      <input type="checkbox" id="${id}" value="${v}" ${chk?'checked':''}> ${v===''?'<em style="color:#aaa">(Blank)</em>':v}
+    </label>`;
+  });
+  const rect = th.getBoundingClientRect();
+  dd.style.top  = (rect.bottom+2)+'px';
+  dd.style.left = Math.min(rect.left, window.innerWidth-300)+'px';
+  dd.style.display = 'block';
   fddSearch.focus();
   e.stopPropagation();
 }
 
-document.querySelectorAll('.th-filter').forEach(th=>{
-  th.addEventListener('click',function(e){
-    if(dd.style.display==='block'&&curTh===th){dd.style.display='none';return;}
-    openDD(th,parseInt(th.dataset.col),e);
+document.querySelectorAll('.col-hdr[data-col]').forEach(th => {
+  th.addEventListener('click', function(e) {
+    const tgt = e.target;
+    // Sort button
+    if (tgt.classList.contains('sbtn') || tgt.closest('.sbtn')) {
+      dd.style.display = 'none';
+      const colIdx = parseInt(th.dataset.col);
+      // Toggle direction if same col
+      if (sortCol === colIdx) { sortDir *= -1; } else { sortCol = colIdx; sortDir = 1; }
+      // Update sort indicators
+      document.querySelectorAll('.sbtn').forEach(b => b.textContent='⇅');
+      const btn = th.querySelector('.sbtn');
+      if (btn) btn.textContent = sortDir===1 ? '↑' : '↓';
+      sortByCol(colIdx, sortDir);
+      return;
+    }
+    // Filter button or header click → open dropdown
+    if (dd.style.display==='block' && curTh===th) { dd.style.display='none'; return; }
+    openDD(th, parseInt(th.dataset.col), e);
   });
 });
 
-fddSearch.addEventListener('input',function(){
-  const q=this.value.toLowerCase();
-  fddBoxes.querySelectorAll('label').forEach(l=>l.style.display=l.textContent.toLowerCase().includes(q)?'':'none');
+// Search inside dropdown
+fddSearch.addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  fddBoxes.querySelectorAll('label').forEach(l => l.style.display=l.textContent.toLowerCase().includes(q)?'':'none');
 });
 
-document.getElementById('fdd-select-all').addEventListener('click',function(e){e.preventDefault();fddBoxes.querySelectorAll('input').forEach(i=>i.checked=true);});
-document.getElementById('fdd-select-blank').addEventListener('click',function(e){e.preventDefault();fddBoxes.querySelectorAll('input').forEach(i=>{i.checked=i.value==='';});});
-document.getElementById('fdd-select-none').addEventListener('click',function(e){e.preventDefault();fddBoxes.querySelectorAll('input').forEach(i=>i.checked=false);});
+// Quick select links
+document.getElementById('fdd-select-all').addEventListener('click',   e=>{ e.preventDefault(); fddBoxes.querySelectorAll('input').forEach(i=>i.checked=true); });
+document.getElementById('fdd-select-blank').addEventListener('click',  e=>{ e.preventDefault(); fddBoxes.querySelectorAll('input').forEach(i=>{ i.checked=i.value===''; }); });
+document.getElementById('fdd-select-none').addEventListener('click',   e=>{ e.preventDefault(); fddBoxes.querySelectorAll('input').forEach(i=>i.checked=false); });
 
-document.getElementById('fdd-apply').addEventListener('click',function(){
-  const checked=[...fddBoxes.querySelectorAll('input:checked')].map(i=>i.value);
-  const all=[...fddBoxes.querySelectorAll('input')].map(i=>i.value);
-  if(checked.length===all.length){delete activeFilters[curCol];if(curTh)curTh.classList.remove('filtered');}
-  else{activeFilters[curCol]=new Set(checked);if(curTh)curTh.classList.add('filtered');}
-  applyFilters(); dd.style.display='none';
+// Apply filter
+document.getElementById('fdd-apply').addEventListener('click', function() {
+  const checked = [...fddBoxes.querySelectorAll('input:checked')].map(i=>i.value);
+  const all     = [...fddBoxes.querySelectorAll('input')].map(i=>i.value);
+  if (checked.length === all.length) {
+    delete activeFilters[curCol];
+    if (curTh) curTh.classList.remove('filtered');
+  } else {
+    activeFilters[curCol] = new Set(checked);
+    if (curTh) curTh.classList.add('filtered');
+  }
+  applyFilters();
+  dd.style.display = 'none';
 });
 
-document.getElementById('fdd-clear').addEventListener('click',function(){
-  delete activeFilters[curCol]; if(curTh)curTh.classList.remove('filtered');
+// Clear this column's filter
+document.getElementById('fdd-clear').addEventListener('click', function() {
+  delete activeFilters[curCol];
+  if (curTh) curTh.classList.remove('filtered');
   fddBoxes.querySelectorAll('input').forEach(i=>i.checked=true);
-  applyFilters(); dd.style.display='none';
+  applyFilters();
+  dd.style.display = 'none';
 });
 
-document.getElementById('clear-filters-btn').addEventListener('click',function(){
+// Clear ALL filters button
+document.getElementById('clear-filters-btn').addEventListener('click', function() {
   Object.keys(activeFilters).forEach(k=>delete activeFilters[k]);
-  document.querySelectorAll('.th-filter.filtered').forEach(th=>th.classList.remove('filtered'));
+  document.querySelectorAll('.col-hdr.filtered').forEach(th=>th.classList.remove('filtered'));
+  document.querySelectorAll('.sbtn').forEach(b=>b.textContent='⇅');
+  sortCol=-1; sortDir=1;
   applyFilters();
 });
 
-function applyFilters(){
-  let vis=0;
-  document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row=>{
-    let show=true;
-    for(const[ci,allowed] of Object.entries(activeFilters)){
-      const td=row.querySelectorAll('td')[parseInt(ci)];
-      if(!allowed.has((td?td.dataset.val:'').trim())){show=false;break;}
-    }
-    row.classList.toggle('row-hidden',!show);
-    if(show) vis++;
-  });
-  document.getElementById('rec-count').textContent=vis+' records';
-}
-
-document.addEventListener('click',e=>{
-  if(!dd.contains(e.target)&&!e.target.closest('.th-filter')) dd.style.display='none';
+// Close on outside click
+document.addEventListener('click', e => {
+  if (!dd.contains(e.target) && !e.target.closest('.col-hdr')) dd.style.display='none';
 });
 
 // ── Floating bottom scrollbar ─────────────────────────────────────────────
-(function(){
-  const wrap=document.getElementById('mb-table-wrap');
-  if(!wrap) return;
-  const rail=document.createElement('div');
-  rail.id='mb-float-scroll';
-  rail.style.cssText='position:fixed;bottom:0;height:14px;overflow-x:auto;overflow-y:hidden;z-index:9999;background:#c0c0c0;border-top:1px solid #999;display:none;';
-  const inner=document.createElement('div'); inner.style.height='1px';
+(function() {
+  const wrap = document.getElementById('mb-table-wrap');
+  if (!wrap) return;
+  const rail = document.createElement('div');
+  rail.id = 'mb-float-scroll';
+  rail.style.cssText = 'position:fixed;bottom:0;height:14px;overflow-x:auto;overflow-y:hidden;z-index:9999;background:#c0c0c0;border-top:1px solid #999;display:none;';
+  const inner = document.createElement('div'); inner.style.height='1px';
   rail.appendChild(inner); document.body.appendChild(rail);
-  function pos(){const r=wrap.getBoundingClientRect();rail.style.left=r.left+'px';rail.style.width=r.width+'px';inner.style.width=wrap.scrollWidth+'px';}
-  function upd(){pos();const r=wrap.getBoundingClientRect();rail.style.display=(r.top<window.innerHeight&&r.bottom>0&&wrap.scrollWidth>wrap.clientWidth)?'block':'none';}
-  pos();upd();
+  function pos() { const r=wrap.getBoundingClientRect(); rail.style.left=r.left+'px'; rail.style.width=r.width+'px'; inner.style.width=wrap.scrollWidth+'px'; }
+  function upd() { pos(); const r=wrap.getBoundingClientRect(); rail.style.display=(r.top<window.innerHeight&&r.bottom>0&&wrap.scrollWidth>wrap.clientWidth)?'block':'none'; }
+  pos(); upd();
   window.addEventListener('scroll',upd,{passive:true}); window.addEventListener('resize',upd,{passive:true});
   new ResizeObserver(upd).observe(wrap);
   let sync=false;
