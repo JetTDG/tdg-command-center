@@ -584,20 +584,26 @@ function applyFilters() {
 function sortByCol(colIdx, dir) {
   const tbody = document.getElementById('mb-tbody');
   const rows = getAllRows();
-  const numeric = (v) => { const n=parseFloat(v.replace(/[$,]/g,'')); return isNaN(n) ? null : n; };
-  rows.sort((a, b) => {
-    const av = getCellVal(a, colIdx);
-    const bv = getCellVal(b, colIdx);
-    const an = numeric(av), bn = numeric(bv);
-    let cmp;
-    if (an !== null && bn !== null) {
-      cmp = an - bn;
-    } else if (an !== null) { cmp = -1;
-    } else if (bn !== null) { cmp = 1;
-    } else { cmp = av.localeCompare(bv, undefined, {sensitivity:'base', numeric:true}); }
-    return cmp * dir;
+  function parseVal(v) {
+    if (!v || !v.trim()) return null;
+    if (/^\d{4}-\d{2}-\d{2}/.test(v)) return new Date(v).getTime();
+    if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(v)) {
+      const p=v.split('/'); const yr=p[2].length===2?'20'+p[2]:p[2];
+      return new Date(yr+'-'+p[0].padStart(2,'0')+'-'+p[1].padStart(2,'0')).getTime();
+    }
+    const n=parseFloat(v.replace(/[$,%]/g,'').replace(/,/g,''));
+    if (!isNaN(n)) return n;
+    return v.toLowerCase();
+  }
+  rows.sort((a,b) => {
+    const av=parseVal(getCellVal(a,colIdx)), bv=parseVal(getCellVal(b,colIdx));
+    if (av===null && bv===null) return 0;
+    if (av===null) return 1;
+    if (bv===null) return -1;
+    if (typeof av==='number' && typeof bv==='number') return (av-bv)*dir;
+    return String(av).localeCompare(String(bv),undefined,{sensitivity:'base',numeric:true})*dir;
   });
-  rows.forEach(r => tbody.appendChild(r));
+  rows.forEach(r=>tbody.appendChild(r));
 }
 
 // ── Get unique values for a column (from all rows, not just visible) ──────
