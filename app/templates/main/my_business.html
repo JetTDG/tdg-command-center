@@ -150,7 +150,14 @@
       </thead>
       <tbody id="mb-tbody">
         {% for t in transactions %}
-        <tr data-tid="{{ t.id }}" data-row>
+        {% set typ_class = {
+            'Buyer':'row-buyer','Listing':'row-listing','Commercial':'row-commercial',
+            'Lease':'row-lease','Referral':'row-referral'
+          }.get(t.transaction_type, 'row-other') %}
+        {% set is_pending = t.status in ('Pending','`Pending','Pre-Signed','Signed') %}
+        {% set is_dead = t.status in ('x-Cancelled','y-Sale Failed','z-Expired') %}
+        {% set row_class = 'row-pending' if is_pending else ('row-dead' if is_dead else typ_class) %}
+        <tr data-tid="{{ t.id }}" data-row class="{{ row_class }}">
           {# Agent — sticky col 0 #}
           <td class="sticky-col" style="left:0;background:#fff" data-val="{{ t.primary_agent_name or (t.agent.name if t.agent else '') }}">
             <span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}">{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</span>
@@ -175,11 +182,18 @@
           <td class="text-center ro" data-val="{{ t.exp_in if t.exp_in is not none else '' }}">{{ t.exp_in if t.exp_in is not none else '' }}</td>
           {# DOM col 9 #}
           <td class="text-muted text-center ro" data-val="{{ t.dom if t.dom is not none else '' }}">{{ t.dom if t.dom is not none else '' }}</td>
-          {# Status col 10 #}
-          <td data-val="{{ t.status or '' }}">
-            <select class="es" data-field="status" data-tid="{{ t.id }}">
+          {# Status col 10 — badge + inline select #}
+          {% set s = t.status or '' %}
+          {% set badge_cls = {
+            'Active':'badge-active','Pending':'badge-pending','Signed':'badge-signed',
+            'Pre-Signed':'badge-presigned','Closed':'badge-closed',
+            'x-Cancelled':'badge-cancelled','y-Sale Failed':'badge-failed','z-Expired':'badge-expired'
+          }.get(s, 'badge-other') %}
+          <td data-val="{{ s }}">
+            <span class="badge-status {{ badge_cls }} ec-status-badge" data-tid="{{ t.id }}" title="Click to change">{{ s }}</span>
+            <select class="es es-status" data-field="status" data-tid="{{ t.id }}" style="display:none;font-size:0.74rem;border:1px solid #d4a017;border-radius:3px;background:#fffbf0;width:100%">
               {% for opt in ['Active','Pending','Closed','Pre-Signed','Signed','Coming Soon','Pipeline','Temp Off Market','Temp off Mark','x-Cancelled','y-Sale Failed','z-Expired'] %}
-              <option {% if t.status==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+              <option {% if s==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
             </select>
           </td>
           {# Sub Status col 11 #}
@@ -343,15 +357,57 @@
 .sticky-col { position:sticky; z-index:10; }
 #mb-table td, #mb-table th { white-space:nowrap; padding:3px 6px; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; }
 #mb-table thead th { font-size:0.71rem; font-weight:600; color:#555; background:#f8f9fa; border-bottom:2px solid #dee2e6; user-select:none; }
+
+/* ── Row colors by Type ──────────────────────────────── */
+tr.row-buyer   td { background-color:#cce4f7 !important; }
+tr.row-listing td { background-color:#c6efce !important; }
+tr.row-commercial td { background-color:#ffc7ce !important; }
+tr.row-lease   td { background-color:#e2d9f3 !important; }
+tr.row-referral td { background-color:#fce4d6 !important; }
+tr.row-other   td { background-color:#f2f2f2 !important; }
+
+/* Sticky cols inherit type color */
+tr.row-buyer   td.sticky-col { background-color:#cce4f7 !important; }
+tr.row-listing td.sticky-col { background-color:#c6efce !important; }
+tr.row-commercial td.sticky-col { background-color:#ffc7ce !important; }
+tr.row-lease   td.sticky-col { background-color:#e2d9f3 !important; }
+tr.row-referral td.sticky-col { background-color:#fce4d6 !important; }
+tr.row-other   td.sticky-col { background-color:#f2f2f2 !important; }
+
+/* ── Pending = yellow highlight (overrides type color) ── */
+tr.row-pending td { background-color:#ffff99 !important; }
+tr.row-pending td.sticky-col { background-color:#ffff99 !important; }
+
+/* ── Cancelled / Failed = strikethrough + muted ─────── */
+tr.row-dead td { opacity:0.6; }
+tr.row-dead td span, tr.row-dead td .ec { text-decoration:line-through; color:#888 !important; }
+tr.row-dead td select { text-decoration:line-through; color:#888 !important; }
+
+/* ── Status badges ──────────────────────────────────── */
+.badge-status {
+  display:inline-block; padding:1px 7px; border-radius:10px;
+  font-size:0.68rem; font-weight:600; white-space:nowrap;
+}
+.badge-active    { background:#c6efce; color:#276221; }
+.badge-pending   { background:#ffcc00; color:#5a4000; }
+.badge-signed    { background:#9bc2e6; color:#1f3864; }
+.badge-closed    { background:#d9d9d9; color:#444; }
+.badge-presigned { background:#b4c7e7; color:#1f3864; }
+.badge-cancelled { background:#ffc7ce; color:#9c0006; text-decoration:line-through; }
+.badge-failed    { background:#ffc7ce; color:#9c0006; text-decoration:line-through; }
+.badge-expired   { background:#ffe699; color:#7d6608; text-decoration:line-through; }
+.badge-other     { background:#ededed; color:#555; }
+
+/* ── Editable cell ──────────────────────────────────── */
 .ec { cursor:pointer; display:block; min-width:30px; min-height:16px; border-radius:3px; padding:1px 3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ec:hover { background:#fff8e6; outline:1px solid var(--tdg-gold); }
+.ec:hover { background:rgba(0,0,0,.08); outline:1px solid var(--tdg-gold); }
 .ec.editing { display:none; }
 .ec.saved { background:#d1fae5; transition:background 1.2s; }
 .ec.error { background:#fee2e2; }
 .num { text-align:right; }
 .es { font-size:0.74rem; border:0; background:transparent; padding:0; width:100%; cursor:pointer; }
 .es:focus { outline:1px solid var(--tdg-gold); background:#fffbf0; }
-.ro { background:#fafafa; cursor:default; }
+.ro { cursor:default; }
 .th-filter { cursor:pointer; }
 .fbtn { margin-left:3px; font-size:0.62rem; color:#bbb; }
 .th-filter:hover .fbtn, .th-filter.filtered .fbtn { color:var(--tdg-gold); }
@@ -364,6 +420,79 @@ tr.row-hidden { display:none; }
 </style>
 
 <script>
+// ── Status badge click → show select ─────────────────────────────────────
+const BADGE_MAP = {
+  'Active':'badge-active','Pending':'badge-pending','Signed':'badge-signed',
+  'Pre-Signed':'badge-presigned','Closed':'badge-closed',
+  'x-Cancelled':'badge-cancelled','y-Sale Failed':'badge-failed','z-Expired':'badge-expired'
+};
+const ROW_TYPE_MAP = {
+  'Buyer':'row-buyer','Listing':'row-listing','Commercial':'row-commercial',
+  'Lease':'row-lease','Referral':'row-referral'
+};
+function getRowTypeClass(row){
+  const typeTd = row.querySelector('td[data-val]'); // type cell — col 22
+  const cells = row.querySelectorAll('td');
+  // Type is col 22 (0-indexed). Get its select value
+  const typeSel = cells[22] && cells[22].querySelector('select');
+  return ROW_TYPE_MAP[typeSel ? typeSel.value : ''] || 'row-other';
+}
+function updateRowClass(row, newStatus){
+  const pendingStatuses = ['Pending','`Pending','Pre-Signed','Signed'];
+  const deadStatuses = ['x-Cancelled','y-Sale Failed','z-Expired'];
+  row.classList.remove('row-buyer','row-listing','row-commercial','row-lease','row-referral','row-other','row-pending','row-dead');
+  if(deadStatuses.includes(newStatus)){
+    row.classList.add('row-dead');
+  } else if(pendingStatuses.includes(newStatus)){
+    row.classList.add('row-pending');
+  } else {
+    row.classList.add(getRowTypeClass(row));
+  }
+}
+document.querySelectorAll('.ec-status-badge').forEach(badge=>{
+  badge.addEventListener('click',function(e){
+    e.stopPropagation();
+    const sel = badge.nextElementSibling;
+    badge.style.display='none';
+    sel.style.display='block';
+    sel.focus();
+    function hideSel(){badge.style.display='';sel.style.display='none';}
+    sel.addEventListener('change',function(){
+      const nv=sel.value;
+      const td=badge.closest('td');
+      // Save
+      fetch('/api/transaction/'+badge.dataset.tid+'/patch',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({field:'status',value:nv})
+      }).then(r=>r.json()).then(d=>{
+        if(d.ok){
+          td.dataset.val=nv;
+          // Update badge text + class
+          badge.textContent=nv;
+          badge.className='badge-status '+(BADGE_MAP[nv]||'badge-other')+' ec-status-badge';
+          // Update row highlight
+          updateRowClass(badge.closest('tr'),nv);
+        }
+        hideSel();
+      }).catch(hideSel);
+    },{once:true});
+    sel.addEventListener('blur',hideSel,{once:true});
+  });
+});
+
+// Also update row class when Type select changes
+document.querySelectorAll('.es').forEach(sel=>{
+  if(sel.dataset.field==='transaction_type'){
+    sel.addEventListener('change',function(){
+      const row=sel.closest('tr');
+      // Re-evaluate row class based on current status
+      const statusTd=row.querySelectorAll('td')[10];
+      const currentStatus=statusTd?statusTd.dataset.val:'';
+      updateRowClass(row,currentStatus);
+    });
+  }
+});
+
 // ── Inline text/date cell editing ─────────────────────────────────────────
 document.querySelectorAll('.ec').forEach(function(span){
   span.addEventListener('click', function(e){
