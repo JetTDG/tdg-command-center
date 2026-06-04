@@ -44,6 +44,10 @@
           {# Sticky left: Agent (CTE AT) + Address (CTE Z) #}
           <th class="sticky-col th-filter" data-col="0" style="left:0;min-width:150px;width:150px;z-index:25;background:#f8f9fa">Agent<span class="fbtn">▾</span></th>
           <th class="sticky-col th-filter" data-col="1" style="left:150px;min-width:200px;width:200px;z-index:25;background:#f8f9fa">Address<span class="fbtn">▾</span></th>
+          {# Renee order: 1=EXP IN, 2=DOM, 3=Type, then rest #}
+          <th style="min-width:60px">EXP IN</th>
+          <th style="min-width:55px">DOM</th>
+          <th class="th-filter" data-col="4" style="min-width:90px">Type<span class="fbtn">▾</span></th>
           {# CTE cols J,K: Up Closing, Close to Ex #}
           <th style="min-width:65px">↑Close</th>
           <th style="min-width:65px">Close to Ex</th>
@@ -52,17 +56,15 @@
           <th style="min-width:100px">List Price</th>
           {# CTE col O: List Date #}
           <th style="min-width:90px">List Date</th>
-          {# CTE col S,T,U: DSC, EXP in, DOM #}
+          {# CTE col S,T,U: DSC #}
           <th style="min-width:55px">DSC</th>
-          <th style="min-width:60px">EXP in</th>
-          <th style="min-width:55px">DOM</th>
           {# CTE col X,Y: Status, Sub Status #}
-          <th class="th-filter" data-col="10" style="min-width:100px">Status<span class="fbtn">▾</span></th>
-          <th class="th-filter" data-col="11" style="min-width:110px">Sub Status<span class="fbtn">▾</span></th>
+          <th class="th-filter" data-col="11" style="min-width:100px">Status<span class="fbtn">▾</span></th>
+          <th class="th-filter" data-col="12" style="min-width:110px">Sub Status<span class="fbtn">▾</span></th>
           {# CTE col AA: Client(s) #}
-          <th class="th-filter" data-col="12" style="min-width:130px">Client(s)<span class="fbtn">▾</span></th>
+          <th class="th-filter" data-col="13" style="min-width:130px">Client(s)<span class="fbtn">▾</span></th>
           {# CTE col AB: Source #}
-          <th class="th-filter" data-col="13" style="min-width:110px">Source<span class="fbtn">▾</span></th>
+          <th class="th-filter" data-col="14" style="min-width:110px">Source<span class="fbtn">▾</span></th>
           {# CTE col AC: Signed Date #}
           <th style="min-width:90px">Signed Date</th>
           {# CTE col AD: MLS Live #}
@@ -77,8 +79,6 @@
           <th style="min-width:90px">Close Date</th>
           {# CTE col AJ: Sale Price #}
           <th style="min-width:100px">Sale Price</th>
-          {# CTE col AK: T (Type) #}
-          <th class="th-filter" data-col="22" style="min-width:90px">Type<span class="fbtn">▾</span></th>
           {# CTE col AL: % (Comm%) #}
           <th style="min-width:60px">Comm%</th>
           {# CTE col AM: Units #}
@@ -166,22 +166,29 @@
           <td class="sticky-col" style="left:150px;background:#fff" data-val="{{ t.address or '' }}">
             <span class="ec" data-field="address" data-tid="{{ t.id }}">{{ t.address or '' }}</span>
           </td>
-          {# ↑Close (computed) col 2 #}
-          <td class="text-center ro {% if t.up_closing is not none and t.up_closing < 14 %}text-warning fw-semibold{% endif %}" data-val="{{ t.up_closing if t.up_closing is not none else '' }}">{{ t.up_closing if t.up_closing is not none else '' }}</td>
-          {# Close to Ex (exp_in) col 3 #}
-          <td class="text-center ro {% if t.exp_in is not none and t.exp_in < 30 %}text-danger{% endif %}" data-val="{{ t.exp_in if t.exp_in is not none else '' }}">{{ t.exp_in if t.exp_in is not none else '' }}</td>
-          {# Old List $ col 4 #}
+          {# EXP IN col 2 — days to expiry #}
+          <td class="text-center ro num-col {% if t.exp_in is not none and t.exp_in < 30 %}urgent{% endif %}" data-val="{{ t.exp_in if t.exp_in is not none else '' }}">{{ t.exp_in if t.exp_in is not none else '' }}</td>
+          {# DOM col 3 — days on market #}
+          <td class="text-center ro num-col" data-val="{{ t.dom if t.dom is not none else '' }}">{{ t.dom if t.dom is not none else '' }}</td>
+          {# Type col 4 #}
+          <td data-val="{{ t.transaction_type or '' }}">
+            <select class="es" data-field="transaction_type" data-tid="{{ t.id }}">
+              {% for opt in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
+              <option {% if t.transaction_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+            </select>
+          </td>
+          {# ↑Close col 5 #}
+          <td class="text-center ro num-col {% if t.up_closing is not none and t.up_closing < 14 %}urgent{% endif %}" data-val="{{ t.up_closing if t.up_closing is not none else '' }}">{{ t.up_closing if t.up_closing is not none else '' }}</td>
+          {# Close to Ex col 6 #}
+          <td class="text-center ro num-col" data-val="{{ t.exp_in if t.exp_in is not none else '' }}">{{ t.exp_in if t.exp_in is not none else '' }}</td>
+          {# Old List $ col 7 #}
           <td data-val="{{ t.old_list_price or '' }}"><span class="ec num" data-field="old_list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.old_list_price) if t.old_list_price else '' }}</span></td>
-          {# List Price col 5 #}
+          {# List Price col 8 #}
           <td data-val="{{ t.list_price or '' }}"><span class="ec num" data-field="list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.list_price) if t.list_price else '' }}</span></td>
-          {# List Date col 6 #}
+          {# List Date col 9 #}
           <td data-val="{{ t.list_date.isoformat() if t.list_date else '' }}"><span class="ec" data-field="list_date" data-tid="{{ t.id }}" data-type="date">{{ t.list_date.strftime('%m/%d/%y') if t.list_date else '' }}</span></td>
-          {# DSC col 7 #}
-          <td class="text-muted text-center ro" data-val="{{ t.dsc if t.dsc is not none else '' }}">{{ t.dsc if t.dsc is not none else '' }}</td>
-          {# EXP in col 8 #}
-          <td class="text-center ro" data-val="{{ t.exp_in if t.exp_in is not none else '' }}">{{ t.exp_in if t.exp_in is not none else '' }}</td>
-          {# DOM col 9 #}
-          <td class="text-muted text-center ro" data-val="{{ t.dom if t.dom is not none else '' }}">{{ t.dom if t.dom is not none else '' }}</td>
+          {# DSC col 10 — days since close #}
+          <td class="text-center ro num-col" data-val="{{ t.dsc if t.dsc is not none else '' }}">{{ t.dsc if t.dsc is not none else '' }}</td>
           {# Status col 10 — badge + inline select #}
           {% set s = t.status or '' %}
           {% set badge_cls = {
@@ -222,15 +229,7 @@
           <td data-val="{{ t.close_date.isoformat() if t.close_date else '' }}"><span class="ec" data-field="close_date" data-tid="{{ t.id }}" data-type="date">{{ t.close_date.strftime('%m/%d/%y') if t.close_date else '' }}</span></td>
           {# Sale Price col 20 #}
           <td data-val="{{ t.sale_price or '' }}"><span class="ec num" data-field="sale_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.sale_price) if t.sale_price else '' }}</span></td>
-          {# Type col 21 — hidden col for alignment; Type is 22 #}
-          {# Wait — let me keep alignment tight. Type col 22 #}
-          <td data-val="{{ t.transaction_type or '' }}">
-            <select class="es" data-field="transaction_type" data-tid="{{ t.id }}">
-              {% for opt in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
-              <option {% if t.transaction_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
-            </select>
-          </td>
-          {# Comm% col 23 #}
+          {# Comm% col 21 — Type moved to col 4 above #}
           <td data-val="{{ t.commission_pct or '' }}"><span class="ec num" data-field="commission_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.2f}".format(t.commission_pct*100) if t.commission_pct else '' }}</span></td>
           {# Units col 24 #}
           <td data-val="{{ t.units or '' }}"><span class="ec num" data-field="units" data-tid="{{ t.id }}">{{ t.units if t.units else '' }}</span></td>
@@ -358,45 +357,61 @@
 #mb-table td, #mb-table th { white-space:nowrap; padding:3px 6px; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; }
 #mb-table thead th { font-size:0.71rem; font-weight:600; color:#555; background:#f8f9fa; border-bottom:2px solid #dee2e6; user-select:none; }
 
-/* ── Row colors by Type ──────────────────────────────── */
-tr.row-buyer   td { background-color:#cce4f7 !important; }
-tr.row-listing td { background-color:#c6efce !important; }
-tr.row-commercial td { background-color:#ffc7ce !important; }
-tr.row-lease   td { background-color:#e2d9f3 !important; }
-tr.row-referral td { background-color:#fce4d6 !important; }
-tr.row-other   td { background-color:#f2f2f2 !important; }
+/* ═══════════════════════════════════════════════════════
+   ROW BACKGROUND — monochrome by Type
+   Listing=blue-grey  Buyer=warm-grey  Commercial=cool-grey
+   Lease=slate  Referral=light  Other=white
+   ═══════════════════════════════════════════════════════ */
+tr.row-listing    td { background-color:#dce6f1 !important; } /* steel blue-grey */
+tr.row-buyer      td { background-color:#e2efda !important; } /* sage green-grey */
+tr.row-commercial td { background-color:#fce4d6 !important; } /* warm peach-grey */
+tr.row-lease      td { background-color:#ededed !important; } /* neutral grey */
+tr.row-referral   td { background-color:#fff2cc !important; } /* pale gold */
+tr.row-other      td { background-color:#f9f9f9 !important; } /* near white */
 
-/* Sticky cols inherit type color */
-tr.row-buyer   td.sticky-col { background-color:#cce4f7 !important; }
-tr.row-listing td.sticky-col { background-color:#c6efce !important; }
-tr.row-commercial td.sticky-col { background-color:#ffc7ce !important; }
-tr.row-lease   td.sticky-col { background-color:#e2d9f3 !important; }
-tr.row-referral td.sticky-col { background-color:#fce4d6 !important; }
-tr.row-other   td.sticky-col { background-color:#f2f2f2 !important; }
+tr.row-listing    td.sticky-col { background-color:#dce6f1 !important; }
+tr.row-buyer      td.sticky-col { background-color:#e2efda !important; }
+tr.row-commercial td.sticky-col { background-color:#fce4d6 !important; }
+tr.row-lease      td.sticky-col { background-color:#ededed !important; }
+tr.row-referral   td.sticky-col { background-color:#fff2cc !important; }
+tr.row-other      td.sticky-col { background-color:#f9f9f9 !important; }
 
-/* ── Pending = yellow highlight (overrides type color) ── */
-tr.row-pending td { background-color:#ffff99 !important; }
-tr.row-pending td.sticky-col { background-color:#ffff99 !important; }
+/* ── Text color by status (applied on top of row bg) ─── */
+/* Active = dark charcoal (default readable) */
+tr[class*="row-"] td { color:#1a1a1a; }
+/* Pending / Under Contract = deep blue */
+tr.row-pending td { color:#1f3864 !important; font-weight:500; }
+tr.row-pending td.sticky-col { color:#1f3864 !important; }
+/* Cancelled / Failed / Expired = muted grey + strikethrough */
+tr.row-dead td { color:#999 !important; }
+tr.row-dead td.sticky-col { color:#999 !important; }
+tr.row-dead td span, tr.row-dead td .ec { text-decoration:line-through; }
+tr.row-dead td select { color:#999 !important; }
 
-/* ── Cancelled / Failed = strikethrough + muted ─────── */
-tr.row-dead td { opacity:0.6; }
-tr.row-dead td span, tr.row-dead td .ec { text-decoration:line-through; color:#888 !important; }
-tr.row-dead td select { text-decoration:line-through; color:#888 !important; }
+/* ── Row bg for pending (no bg override — keep type color, just text changes) ── */
+/* Pending rows get a subtle left border accent instead */
+tr.row-pending td:first-child { border-left:4px solid #1f3864 !important; }
+tr.row-dead td:first-child    { border-left:4px solid #bbb !important; }
+
+/* ── Urgent computed numbers ─────────────────────────── */
+.num-col { font-weight:500; }
+td.urgent { color:#c00 !important; font-weight:700; }
 
 /* ── Status badges ──────────────────────────────────── */
 .badge-status {
-  display:inline-block; padding:1px 7px; border-radius:10px;
+  display:inline-block; padding:1px 8px; border-radius:4px;
   font-size:0.68rem; font-weight:600; white-space:nowrap;
+  letter-spacing:0.02em;
 }
-.badge-active    { background:#c6efce; color:#276221; }
-.badge-pending   { background:#ffcc00; color:#5a4000; }
-.badge-signed    { background:#9bc2e6; color:#1f3864; }
-.badge-closed    { background:#d9d9d9; color:#444; }
-.badge-presigned { background:#b4c7e7; color:#1f3864; }
-.badge-cancelled { background:#ffc7ce; color:#9c0006; text-decoration:line-through; }
-.badge-failed    { background:#ffc7ce; color:#9c0006; text-decoration:line-through; }
-.badge-expired   { background:#ffe699; color:#7d6608; text-decoration:line-through; }
-.badge-other     { background:#ededed; color:#555; }
+.badge-active    { background:#1f4e79; color:#fff; }
+.badge-pending   { background:#375623; color:#fff; }
+.badge-signed    { background:#833c00; color:#fff; }
+.badge-closed    { background:#595959; color:#fff; }
+.badge-presigned { background:#203864; color:#fff; }
+.badge-cancelled { background:#c00000; color:#fff; }
+.badge-failed    { background:#c00000; color:#fff; }
+.badge-expired   { background:#7f7f7f; color:#fff; }
+.badge-other     { background:#404040; color:#fff; }
 
 /* ── Editable cell ──────────────────────────────────── */
 .ec { cursor:pointer; display:block; min-width:30px; min-height:16px; border-radius:3px; padding:1px 3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -433,8 +448,8 @@ const ROW_TYPE_MAP = {
 function getRowTypeClass(row){
   const typeTd = row.querySelector('td[data-val]'); // type cell — col 22
   const cells = row.querySelectorAll('td');
-  // Type is col 22 (0-indexed). Get its select value
-  const typeSel = cells[22] && cells[22].querySelector('select');
+  // Type is col 4 (0-indexed). Get its select value
+  const typeSel = cells[4] && cells[4].querySelector('select');
   return ROW_TYPE_MAP[typeSel ? typeSel.value : ''] || 'row-other';
 }
 function updateRowClass(row, newStatus){
@@ -486,7 +501,7 @@ document.querySelectorAll('.es').forEach(sel=>{
     sel.addEventListener('change',function(){
       const row=sel.closest('tr');
       // Re-evaluate row class based on current status
-      const statusTd=row.querySelectorAll('td')[10];
+      const statusTd=row.querySelectorAll('td')[11];
       const currentStatus=statusTd?statusTd.dataset.val:'';
       updateRowClass(row,currentStatus);
     });
@@ -552,7 +567,7 @@ document.querySelectorAll('.ec-bool').forEach(cb=>{
 });
 
 // ── Refresh computed cells ────────────────────────────────────────────────
-// td indices (0-based): up_closing=2, exp_in(close to ex)=3, dsc=7, exp_in=8, dom=9, co_dollar=54, 1099=55
+// td indices (0-based): exp_in=2, dom=3, up_closing=5, dsc=10, co_dollar=52, 1099=53
 function refreshComputed(tid){
   fetch('/api/transaction/'+tid+'/computed').then(r=>r.json()).then(d=>{
     if(!d.ok) return;
@@ -561,13 +576,12 @@ function refreshComputed(tid){
     const cells=row.querySelectorAll('td');
     const fmt=v=>v!=null&&v!==''?parseFloat(v).toLocaleString('en-US',{maximumFractionDigits:0}):'';
     const set=(i,v,f)=>{if(cells[i]){cells[i].dataset.val=v??'';cells[i].textContent=f?fmt(v):(v??'');}};
-    set(2, d.up_closing);
-    set(3, d.exp_in);
-    set(7, d.dsc);
-    set(8, d.exp_in);
-    set(9, d.dom);
-    set(54, d.company_dollar, true);
-    set(55, d.company_dollar, true);
+    set(2, d.exp_in);
+    set(3, d.dom);
+    set(5, d.up_closing);
+    set(10, d.dsc);
+    set(52, d.company_dollar, true);
+    set(53, d.company_dollar, true);
   }).catch(()=>{});
 }
 
