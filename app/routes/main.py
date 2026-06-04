@@ -219,7 +219,7 @@ def my_business():
     if admin_filter:
         query = query.filter(Transaction.admin_name == admin_filter)
 
-    transactions = query.order_by(Transaction.close_date.desc().nullslast(), Transaction.signed_date.desc()).all()
+    transactions = query.order_by(Transaction.id.desc()).all()
 
     # Summary counts (year column may be null on imported data; use close_date year as fallback)
     def year_filter(model):
