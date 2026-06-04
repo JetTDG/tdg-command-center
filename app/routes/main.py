@@ -831,7 +831,13 @@ DB: PostgreSQL. Tables:
 Key values:
 - status: Active, Pending, Closed, Pre-Signed, x-Cancelled, y-Sale Failed, z-Expired
 - transaction_type: Listing, Buyer, Commercial, Referral, Lease
-- year: 2025, 2026 (default 2026)
+- year: 2025, 2026
+
+CRITICAL QUERY RULES:
+1. NEVER filter by year for status-based questions (Active, Pending, Pre-Signed counts).
+   Active listings/buyers span multiple years. DO NOT add year=2026 to these queries.
+2. For YTD GCI, closed volume, closed units: use WHERE status='Closed' AND year=2026.
+3. For "how many active listings/buyers": WHERE transaction_type=X AND status='Active' only.
 Agent name matching: use ILIKE '%name%'
 """
 
