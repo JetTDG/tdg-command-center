@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Change History — TDG Command Center{% endblock %}
+{% block content %}
+<div class="page-title">Change History</div>
+<div class="page-subtitle">Every edit made in Command Center — who changed what, and when</div>
+
+<!-- Filters -->
+<form method="GET" class="row g-2 mb-3 align-items-center">
+  <div class="col-auto">
+    <input type="text" name="user" class="form-control form-control-sm" placeholder="Filter by user…"
+           value="{{ selected_user }}" style="width:200px">
+  </div>
+  <div class="col-auto">
+    <select name="field" class="form-select form-select-sm" style="width:180px">
+      <option value="">All fields</option>
+      {% for f in fields %}
+      <option value="{{ f }}" {% if f == selected_field %}selected{% endif %}>{{ f }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-sm btn-gold">Apply</button>
+    <a href="{{ url_for('main.audit_log_page') }}" class="btn btn-sm btn-outline-secondary ms-1">Clear</a>
+  </div>
+  <div class="col-auto text-muted small ms-auto">{{ total }} changes</div>
+</form>
+
+<div class="card p-0">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0" style="font-size:.82rem">
+      <thead style="background:#f8f9fa;position:sticky;top:0">
+        <tr>
+          <th style="width:140px">When</th>
+          <th style="width:160px">Who</th>
+          <th style="width:60px">Deal #</th>
+          <th style="width:160px">Field</th>
+          <th>Old Value</th>
+          <th>New Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td class="text-muted">{{ e.changed_at.strftime('%m/%d %I:%M %p') if e.changed_at else '' }}</td>
+          <td>
+            <span style="font-weight:600;color:#1a1a2e">
+              {{ e.changed_by.split('@')[0] if e.changed_by else '—' }}
+            </span>
+            {% if e.changed_by and '@' in e.changed_by %}
+            <div style="font-size:.7rem;color:#aaa">{{ e.changed_by }}</div>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('main.my_business') }}?year=2026" class="text-decoration-none"
+               style="color:var(--tdg-gold);font-weight:600">#{{ e.record_id }}</a>
+          </td>
+          <td><code style="font-size:.78rem;background:#f3f4f6;padding:1px 5px;border-radius:3px">{{ e.field_name }}</code></td>
+          <td class="text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+              title="{{ e.old_value }}">
+            {% if e.old_value %}
+              <span style="color:#dc3545">{{ e.old_value[:60] }}{% if e.old_value|length > 60 %}…{% endif %}</span>
+            {% else %}
+              <span class="text-muted fst-italic">empty</span>
+            {% endif %}
+          </td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+              title="{{ e.new_value }}">
+            {% if e.new_value %}
+              <span style="color:#198754;font-weight:600">{{ e.new_value[:60] }}{% if e.new_value|length > 60 %}…{% endif %}</span>
+            {% else %}
+              <span class="text-muted fst-italic">empty</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-5">No changes recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Pagination -->
+{% if total > per_page %}
+<div class="d-flex justify-content-center mt-3 gap-2">
+  {% if page > 1 %}
+  <a href="?page={{ page-1 }}&user={{ selected_user }}&field={{ selected_field }}" class="btn btn-sm btn-outline-secondary">← Prev</a>
+  {% endif %}
+  <span class="btn btn-sm btn-gold disabled">Page {{ page }} of {{ ((total-1)//per_page)+1 }}</span>
+  {% if page * per_page < total %}
+  <a href="?page={{ page+1 }}&user={{ selected_user }}&field={{ selected_field }}" class="btn btn-sm btn-outline-secondary">Next →</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

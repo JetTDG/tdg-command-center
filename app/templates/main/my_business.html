@@ -21,18 +21,53 @@
   {% endfor %}
 </div>
 
-<!-- Year filter + record count -->
-<form method="GET" class="row g-2 mb-2 align-items-center" id="year-form">
+<!-- Year / Month / Date filter bar -->
+<form method="GET" class="row g-2 mb-2 align-items-center flex-wrap" id="year-form">
+  <!-- Year -->
   <div class="col-auto">
-    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+    <select name="year" class="form-select form-select-sm" onchange="monthChanged()">
       {% for y in years %}<option value="{{ y }}" {% if y==selected_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
     </select>
   </div>
+
+  <!-- Month — styled like CTE dropdown -->
+  <div class="col-auto">
+    <select name="month" class="form-select form-select-sm" id="month-select" onchange="monthChanged()">
+      <option value="" {% if not selected_month %}selected{% endif %}>All Months</option>
+      {% for num, name in month_names %}
+      <option value="{{ num }}" {% if selected_month == num %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Date range — shown only when a month is selected -->
+  <div class="col-auto" id="date-range-wrap" style="display:{% if selected_month %}flex{% else %}none{% endif %};align-items:center;gap:4px;">
+    <span class="text-muted small">From</span>
+    <input type="date" name="date_from" class="form-control form-control-sm" style="width:130px"
+           value="{{ selected_date_from }}" id="date-from-input">
+    <span class="text-muted small">To</span>
+    <input type="date" name="date_to" class="form-control form-control-sm" style="width:130px"
+           value="{{ selected_date_to }}" id="date-to-input">
+  </div>
+
   <div class="col-auto text-muted small" id="rec-count">{{ transactions|length }} records</div>
   <div class="col-auto ms-auto">
+    <button type="submit" class="btn btn-sm btn-gold me-1">Apply</button>
     <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-filters-btn">Clear All Filters</button>
   </div>
 </form>
+
+<script>
+function monthChanged() {
+  var m = document.getElementById('month-select').value;
+  var wrap = document.getElementById('date-range-wrap');
+  wrap.style.display = m ? 'flex' : 'none';
+  if (!m) {
+    document.getElementById('date-from-input').value = '';
+    document.getElementById('date-to-input').value = '';
+  }
+}
+</script>
 
 <!-- Table -->
 <div class="card mt-1 p-0" style="overflow:hidden;">
@@ -287,6 +322,45 @@
     </table>
   </div>
 </div>
+
+<!-- ── Totals Bar ─────────────────────────────────────────────────────────── -->
+<div id="totals-bar" style="
+  background:#1a1a2e;color:#fff;border-radius:0 0 8px 8px;
+  padding:10px 18px;margin-top:-2px;display:flex;flex-wrap:wrap;gap:6px 18px;
+  align-items:center;font-size:0.82rem;border-top:2px solid var(--tdg-gold);
+">
+  <span style="font-weight:700;color:var(--tdg-gold);font-size:.85rem">TOTALS</span>
+  <div class="tot-pill">
+    <span class="tot-lbl">Records</span>
+    <span class="tot-val" id="tot-records">0</span>
+  </div>
+  <div class="tot-pill">
+    <span class="tot-lbl">Sale Price</span>
+    <span class="tot-val" id="tot-sale-price">$0</span>
+  </div>
+  <div class="tot-pill">
+    <span class="tot-lbl">Units</span>
+    <span class="tot-val" id="tot-units">0</span>
+  </div>
+  <div class="tot-pill">
+    <span class="tot-lbl">GCI</span>
+    <span class="tot-val" id="tot-gci" style="color:var(--tdg-gold)">$0</span>
+  </div>
+  <div class="tot-pill">
+    <span class="tot-lbl">Primary GCI</span>
+    <span class="tot-val" id="tot-pri-gci" style="color:var(--tdg-gold)">$0</span>
+  </div>
+  <div class="tot-pill">
+    <span class="tot-lbl">Co. Dollar</span>
+    <span class="tot-val" id="tot-co-dollar">$0</span>
+  </div>
+</div>
+
+<style>
+.tot-pill { display:flex;flex-direction:column;align-items:center;background:rgba(255,255,255,.07);border-radius:6px;padding:4px 12px;min-width:90px; }
+.tot-lbl  { font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:#aaa;line-height:1.2; }
+.tot-val  { font-size:.92rem;font-weight:700;line-height:1.4; }
+</style>
 
 <!-- ── Column Filter Dropdown ─────────────────────────────────────────── -->
 <div id="col-filter-dd" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #dee2e6;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);min-width:210px;max-width:280px;padding:8px;">
@@ -587,17 +661,47 @@ function getCellVal(row, colIdx) {
 }
 
 // ── Apply all active filters, hiding non-matching rows ───────────────────
+function parseMoney(v) {
+  if (!v) return 0;
+  const n = parseFloat(String(v).replace(/[$,]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function fmtMoney(n) {
+  if (n === 0) return '$0';
+  return '$' + Math.round(n).toLocaleString('en-US');
+}
+
+function updateTotals(visibleRows) {
+  let salePriceSum = 0, unitsSum = 0, gciSum = 0, priGciSum = 0, coDollarSum = 0;
+  visibleRows.forEach(row => {
+    salePriceSum += parseMoney(getCellVal(row, 20));
+    unitsSum     += parseMoney(getCellVal(row, 22));
+    gciSum       += parseMoney(getCellVal(row, 23));
+    priGciSum    += parseMoney(getCellVal(row, 31));
+    coDollarSum  += parseMoney(getCellVal(row, 52));
+  });
+  document.getElementById('tot-records').textContent   = visibleRows.length;
+  document.getElementById('tot-sale-price').textContent = fmtMoney(salePriceSum);
+  document.getElementById('tot-units').textContent      = unitsSum % 1 === 0 ? unitsSum : unitsSum.toFixed(2);
+  document.getElementById('tot-gci').textContent        = fmtMoney(gciSum);
+  document.getElementById('tot-pri-gci').textContent    = fmtMoney(priGciSum);
+  document.getElementById('tot-co-dollar').textContent  = fmtMoney(coDollarSum);
+}
+
 function applyFilters() {
   let vis = 0;
+  const visibleRows = [];
   getAllRows().forEach(row => {
     let show = true;
     for (const [ci, allowed] of Object.entries(activeFilters)) {
       if (!allowed.has(getCellVal(row, parseInt(ci)))) { show=false; break; }
     }
     row.classList.toggle('row-hidden', !show);
-    if (show) vis++;
+    if (show) { vis++; visibleRows.push(row); }
   });
   document.getElementById('rec-count').textContent = vis + ' records';
+  updateTotals(visibleRows);
 }
 
 // ── Sort rows by column ───────────────────────────────────────────────────
@@ -731,12 +835,21 @@ document.getElementById('clear-filters-btn').addEventListener('click', function(
   document.querySelectorAll('.sbtn').forEach(b=>b.textContent='⇅');
   sortCol=-1; sortDir=1;
   applyFilters();
+  // Also reset server-side month/date filters and reload
+  var url = new URL(window.location.href);
+  url.searchParams.delete('month');
+  url.searchParams.delete('date_from');
+  url.searchParams.delete('date_to');
+  window.location.href = url.toString();
 });
 
 // Close on outside click
 document.addEventListener('click', e => {
   if (!dd.contains(e.target) && !e.target.closest('.col-hdr')) dd.style.display='none';
 });
+
+// Seed totals on page load (all rows visible)
+updateTotals(getAllRows());
 
 // ── Floating bottom scrollbar ─────────────────────────────────────────────
 (function() {

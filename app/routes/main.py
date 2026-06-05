@@ -1,6 +1,23 @@
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+from app.models import AuditLog
+
+def log_change(record_id, field_name, old_value, new_value, table_name='transactions'):
+    """Write a single change to the audit log."""
+    try:
+        entry = AuditLog(
+            table_name=table_name,
+            record_id=record_id,
+            field_name=field_name,
+            old_value=str(old_value) if old_value is not None else '',
+            new_value=str(new_value) if new_value is not None else '',
+            changed_by=current_user.email if current_user.is_authenticated else 'system',
+        )
+        db.session.add(entry)
+        # committed together with the main change
+    except Exception:
+        pass  # audit failure never blocks the real save
 from app.models import Agent, Transaction, LeadGenLog, BusinessPlan, Pipeline
 from app import db
 from datetime import datetime, date
@@ -195,6 +212,9 @@ def home():
 @login_required
 def my_business():
     year = int(request.args.get('year', current_year()))
+    month_filter = request.args.get('month', '')       # '' = all months, '1'-'12' = specific month
+    date_from    = request.args.get('date_from', '')   # YYYY-MM-DD within month
+    date_to      = request.args.get('date_to', '')     # YYYY-MM-DD within month
     agent_id = request.args.get('agent_id', '')
     status_filter = request.args.get('status', '')
     type_filter = request.args.get('type', '')
@@ -208,6 +228,15 @@ def my_business():
             and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year)
         )
     )
+    # Month filter — narrow to a specific month within the year
+    if month_filter:
+        m = int(month_filter)
+        query = query.filter(Transaction.month == m)
+    # Date-range filter within the month (uses close_date as primary date)
+    if date_from:
+        query = query.filter(Transaction.close_date >= date_from)
+    if date_to:
+        query = query.filter(Transaction.close_date <= date_to)
     if agent_id:
         query = query.filter(Transaction.agent_id == int(agent_id))
     if status_filter:
@@ -254,6 +283,9 @@ def my_business():
                                 .all()
     ]
 
+    import calendar as _cal
+    month_names = [(str(i), _cal.month_name[i]) for i in range(1, 13)]
+
     return render_template('main/my_business.html',
         transactions=transactions,
         summary=summary,
@@ -261,7 +293,11 @@ def my_business():
         statuses=statuses,
         lead_sources=lead_sources,
         admin_names=admin_names,
+        month_names=month_names,
         selected_year=year,
+        selected_month=month_filter,
+        selected_date_from=date_from,
+        selected_date_to=date_to,
         selected_agent=agent_id,
         selected_status=status_filter,
         selected_type=type_filter,
@@ -424,6 +460,9 @@ def patch_transaction(tid):
         return jsonify({'error': f'Field not editable: {field}'}), 400
 
     try:
+        # Capture old value for audit log BEFORE setting new value
+        old_val = getattr(t, field, None)
+
         if field in TEXT_FIELDS:
             setattr(t, field, value.strip() or None)
         elif field in FLOAT_FIELDS:
@@ -455,6 +494,10 @@ def patch_transaction(tid):
             t.member4_gci = round(t.gci * t.member4_pct, 2)
 
         t.updated_at = datetime.utcnow()
+        # Write audit log entry (committed together)
+        new_val = getattr(t, field, None)
+        if str(old_val) != str(new_val):
+            log_change(tid, field, old_val, new_val)
         db.session.commit()
         return jsonify({'ok': True, 'field': field, 'value': str(getattr(t, field) or '')})
     except Exception as e:
@@ -616,20 +659,25 @@ def delete_lead_gen(lid):
 
 # ─── LEADERBOARD ────────────────────────────────────────────────────────────
 
-def _build_leaderboard(year, statuses):
+def _build_leaderboard(year, statuses, transaction_types=None, month=None):
     """Return agents ranked by agent GCI (primary_agent_gci = agent's split only)
-    for given year and list of statuses."""
+    for given year and list of statuses. Optionally filter by transaction_types and month."""
+    filters = [
+        Transaction.year == year,
+        Transaction.status.in_(statuses),
+        Transaction.primary_agent_name.isnot(None),
+        Transaction.primary_agent_name != ''
+    ]
+    if transaction_types:
+        filters.append(Transaction.transaction_type.in_(transaction_types))
+    if month:
+        filters.append(Transaction.month == month)
     rows = db.session.query(
         Transaction.primary_agent_name,
         func.sum(Transaction.primary_agent_gci).label('gci'),
         func.count(Transaction.id).label('units'),
         func.sum(Transaction.sale_price).label('volume')
-    ).filter(
-        Transaction.year == year,
-        Transaction.status.in_(statuses),
-        Transaction.primary_agent_name.isnot(None),
-        Transaction.primary_agent_name != ''
-    ).group_by(Transaction.primary_agent_name).all()
+    ).filter(*filters).group_by(Transaction.primary_agent_name).all()
 
     result = sorted([
         {
@@ -712,10 +760,20 @@ def leaderboard():
     for i, row in enumerate(board):
         row['rank'] = i + 1
 
+    # Category filter: all / residential / commercial
+    category = request.args.get('category', 'all')
+    tx_types = None
+    if category == 'residential':
+        tx_types = ['Listing', 'Buyer']
+    elif category == 'commercial':
+        tx_types = ['Commercial']
+
+    lb_month = month if timeframe == 'This Month' else None
+
     # ── Three focused leaderboard lists (by primary_agent_name) ──
-    leaderboard_closed   = _build_leaderboard(year, ['Closed'])
-    leaderboard_pending  = _build_leaderboard(year, ['Pending'])
-    leaderboard_combined = _build_leaderboard(year, ['Closed', 'Pending'])
+    leaderboard_closed   = _build_leaderboard(year, ['Closed'],           tx_types, lb_month)
+    leaderboard_pending  = _build_leaderboard(year, ['Pending'],          tx_types, lb_month)
+    leaderboard_combined = _build_leaderboard(year, ['Closed', 'Pending'],tx_types, lb_month)
 
     months = [(i, calendar.month_name[i]) for i in range(1, 13)]
     return render_template('main/leaderboard.html',
@@ -726,9 +784,119 @@ def leaderboard():
         year=year,
         timeframe=timeframe,
         selected_month=month,
+        selected_category=category,
         months=months,
         years=list(range(2020, current_year()+1))
     )
+
+# ─── AUDIT LOG ──────────────────────────────────────────────────────────────
+
+@bp.route('/api/transaction/<int:tid>/history')
+@login_required
+def transaction_history(tid):
+    """JSON: return audit log for a specific transaction."""
+    from flask import jsonify
+    entries = AuditLog.query.filter_by(table_name='transactions', record_id=tid)                            .order_by(AuditLog.changed_at.desc()).limit(200).all()
+    return jsonify([{
+        'id':         e.id,
+        'field':      e.field_name,
+        'old':        e.old_value,
+        'new':        e.new_value,
+        'by':         e.changed_by,
+        'at':         e.changed_at.strftime('%m/%d/%Y %I:%M %p') if e.changed_at else '',
+    } for e in entries])
+
+
+@bp.route('/audit-log')
+@login_required
+def audit_log_page():
+    """Full audit log — all recent changes across all transactions."""
+    from flask import render_template
+    page      = int(request.args.get('page', 1))
+    per_page  = 100
+    q         = AuditLog.query.order_by(AuditLog.changed_at.desc())
+    # Optional filters
+    user_f    = request.args.get('user', '')
+    field_f   = request.args.get('field', '')
+    if user_f:
+        q = q.filter(AuditLog.changed_by.ilike(f'%{user_f}%'))
+    if field_f:
+        q = q.filter(AuditLog.field_name == field_f)
+    total     = q.count()
+    entries   = q.offset((page-1)*per_page).limit(per_page).all()
+    # distinct field names for filter dropdown
+    fields = [r[0] for r in db.session.query(AuditLog.field_name).distinct().order_by(AuditLog.field_name).all()]
+    return render_template('main/audit_log.html',
+        entries=entries, total=total, page=page, per_page=per_page,
+        fields=fields, selected_user=user_f, selected_field=field_f)
+
+# ─── LEADERBOARD AGENT DRILL-DOWN ───────────────────────────────────────────
+
+@bp.route('/leaderboard/agent-deals')
+@login_required
+def leaderboard_agent_deals():
+    """JSON endpoint: return Pending + Closed deals for a named agent."""
+    from flask import jsonify
+    name     = request.args.get('name', '').strip()
+    year     = request.args.get('year', str(current_year()))
+    category = request.args.get('category', 'all')
+
+    if not name:
+        return jsonify({'error': 'name required'}), 400
+
+    filters = [
+        Transaction.primary_agent_name == name,
+        Transaction.status.in_(['Pending', 'Closed']),
+    ]
+    # Year filter
+    try:
+        yr = int(year)
+        filters.append(Transaction.year == yr)
+    except ValueError:
+        pass
+    # Category filter
+    if category == 'residential':
+        filters.append(Transaction.transaction_type.in_(['Listing', 'Buyer']))
+    elif category == 'commercial':
+        filters.append(Transaction.transaction_type.in_(['Commercial']))
+
+    txns = Transaction.query.filter(*filters).order_by(
+        Transaction.status,                   # Pending before Closed
+        Transaction.projected_close_date
+    ).all()
+
+    def fmt_date(d):
+        return d.strftime('%m/%d/%Y') if d else ''
+
+    def fmt_money(v):
+        return '${:,.0f}'.format(v) if v else ''
+
+    deals = []
+    for t in txns:
+        deals.append({
+            'id':            t.id,
+            'address':       t.address or '',
+            'type':          t.transaction_type or '',
+            'status':        t.status or '',
+            'source':        t.lead_source or '',
+            'proj_close':    fmt_date(t.projected_close_date),
+            'close_date':    fmt_date(t.close_date),
+            'agent_gci':     fmt_money(t.primary_agent_gci),
+            'agent_gci_raw': float(t.primary_agent_gci or 0),
+            'sale_price':    fmt_money(t.sale_price),
+            'client':        t.client_name or '',
+        })
+
+    pending_total = sum(t.primary_agent_gci or 0 for t in txns if t.status == 'Pending')
+    closed_total  = sum(t.primary_agent_gci or 0 for t in txns if t.status == 'Closed')
+
+    return jsonify({
+        'name':          name,
+        'deals':         deals,
+        'pending_total': '${:,.0f}'.format(pending_total),
+        'closed_total':  '${:,.0f}'.format(closed_total),
+        'deal_count':    len(deals),
+    })
 
 # ─── ASK / NLQ ──────────────────────────────────────────────────────────────
 

@@ -237,6 +237,23 @@ class BusinessPlan(db.Model):
         return f'<BusinessPlan {self.agent.name} {self.year}>'
 
 
+class AuditLog(db.Model):
+    """Tracks every change made to transactions — who changed what, when, from→to."""
+    __tablename__ = 'audit_log'
+    id           = db.Column(db.Integer, primary_key=True)
+    table_name   = db.Column(db.String(50), nullable=False, default='transactions')
+    record_id    = db.Column(db.Integer, nullable=False)   # transaction id
+    field_name   = db.Column(db.String(100), nullable=False)
+    old_value    = db.Column(db.Text)
+    new_value    = db.Column(db.Text)
+    changed_by   = db.Column(db.String(120))               # email / username
+    changed_at   = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    note         = db.Column(db.String(200))               # optional context
+
+    def __repr__(self):
+        return f'<AuditLog {self.table_name}#{self.record_id} {self.field_name}>'
+
+
 class Pipeline(db.Model):
     __tablename__ = 'pipeline'
     id = db.Column(db.Integer, primary_key=True)
