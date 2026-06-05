@@ -617,11 +617,11 @@ def delete_lead_gen(lid):
 # ─── LEADERBOARD ────────────────────────────────────────────────────────────
 
 def _build_leaderboard(year, statuses):
-    """Return agents ranked by GCI for given year and list of statuses.
-    Matches by primary_agent_name so imported-only records are included."""
+    """Return agents ranked by agent GCI (primary_agent_gci = agent's split only)
+    for given year and list of statuses."""
     rows = db.session.query(
         Transaction.primary_agent_name,
-        func.sum(Transaction.gci).label('gci'),
+        func.sum(Transaction.primary_agent_gci).label('gci'),
         func.count(Transaction.id).label('units'),
         func.sum(Transaction.sale_price).label('volume')
     ).filter(
@@ -667,7 +667,7 @@ def leaderboard():
 
         txns = q.all()
         units = len(txns)
-        gci = sum((t.gci or 0) for t in txns)
+        gci = sum((t.primary_agent_gci or 0) for t in txns)
         volume = sum((t.sale_price or 0) for t in txns)
         listings = sum(1 for t in txns if t.transaction_type == 'Listing')
         buyers = sum(1 for t in txns if t.transaction_type == 'Buyer')
