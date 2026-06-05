@@ -36,8 +36,8 @@
 
 <!-- Table -->
 <div class="card mt-1 p-0">
-  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:74vh;position:relative;">
-    <table class="table table-hover table-bordered mb-0" id="mb-table" style="min-width:5400px;table-layout:fixed;font-size:0.74rem">
+  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:74vh;position:relative;-webkit-overflow-scrolling:touch;">
+    <table class="table table-hover table-bordered mb-0" id="mb-table" style="min-width:5400px;table-layout:fixed;font-size:0.74rem;touch-action:pan-x pan-y;">
       <thead style="position:sticky;top:0;z-index:20;background:#f8f9fa;">
         <tr>
           <th class="col-hdr sticky-col" data-col="0" style="left:0;min-width:150px;width:150px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Agent</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
@@ -394,6 +394,26 @@ tr.row-hidden { display:none; }
 #mb-float-scroll::-webkit-scrollbar { height:8px; }
 #mb-float-scroll::-webkit-scrollbar-track { background:#c0c0c0; }
 #mb-float-scroll::-webkit-scrollbar-thumb { background:#888; border-radius:4px; }
+
+/* ── Mobile touch scrolling ─────────────────────────── */
+#mb-table-wrap {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+#mb-table {
+  touch-action: pan-x pan-y;
+}
+/* Prevent sticky cols from eating touch events on iOS */
+.sticky-col {
+  -webkit-overflow-scrolling: touch;
+  pointer-events: auto;
+}
+@media (max-width: 768px) {
+  #mb-table-wrap { max-height: 70vh; }
+  #mb-table { font-size: 0.7rem; }
+  #mb-table td, #mb-table th { padding: 2px 4px !important; }
+}
 </style>
 
 <script>
@@ -718,6 +738,8 @@ document.addEventListener('click', e => {
 
 // ── Floating bottom scrollbar ─────────────────────────────────────────────
 (function() {
+  // Skip floating scrollbar on mobile — native touch scroll handles it
+  if (window.innerWidth < 768) return;
   const wrap = document.getElementById('mb-table-wrap');
   if (!wrap) return;
   const rail = document.createElement('div');
