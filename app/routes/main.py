@@ -270,9 +270,16 @@ def my_business():
         )
     )
     # Month filter — narrow to a specific month within the year
+    # For Closed: use month column; For Pending: use projected_close_date month
     if month_filter:
         m = int(month_filter)
-        query = query.filter(Transaction.month == m)
+        query = query.filter(
+            or_(
+                and_(Transaction.status == 'Closed', Transaction.month == m),
+                and_(Transaction.status == 'Pending', extract('month', Transaction.projected_close_date) == m),
+                and_(~Transaction.status.in_(['Closed', 'Pending']), Transaction.month == m)  # Other statuses use month
+            )
+        )
     # Date-range filter within the month (uses close_date as primary date)
     if date_from:
         query = query.filter(Transaction.close_date >= date_from)
