@@ -1198,10 +1198,12 @@ def ceo_summary():
     ).filter_by(year=year).scalar() or 0
 
     # Monthly breakdown — all 3 metrics, closed + pending
+    # For closed: use month column
+    # For pending: extract month from projected_close_date
     monthly = []
     for m in range(1, 13):
         mc = [t for t in closed  if t.month == m]
-        mp = [t for t in pending if t.month == m]
+        mp = [t for t in pending if t.projected_close_date and t.projected_close_date.month == m]
         monthly.append({
             'month':          calendar.month_abbr[m],
             'closed_gci':     round(sum((t.gci or 0) for t in mc), 2),
