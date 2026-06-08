@@ -43,6 +43,13 @@
     </div>
   </div>
   {% endfor %}
+  {% set untyped_total = totals.untyped_appts or 0 %}
+  <div class="col">
+    <div class="stat-card text-center py-2" style="border: 1px solid {% if untyped_total > 0 %}#dc3545{% else %}#444{% endif %};">
+      <div style="font-size:1.3rem;font-weight:700;color:{% if untyped_total > 0 %}#dc3545{% else %}var(--tdg-muted){% endif %}">{{ untyped_total }}</div>
+      <div style="font-size:0.68rem;text-transform:uppercase;color:{% if untyped_total > 0 %}#dc3545{% else %}var(--tdg-muted){% endif %}">⚠ No Type Set</div>
+    </div>
+  </div>
 </div>
 
 <div class="card">
@@ -52,6 +59,7 @@
         <th>Date</th><th>Agent</th><th>Hrs</th><th>Contacts</th><th>Nurtures</th>
         <th>L.Set</th><th>L.Held</th><th>L.Signed</th>
         <th>B.Set</th><th>B.Held</th><th>B.Signed</th>
+        <th style="color:#dc3545">⚠ No Type</th>
         <th>Offers</th><th>Source</th><th></th>
       </tr></thead>
       <tbody>
@@ -68,6 +76,8 @@
           <td class="small">{{ log.buyer_appts_set }}</td>
           <td class="small">{{ log.buyer_appts_held }}</td>
           <td class="small fw-bold" style="color:var(--tdg-gold)">{{ log.buyers_signed }}</td>
+          {% set ut = log.untyped_appts or 0 %}
+          <td class="small fw-bold" style="color:{% if ut > 0 %}#dc3545{% else %}var(--tdg-muted){% endif %}">{{ ut if ut > 0 else '—' }}</td>
           <td class="small">{{ log.written_offers }}</td>
           <td class="small text-muted">{{ log.lead_source or '—' }}</td>
           <td>
@@ -78,7 +88,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="14" class="text-center text-muted py-4">No entries for this period. <a href="{{ url_for('main.add_lead_gen') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>
+        <tr><td colspan="15" class="text-center text-muted py-4">No entries for this period. <a href="{{ url_for('main.add_lead_gen') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>
         {% endfor %}
       </tbody>
     </table>

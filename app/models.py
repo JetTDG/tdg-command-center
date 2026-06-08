@@ -204,6 +204,7 @@ class LeadGenLog(db.Model):
     buyer_appts_set = db.Column(db.Integer, default=0)
     buyer_appts_held = db.Column(db.Integer, default=0)
     buyers_signed = db.Column(db.Integer, default=0)
+    untyped_appts = db.Column(db.Integer, default=0)
     written_offers = db.Column(db.Integer, default=0)
     showings = db.Column(db.Integer, default=0)
     open_houses = db.Column(db.Integer, default=0)

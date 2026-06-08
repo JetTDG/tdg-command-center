@@ -608,6 +608,7 @@ def lead_gen():
         func.sum(LeadGenLog.buyer_appts_set).label('buyer_appts_set'),
         func.sum(LeadGenLog.buyer_appts_held).label('buyer_appts_held'),
         func.sum(LeadGenLog.buyers_signed).label('buyers_signed'),
+        func.sum(LeadGenLog.untyped_appts).label('untyped_appts'),
         func.sum(LeadGenLog.written_offers).label('written_offers'),
         func.sum(LeadGenLog.showings).label('showings'),
         func.sum(LeadGenLog.hours).label('hours'),
