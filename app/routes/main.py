@@ -1073,7 +1073,10 @@ Agent name matching: use ILIKE '%name%'
             },
             timeout=15
         )
-        return resp.json()['content'][0]['text'].strip()
+        data = resp.json()
+        if 'content' not in data:
+            raise ValueError(f"Anthropic API error: {data.get('error', {}).get('message', str(data)[:200])}")
+        return data['content'][0]['text'].strip()
 
     # Load static knowledge base (TDG Canva site + docs)
     kb_context = load_knowledge_base()
