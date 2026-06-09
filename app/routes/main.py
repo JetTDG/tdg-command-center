@@ -1048,7 +1048,7 @@ DB: PostgreSQL. Tables:
 Key values:
 - status: Active, Pending, Closed, Pre-Signed, x-Cancelled, y-Sale Failed, z-Expired
 - transaction_type: Listing, Buyer, Commercial, Referral, Lease
-- year: 2023, 2024, 2025, 2026 (historical data available for all years)
+- year: 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026 (historical data available for all years)
 
 CRITICAL QUERY RULES:
 1. NEVER filter by year for status-based questions (Active, Pending, Pre-Signed counts).
