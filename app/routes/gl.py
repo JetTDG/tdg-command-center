@@ -190,13 +190,17 @@ def dashboard():
     from sqlalchemy import func
 
     # ── DB scan counts per slug ───────────────────────────────────────────────
-    rows = (db.session.query(
-                GLScan.slug,
-                GLScan.event_type,
-                func.count(GLScan.id).label('cnt')
-            )
-            .group_by(GLScan.slug, GLScan.event_type)
-            .all())
+    try:
+        rows = (db.session.query(
+                    GLScan.slug,
+                    GLScan.event_type,
+                    func.count(GLScan.id).label('cnt')
+                )
+                .group_by(GLScan.slug, GLScan.event_type)
+                .all())
+    except Exception as e:
+        log.error(f"GL dashboard DB error: {e}")
+        rows = []
 
     # Build per-slug stats dict
     stats = {}

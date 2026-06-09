@@ -40,4 +40,8 @@ def create_app():
     app.register_blueprint(main.bp)
     app.register_blueprint(gl.bp)
 
+    # Ensure all tables exist (safe — only creates missing ones)
+    with app.app_context():
+        db.create_all()
+
     return app
