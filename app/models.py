@@ -255,6 +255,27 @@ class AuditLog(db.Model):
         return f'<AuditLog {self.table_name}#{self.record_id} {self.field_name}>'
 
 
+class GLScan(db.Model):
+    """Tracks every QR scan + form submission from Commercial Golden Letter landing pages."""
+    __tablename__ = 'gl_scans'
+    id           = db.Column(db.Integer, primary_key=True)
+    slug         = db.Column(db.String(80), nullable=False, index=True)   # e.g. "fraser-industrial"
+    city         = db.Column(db.String(80))
+    vertical     = db.Column(db.String(80))
+    event_type   = db.Column(db.String(20), nullable=False)               # "scan" | "sms_tap" | "form_submit"
+    name         = db.Column(db.String(120))
+    phone        = db.Column(db.String(30))
+    address      = db.Column(db.String(200))
+    fub_id       = db.Column(db.String(50))                               # FUB person id after push
+    fub_status   = db.Column(db.String(30))                               # "created" | "updated" | "error" | None
+    ip           = db.Column(db.String(60))
+    user_agent   = db.Column(db.String(300))
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    def __repr__(self):
+        return f'<GLScan {self.slug} {self.event_type} {self.created_at}>'
+
+
 class Pipeline(db.Model):
     __tablename__ = 'pipeline'
     id = db.Column(db.Integer, primary_key=True)

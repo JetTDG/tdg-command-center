@@ -246,6 +246,11 @@
       document.getElementById('evalForm').style.display = 'none';
       document.getElementById('successMsg').style.display = 'block';
     }
+    // Beacon SMS tap event for tracking
+    document.querySelector('.cta-sms').addEventListener('click', function() {
+      var slug = window.location.pathname.split('/gl/')[1] || '';
+      fetch('/gl/' + slug + '/sms', {method:'GET', keepalive:true}).catch(function(){});
+    });
   </script>
 
 </body>
