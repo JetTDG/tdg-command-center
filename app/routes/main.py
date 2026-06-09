@@ -1048,9 +1048,10 @@ DB: PostgreSQL. Tables:
 Key values:
 - status: Active, Pending, Closed, Pre-Signed, x-Cancelled, y-Sale Failed, z-Expired
 - transaction_type: Listing, Buyer, Commercial, Referral, Lease
-- year: 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026 (historical data available for all years)
-  NOTE: year=2021 has only 9 closed records — the 2021 CTE file captured those closings in the 2020 year file.
-  The 2020 file contains 314 closings (close_date 2020). 2021 closings data is not present in the Drive files.
+- year: 2016–2026 (historical data loaded; year column = EXTRACT(YEAR FROM close_date))
+  IMPORTANT: always use EXTRACT(YEAR FROM close_date) to count closings per calendar year,
+  NOT the year column. Example: WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2022
+  NOTE: 2021 has only 9 closed records — no complete 2021 CTE file exists in Drive.
 
 CRITICAL QUERY RULES:
 1. NEVER filter by year for status-based questions (Active, Pending, Pre-Signed counts).
