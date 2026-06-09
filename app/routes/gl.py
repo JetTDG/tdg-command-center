@@ -42,6 +42,25 @@ DEFAULT_PHONE = ("(248) 955-2693", "12489552693")
 FUB_TAG       = "Commercial Golden Letters"
 FUB_BASE      = "https://api.followupboss.com/v1"
 
+# Slug → FUB Shared Inbox ID (from FUB URL /inbox-new/<id>)
+# Missing: Oakland Industrial (no inbox created yet — will alert)
+SLUG_INBOX = {
+    "fraser-industrial":     45,   # Macomb Co Industrial GL
+    "macomb-industrial":     45,
+    "fraser-retail":         48,   # Macomb Co Retail GL
+    "macomb-retail":         48,
+    "flint-industrial":      46,   # Genesee Industrial GL
+    "genesee-industrial":    46,
+    "flint-retail":          49,   # Genesee Retail GL
+    "genesee-retail":        49,
+    "oakland-retail":        50,   # Oakland Retail GL
+    "highland-retail":       50,
+    "washtenaw-industrial":  51,   # Washtenaw Industrial GL
+    "wayne-industrial":      53,   # Wayne Co Industrial GL
+    "livingston-industrial": 54,   # Livingston Co Industrial GL
+    # Oakland Industrial — inbox not yet created, will alert on use
+}
+
 
 def _lookup(slug: str):
     phone_display, phone_raw = PHONE_MAP.get(slug, DEFAULT_PHONE)
@@ -52,46 +71,105 @@ def _lookup(slug: str):
 
 
 def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertical: str):
-    """Push a form submission to FUB as a Commercial Golden Letters lead."""
+    """
+    Push a GL lead to FUB. Works with partial data (address only is enough).
+    - Deduplicates by phone (if provided) — updates existing record rather than creating duplicate
+    - Routes to the correct Shared Inbox for the county/vertical
+    - Always tags 'Commercial Golden Letters' + city/vertical tag
+    - Alerts via log if inbox not mapped for this slug
+    Returns (fub_id, status) where status = 'created' | 'updated' | 'error' | 'no_key'
+    """
     try:
-        import sys
+        import sys, base64
         sys.path.insert(0, "/Users/edentdg/.hermes/scripts")
         from vault_cache_reader import read_credential
-        fub_key = read_credential("Jet-Automations", "Jet NEW FUB API", "API Key")
+        fub_key = read_credential("Jet-Automations", "Jet FUb Key 6.3.26", "API Key")
         if not fub_key:
             log.warning("GL: FUB key not found in vault cache")
             return None, "no_key"
 
-        import base64
         auth_header = base64.b64encode(f"{fub_key}:".encode()).decode()
-        headers = {"Authorization": f"Basic {auth_header}", "Content-Type": "application/json"}
-
-        payload = {
-            "source": "Commercial Golden Letter",
-            "tags": [FUB_TAG],
-            "phones": [{"value": phone, "type": "mobile"}] if phone else [],
-            "addresses": [{"street": address}] if address else [],
-            "note": f"Commercial Golden Letter scan — {city} {vertical} | slug={slug}",
+        headers = {
+            "Authorization": f"Basic {auth_header}",
+            "Content-Type": "application/json",
+            "X-System": "TDG-GL-Landing",
+            "X-System-Key": fub_key,
         }
+
+        inbox_id = SLUG_INBOX.get(slug)
+        if inbox_id is None:
+            log.warning(f"GL: No FUB inbox mapped for slug '{slug}' — lead will be created without inbox routing. Create an inbox for this county/vertical and add it to SLUG_INBOX.")
+
+        city_vertical_tag = f"CGL - {city} {vertical}"
+
+        # ── Check for existing record by phone ───────────────────────────────
+        existing_id = None
+        if phone:
+            clean_phone = ''.join(c for c in phone if c.isdigit())
+            r_check = http.get(
+                f"{FUB_BASE}/people",
+                params={"phone": clean_phone, "limit": 1},
+                headers=headers, timeout=15
+            )
+            if r_check.status_code == 200:
+                people = r_check.json().get("people", [])
+                if people:
+                    existing_id = people[0].get("id")
+                    log.info(f"GL: Found existing FUB record {existing_id} for phone {clean_phone}")
+
+        # ── Build payload ─────────────────────────────────────────────────────
+        payload = {
+            "tags": [FUB_TAG, city_vertical_tag],
+            "source": "Commercial Golden Letter",
+            "sourceUrl": f"https://gl.tdgcommercialre.com/{slug}",
+        }
+        if inbox_id:
+            payload["sharedInboxId"] = inbox_id
+        if phone:
+            payload["phones"] = [{"value": phone, "type": "mobile"}]
+        if address:
+            payload["addresses"] = [{"street": address, "type": "property"}]
         if name:
             parts = name.strip().split(None, 1)
             payload["firstName"] = parts[0]
             if len(parts) > 1:
                 payload["lastName"] = parts[1]
 
-        r = http.post(f"{FUB_BASE}/people", json=payload, headers=headers, timeout=15)
-        if r.status_code in (200, 201):
-            fub_id = r.json().get("id") or r.json().get("person", {}).get("id")
-            return str(fub_id) if fub_id else None, "created"
-        elif r.status_code == 409:
-            # Duplicate — person already exists; update tags
-            existing_id = r.json().get("id")
-            if existing_id:
-                http.put(f"{FUB_BASE}/people/{existing_id}",
-                         json={"tags": [FUB_TAG]}, headers=headers, timeout=15)
+        # Add a note so team knows how they came in
+        contact_method = "form submission"
+        note_parts = [f"Commercial Golden Letter lead via {contact_method}"]
+        note_parts.append(f"City/Vertical: {city} {vertical}")
+        if address: note_parts.append(f"Property Address: {address}")
+        payload["note"] = " | ".join(note_parts)
+
+        # ── Create or Update ──────────────────────────────────────────────────
+        if existing_id:
+            # UPDATE — add new info to existing record
+            r = http.put(
+                f"{FUB_BASE}/people/{existing_id}",
+                json=payload, headers=headers, timeout=15
+            )
+            if r.status_code in (200, 201):
                 return str(existing_id), "updated"
-        log.warning(f"GL: FUB push failed {r.status_code}: {r.text[:200]}")
-        return None, "error"
+            log.warning(f"GL: FUB update failed {r.status_code}: {r.text[:200]}")
+            return str(existing_id), "update_failed"
+        else:
+            # CREATE
+            r = http.post(f"{FUB_BASE}/people", json=payload, headers=headers, timeout=15)
+            if r.status_code in (200, 201):
+                fub_id = r.json().get("id") or r.json().get("person", {}).get("id")
+                return str(fub_id) if fub_id else None, "created"
+            elif r.status_code == 409:
+                # FUB detected duplicate itself
+                existing_id = r.json().get("id")
+                if existing_id:
+                    http.put(f"{FUB_BASE}/people/{existing_id}",
+                             json={"tags": [FUB_TAG, city_vertical_tag]},
+                             headers=headers, timeout=15)
+                    return str(existing_id), "updated"
+            log.warning(f"GL: FUB create failed {r.status_code}: {r.text[:200]}")
+            return None, "error"
+
     except Exception as e:
         log.error(f"GL: FUB push exception: {e}")
         return None, "error"
@@ -159,15 +237,16 @@ def submit(slug):
     city     = request.form.get("city", slug.split("-")[0].title())
     vertical = request.form.get("vertical", "Commercial")
 
+    # Push to FUB as long as we have at least something useful
     fub_id, fub_status = None, None
-    if phone:
+    if name or phone or address:
         fub_id, fub_status = _fub_push(name, phone, address, slug, city, vertical)
 
     _log_event(slug, city, vertical, event_type="form_submit",
                name=name, phone=phone, address=address,
                fub_id=fub_id, fub_status=fub_status)
 
-    log.info(f"[GL SUBMIT] {slug} | {name} | {phone} | fub={fub_id}/{fub_status}")
+    log.info(f"[GL SUBMIT] {slug} | {name} | {phone} | {address} | fub={fub_id}/{fub_status}")
     return redirect(f"/gl/{slug}?submitted=1")
 
 
