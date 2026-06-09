@@ -157,21 +157,22 @@ def home():
     listings_signed_mtd = int(lg_mtd[0] or 0)
     buyers_signed_mtd   = int(lg_mtd[1] or 0)
 
-    # ── Offers Out MTD + acceptance rate ──────────────────────────────────────
-    lg_offers_mtd = db.session.query(
-        func.sum(LeadGenLog.written_offers),
-        func.sum(LeadGenLog.buyers_signed)
-    ).filter(LeadGenLog.log_date >= mtd_start, LeadGenLog.log_date <= mtd_end).one()
-    offers_mtd         = int(lg_offers_mtd[0] or 0)
-    offers_accepted_mtd = int(lg_offers_mtd[1] or 0)
+    # ── Offers Out MTD + acceptance rate — from offers_cache table (synced hourly from Master Tracker) ──
+    def get_offers_from_db(start_date, end_date):
+        total    = db.session.execute(
+            db.text("SELECT COUNT(*) FROM offers_cache WHERE offer_date BETWEEN :s AND :e"),
+            {"s": start_date, "e": end_date}
+        ).scalar() or 0
+        accepted = db.session.execute(
+            db.text("SELECT COUNT(*) FROM offers_cache WHERE offer_date BETWEEN :s AND :e AND LOWER(COALESCE(status,'')) LIKE '%accept%'"),
+            {"s": start_date, "e": end_date}
+        ).scalar() or 0
+        return int(total), int(accepted)
+
+    offers_mtd, offers_accepted_mtd = get_offers_from_db(mtd_start, mtd_end)
     acceptance_rate_mtd = round(offers_accepted_mtd / offers_mtd * 100, 1) if offers_mtd > 0 else 0.0
 
-    lg_offers_ytd = db.session.query(
-        func.sum(LeadGenLog.written_offers),
-        func.sum(LeadGenLog.buyers_signed)
-    ).filter(LeadGenLog.log_date >= ytd_start, LeadGenLog.log_date <= ytd_end).one()
-    offers_ytd          = int(lg_offers_ytd[0] or 0)
-    offers_accepted_ytd = int(lg_offers_ytd[1] or 0)
+    offers_ytd, offers_accepted_ytd = get_offers_from_db(ytd_start, ytd_end)
     acceptance_rate_ytd = round(offers_accepted_ytd / offers_ytd * 100, 1) if offers_ytd > 0 else 0.0
 
     # ── Goal progress ─────────────────────────────────────────────────────────
