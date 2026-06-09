@@ -53,12 +53,13 @@ SLUG_INBOX = {
     "genesee-industrial":    46,
     "flint-retail":          49,   # Genesee Retail GL
     "genesee-retail":        49,
+    "oakland-industrial":    43,   # Oakland Industrial GL
+    "highland-industrial":   43,
     "oakland-retail":        50,   # Oakland Retail GL
     "highland-retail":       50,
     "washtenaw-industrial":  51,   # Washtenaw Industrial GL
     "wayne-industrial":      53,   # Wayne Co Industrial GL
     "livingston-industrial": 54,   # Livingston Co Industrial GL
-    # Oakland Industrial — inbox not yet created, will alert on use
 }
 
 
