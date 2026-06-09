@@ -186,45 +186,116 @@ def qr_image(slug):
 
 @bp.route("/dashboard")
 def dashboard():
-    """Golden Letter Analytics Dashboard — scans, SMS taps, form submits, calls, texts."""
+    """Golden Letter Analytics Dashboard with full filtering."""
     from sqlalchemy import func
+    from datetime import datetime, timedelta
 
-    # ── DB scan counts per slug ───────────────────────────────────────────────
+    # ── Query params ──────────────────────────────────────────────────────────
+    date_preset = request.args.get('date_preset', 'all')
+    date_from   = request.args.get('date_from', '')
+    date_to     = request.args.get('date_to', '')
+    city_filter = request.args.get('city', '')
+    vertical_filter = request.args.get('vertical', '')
+    county_filter   = request.args.get('county', '')
+    sort_by     = request.args.get('sort_by', 'engagement')
+
+    # ── County map ────────────────────────────────────────────────────────────
+    COUNTY_MAP = {
+        "fraser":      "Macomb",
+        "macomb":      "Macomb",
+        "highland":    "Oakland",
+        "oakland":     "Oakland",
+        "flint":       "Genesee",
+        "genesee":     "Genesee",
+        "wayne":       "Wayne",
+        "washtenaw":   "Washtenaw",
+        "livingston":  "Livingston",
+    }
+
+    # ── Date bounds ───────────────────────────────────────────────────────────
+    now = datetime.utcnow()
+    dt_from = None
+    dt_to   = None
+    if date_preset == '7d':
+        dt_from = now - timedelta(days=7)
+    elif date_preset == '30d':
+        dt_from = now - timedelta(days=30)
+    elif date_preset == '90d':
+        dt_from = now - timedelta(days=90)
+    elif date_preset == 'custom':
+        try:
+            if date_from: dt_from = datetime.strptime(date_from, '%Y-%m-%d')
+            if date_to:   dt_to   = datetime.strptime(date_to,   '%Y-%m-%d').replace(hour=23, minute=59)
+        except ValueError:
+            pass
+
+    # ── DB query ──────────────────────────────────────────────────────────────
     try:
-        rows = (db.session.query(
-                    GLScan.slug,
-                    GLScan.event_type,
-                    func.count(GLScan.id).label('cnt')
-                )
-                .group_by(GLScan.slug, GLScan.event_type)
-                .all())
+        q = db.session.query(
+            GLScan.slug, GLScan.event_type,
+            func.count(GLScan.id).label('cnt'),
+            func.min(GLScan.created_at).label('first_seen')
+        )
+        if dt_from: q = q.filter(GLScan.created_at >= dt_from)
+        if dt_to:   q = q.filter(GLScan.created_at <= dt_to)
+        db_rows = q.group_by(GLScan.slug, GLScan.event_type).all()
     except Exception as e:
         log.error(f"GL dashboard DB error: {e}")
-        rows = []
+        db_rows = []
 
-    # Build per-slug stats dict
+    # ── Build stats dict ──────────────────────────────────────────────────────
     stats = {}
-    for slug, event_type, cnt in rows:
+    first_seen_map = {}
+    for slug, event_type, cnt, first_seen in db_rows:
+        parts = slug.split('-', 1)
+        city     = parts[0].title()
+        vertical = parts[1].replace('-', ' ').title() if len(parts) > 1 else 'Commercial'
+        county   = COUNTY_MAP.get(parts[0].lower(), 'Unknown')
+
+        # Apply city/vertical/county filters
+        if city_filter     and city.lower()     != city_filter.lower():     continue
+        if vertical_filter and vertical.lower() != vertical_filter.lower(): continue
+        if county_filter   and county.lower()   != county_filter.lower():   continue
+
         if slug not in stats:
-            stats[slug] = dict(slug=slug, scans=0, sms_taps=0, form_submits=0,
-                               calls_in=0, calls_out=0, texts_in=0, texts_out=0)
-        if event_type == 'scan':         stats[slug]['scans']       = cnt
-        elif event_type == 'sms_tap':    stats[slug]['sms_taps']    = cnt
+            stats[slug] = dict(slug=slug, city=city, vertical=vertical, county=county,
+                               scans=0, sms_taps=0, form_submits=0,
+                               calls_in=0, calls_out=0, texts_in=0, texts_out=0,
+                               days_live=None)
+        if event_type == 'scan':          stats[slug]['scans']        = cnt
+        elif event_type == 'sms_tap':     stats[slug]['sms_taps']     = cnt
         elif event_type == 'form_submit': stats[slug]['form_submits'] = cnt
 
-    # ── FUB activity (calls + texts per tracked phone) ────────────────────────
-    active_slugs = list(stats.keys()) or list(SLUG_PHONE.keys())
-    fub = get_fub_activity(slugs=active_slugs)
-    for slug, activity in fub.items():
-        if slug not in stats:
-            stats[slug] = dict(slug=slug, scans=0, sms_taps=0, form_submits=0,
-                               calls_in=0, calls_out=0, texts_in=0, texts_out=0)
-        stats[slug].update(activity)
+        if first_seen and (slug not in first_seen_map or first_seen < first_seen_map[slug]):
+            first_seen_map[slug] = first_seen
 
-    # Sort by total engagement descending
-    rows_out = sorted(stats.values(),
-                      key=lambda x: x['scans'] + x['sms_taps'] + x['form_submits'] + x['calls_in'],
-                      reverse=True)
+    # Days live
+    for slug, first_seen in first_seen_map.items():
+        if slug in stats:
+            stats[slug]['days_live'] = (now - first_seen).days
+
+    # ── FUB activity (calls + texts — not date-filtered, FUB totals only) ────
+    active_slugs = list(stats.keys())
+    if active_slugs:
+        try:
+            fub = get_fub_activity(slugs=active_slugs)
+            for slug, activity in fub.items():
+                if slug in stats:
+                    stats[slug].update(activity)
+        except Exception as e:
+            log.warning(f"GL dashboard FUB error: {e}")
+
+    # ── Sort ──────────────────────────────────────────────────────────────────
+    def sort_key(r):
+        if sort_by == 'scans':        return r['scans']
+        if sort_by == 'calls_in':     return r['calls_in']
+        if sort_by == 'texts_in':     return r['texts_in']
+        if sort_by == 'form_submits': return r['form_submits']
+        if sort_by == 'conv_rate':
+            return (r['form_submits'] / r['scans']) if r['scans'] > 0 else 0
+        return r['scans'] + r['sms_taps'] + r['form_submits'] + r['calls_in'] + r['texts_in']
+
+    rows_out = sorted(stats.values(), key=sort_key, reverse=True)
 
     # ── Totals ────────────────────────────────────────────────────────────────
     totals = dict(scans=0, sms_taps=0, form_submits=0,
@@ -233,19 +304,44 @@ def dashboard():
         for k in totals:
             totals[k] += r.get(k, 0)
 
-    return render_template("gl_dashboard.html", rows=rows_out, totals=totals,
-                           generated_at=datetime.utcnow().strftime("%b %d, %Y %H:%M UTC"))
+    # ── Dropdown options ──────────────────────────────────────────────────────
+    all_cities   = sorted({s.split('-')[0].title()              for s in SLUG_PHONE})
+    all_counties = sorted(set(COUNTY_MAP.values()))
+
+    # ── Helper for "remove one filter" links ─────────────────────────────────
+    def query_without(keys_csv):
+        drop = set(keys_csv.split(','))
+        params = {k: v for k, v in request.args.items() if k not in drop and k != 'date_preset' or (k == 'date_preset' and 'date_preset' not in drop)}
+        if 'date_preset' in drop:
+            params['date_preset'] = 'all'
+        return '&'.join(f"{k}={v}" for k, v in params.items())
+
+    from jinja2 import pass_context
+
+    return render_template(
+        "gl_dashboard.html",
+        rows=rows_out, totals=totals,
+        generated_at=now.strftime("%b %d, %Y %H:%M UTC"),
+        date_preset=date_preset, date_from=date_from, date_to=date_to,
+        city=city_filter, vertical=vertical_filter, county=county_filter,
+        sort_by=sort_by,
+        all_cities=all_cities, all_counties=all_counties,
+        query_without=query_without,
+    )
 
 
 @bp.route("/dashboard/data")
 def dashboard_data():
-    """JSON endpoint for dashboard auto-refresh."""
+    """JSON endpoint for future auto-refresh."""
     from sqlalchemy import func
-    rows = (db.session.query(GLScan.slug, GLScan.event_type,
-                             func.count(GLScan.id).label('cnt'))
-            .group_by(GLScan.slug, GLScan.event_type).all())
-    stats = {}
-    for slug, event_type, cnt in rows:
-        stats.setdefault(slug, {})['event_type'] = cnt
-    return jsonify(stats)
+    try:
+        rows = (db.session.query(GLScan.slug, GLScan.event_type,
+                                 func.count(GLScan.id).label('cnt'))
+                .group_by(GLScan.slug, GLScan.event_type).all())
+        stats = {}
+        for slug, event_type, cnt in rows:
+            stats.setdefault(slug, {})[event_type] = cnt
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 

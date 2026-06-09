@@ -6,74 +6,137 @@
   <title>GL Analytics | TDG Command Center</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#0f0f0f; color:#e0e0e0; min-height:100vh; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#0f0f0f; color:#e0e0e0; min-height:100vh; }
 
     /* NAV */
     .topbar { background:#111; border-bottom:1px solid #222; padding:14px 28px; display:flex; align-items:center; justify-content:space-between; }
-    .topbar .brand { font-size:13px; font-weight:700; color:#c9a84c; letter-spacing:0.1em; text-transform:uppercase; }
+    .topbar .brand { font-size:13px; font-weight:700; color:#c9a84c; letter-spacing:.1em; text-transform:uppercase; }
     .topbar .sub   { font-size:12px; color:#555; }
     .topbar .back  { font-size:12px; color:#666; text-decoration:none; }
     .topbar .back:hover { color:#c9a84c; }
 
-    /* PAGE */
-    .page { max-width:1200px; margin:0 auto; padding:32px 24px; }
+    .page { max-width:1280px; margin:0 auto; padding:28px 20px 60px; }
 
     /* HEADER */
-    .page-header { margin-bottom:32px; }
-    .page-header h1 { font-size:24px; font-weight:800; color:#fff; margin-bottom:4px; }
-    .page-header p  { font-size:13px; color:#555; }
-    .refresh-note   { font-size:11px; color:#444; margin-top:6px; }
+    .page-header { margin-bottom:24px; }
+    .page-header h1 { font-size:22px; font-weight:800; color:#fff; margin-bottom:3px; }
+    .page-header p  { font-size:12px; color:#555; }
+
+    /* FILTER BAR */
+    .filters {
+      background:#111; border:1px solid #222; border-radius:12px;
+      padding:16px 20px; margin-bottom:24px;
+      display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;
+    }
+    .filter-group { display:flex; flex-direction:column; gap:5px; }
+    .filter-group label { font-size:10px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:.1em; }
+    .filter-group select,
+    .filter-group input  {
+      background:#1a1a1a; border:1px solid #2a2a2a; border-radius:7px;
+      color:#ccc; font-size:13px; padding:8px 12px; outline:none; min-width:130px;
+    }
+    .filter-group select:focus,
+    .filter-group input:focus { border-color:#c9a84c; }
+    .filter-group input[type=date] { min-width:140px; color-scheme:dark; }
+
+    .filter-sep { width:1px; background:#222; align-self:stretch; margin:0 4px; }
+
+    .btn-apply {
+      background:#c9a84c; color:#000; font-size:12px; font-weight:800;
+      padding:9px 18px; border-radius:7px; border:none; cursor:pointer;
+      letter-spacing:.04em; align-self:flex-end;
+    }
+    .btn-apply:hover { background:#b8952f; }
+    .btn-reset {
+      background:transparent; color:#555; font-size:12px; font-weight:600;
+      padding:9px 14px; border-radius:7px; border:1px solid #2a2a2a; cursor:pointer;
+      align-self:flex-end;
+    }
+    .btn-reset:hover { color:#ccc; border-color:#444; }
+
+    /* ACTIVE FILTERS PILLS */
+    .active-filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px; }
+    .pill {
+      display:inline-flex; align-items:center; gap:6px;
+      background:#c9a84c22; border:1px solid #c9a84c44; color:#c9a84c;
+      font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px;
+    }
+    .pill .remove { cursor:pointer; opacity:.7; text-decoration:none; color:inherit; }
+    .pill .remove:hover { opacity:1; }
 
     /* SUMMARY CARDS */
-    .cards { display:grid; grid-template-columns:repeat(7,1fr); gap:12px; margin-bottom:36px; }
-    @media(max-width:900px){ .cards { grid-template-columns:repeat(4,1fr); } }
-    @media(max-width:540px){ .cards { grid-template-columns:repeat(2,1fr); } }
+    .cards { display:grid; grid-template-columns:repeat(8,1fr); gap:10px; margin-bottom:28px; }
+    @media(max-width:1000px){ .cards { grid-template-columns:repeat(4,1fr); } }
+    @media(max-width:560px){  .cards { grid-template-columns:repeat(2,1fr); } }
 
-    .card { background:#161616; border:1px solid #222; border-radius:12px; padding:16px 14px; text-align:center; }
-    .card .label { font-size:10px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:#555; margin-bottom:8px; }
-    .card .value { font-size:28px; font-weight:800; color:#fff; }
-    .card.gold   { border-color:#c9a84c44; }
-    .card.gold .value { color:#c9a84c; }
+    .card { background:#141414; border:1px solid #1e1e1e; border-radius:10px; padding:14px 12px; text-align:center; }
+    .card .label { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#444; margin-bottom:7px; }
+    .card .value { font-size:26px; font-weight:800; color:#fff; }
+    .card.gold   { border-color:#c9a84c44; } .card.gold .value  { color:#c9a84c; }
     .card.green  .value { color:#4caf7d; }
     .card.blue   .value { color:#5b8dee; }
     .card.teal   .value { color:#4cb5c9; }
+    .card.purple .value { color:#a78bfa; }
 
     /* TABLE */
-    .section-title { font-size:13px; font-weight:700; color:#666; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:12px; }
+    .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .section-title { font-size:11px; font-weight:700; color:#555; letter-spacing:.12em; text-transform:uppercase; }
+    .result-count  { font-size:11px; color:#444; }
 
-    .tbl-wrap { overflow-x:auto; border-radius:12px; border:1px solid #222; }
+    .tbl-wrap { overflow-x:auto; border-radius:12px; border:1px solid #1e1e1e; }
     table { width:100%; border-collapse:collapse; }
-    thead tr { background:#161616; }
-    thead th { padding:12px 16px; text-align:left; font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#555; white-space:nowrap; }
+    thead tr { background:#141414; }
+    thead th {
+      padding:11px 14px; text-align:left; font-size:10px; font-weight:700;
+      letter-spacing:.1em; text-transform:uppercase; color:#444; white-space:nowrap;
+      cursor:pointer; user-select:none; position:relative;
+    }
     thead th.right { text-align:right; }
+    thead th:hover { color:#888; }
+    thead th.sorted { color:#c9a84c; }
+    thead th .sort-arrow { margin-left:4px; opacity:.5; }
+    thead th.sorted .sort-arrow { opacity:1; }
 
-    tbody tr { border-top:1px solid #1c1c1c; transition:background 0.1s; }
+    tbody tr { border-top:1px solid #181818; transition:background .1s; }
     tbody tr:hover { background:#141414; }
-    tbody td { padding:13px 16px; font-size:13px; color:#ccc; white-space:nowrap; }
+    tbody td { padding:12px 14px; font-size:13px; color:#bbb; white-space:nowrap; }
     tbody td.right { text-align:right; }
-    tbody td.slug  { font-weight:700; color:#fff; font-size:13px; }
-
-    .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; }
-    .badge-gold  { background:#c9a84c22; color:#c9a84c; }
-    .badge-green { background:#4caf7d22; color:#4caf7d; }
-    .badge-blue  { background:#5b8dee22; color:#5b8dee; }
-    .badge-teal  { background:#4cb5c922; color:#4cb5c9; }
-    .badge-gray  { background:#33333388; color:#888; }
+    tbody td.slug  { font-weight:700; color:#fff; }
+    tbody td.county-badge span {
+      display:inline-block; padding:2px 8px; border-radius:4px;
+      font-size:10px; font-weight:700; background:#ffffff0d; color:#666;
+    }
 
     .num { font-variant-numeric:tabular-nums; font-weight:600; }
-    .num-zero { color:#444; font-weight:400; }
+    .num-zero { color:#333; font-weight:400; }
 
-    tfoot tr { border-top:2px solid #2a2a2a; background:#111; }
-    tfoot td { padding:13px 16px; font-size:13px; font-weight:800; color:#fff; }
+    /* Conversion rate */
+    .conv-bar { display:inline-flex; align-items:center; gap:7px; }
+    .conv-pct  { font-size:12px; font-weight:700; min-width:36px; text-align:right; }
+    .conv-track { width:60px; height:5px; background:#1e1e1e; border-radius:3px; overflow:hidden; }
+    .conv-fill  { height:100%; border-radius:3px; background:#c9a84c; }
+    .conv-fill.good { background:#4caf7d; }
+    .conv-fill.great{ background:#a78bfa; }
+
+    /* Days since badge */
+    .days-chip {
+      display:inline-block; padding:2px 7px; border-radius:4px; font-size:10px; font-weight:700;
+    }
+    .days-new   { background:#c9a84c22; color:#c9a84c; }
+    .days-mid   { background:#5b8dee22; color:#5b8dee; }
+    .days-old   { background:#33333388; color:#666; }
+
+    tfoot tr { border-top:2px solid #222; background:#111; }
+    tfoot td { padding:12px 14px; font-size:13px; font-weight:800; color:#fff; }
     tfoot td.right { text-align:right; color:#c9a84c; }
 
-    /* FUNNEL MINI */
-    .funnel-bar { display:flex; align-items:center; gap:6px; }
-    .funnel-seg { height:6px; border-radius:3px; min-width:3px; }
+    /* Empty state */
+    .empty { text-align:center; padding:56px; color:#333; font-size:14px; }
+    .empty .icon { font-size:36px; margin-bottom:12px; }
 
-    /* FOOTER */
-    .footer { text-align:center; margin-top:48px; font-size:11px; color:#333; }
-    .footer a { color:#444; text-decoration:none; }
+    /* NOTE */
+    .note { font-size:11px; color:#333; margin-top:20px; line-height:1.7; }
+    .note strong { color:#444; }
   </style>
 </head>
 <body>
@@ -90,9 +153,97 @@
 
   <div class="page-header">
     <h1>🏢 Golden Letter Analytics</h1>
-    <p>QR scan tracking, SMS engagement, and FUB inbound activity across all city/vertical batches.</p>
-    <p class="refresh-note">Generated {{ generated_at }} · FUB data pulled live from tracked phone numbers</p>
+    <p>Generated {{ generated_at }} · FUB calls/texts pulled live from tracked phone numbers</p>
   </div>
+
+  <!-- FILTER BAR -->
+  <form method="GET" action="/gl/dashboard">
+    <div class="filters">
+
+      <div class="filter-group">
+        <label>Date Range</label>
+        <select name="date_preset" id="date_preset" onchange="handleDatePreset(this)">
+          <option value="all"     {% if date_preset=='all'     %}selected{% endif %}>All Time</option>
+          <option value="7d"      {% if date_preset=='7d'      %}selected{% endif %}>Last 7 Days</option>
+          <option value="30d"     {% if date_preset=='30d'     %}selected{% endif %}>Last 30 Days</option>
+          <option value="90d"     {% if date_preset=='90d'     %}selected{% endif %}>Last 90 Days</option>
+          <option value="custom"  {% if date_preset=='custom'  %}selected{% endif %}>Custom Range</option>
+        </select>
+      </div>
+
+      <div class="filter-group" id="custom_dates" style="display:{% if date_preset=='custom' %}flex{% else %}none{% endif %};flex-direction:row;gap:8px;align-items:flex-end;">
+        <div class="filter-group">
+          <label>From</label>
+          <input type="date" name="date_from" value="{{ date_from }}"/>
+        </div>
+        <div class="filter-group">
+          <label>To</label>
+          <input type="date" name="date_to" value="{{ date_to }}"/>
+        </div>
+      </div>
+
+      <div class="filter-sep"></div>
+
+      <div class="filter-group">
+        <label>County</label>
+        <select name="county">
+          <option value="">All Counties</option>
+          {% for c in all_counties %}
+          <option value="{{ c }}" {% if county==c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>City</label>
+        <select name="city">
+          <option value="">All Cities</option>
+          {% for c in all_cities %}
+          <option value="{{ c }}" {% if city==c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Vertical</label>
+        <select name="vertical">
+          <option value="">All Verticals</option>
+          <option value="Industrial" {% if vertical=='Industrial' %}selected{% endif %}>Industrial</option>
+          <option value="Retail"     {% if vertical=='Retail'     %}selected{% endif %}>Retail</option>
+        </select>
+      </div>
+
+      <div class="filter-sep"></div>
+
+      <div class="filter-group">
+        <label>Sort By</label>
+        <select name="sort_by">
+          <option value="engagement" {% if sort_by=='engagement' %}selected{% endif %}>Total Engagement</option>
+          <option value="scans"      {% if sort_by=='scans'      %}selected{% endif %}>QR Scans</option>
+          <option value="calls_in"   {% if sort_by=='calls_in'   %}selected{% endif %}>Calls In</option>
+          <option value="texts_in"   {% if sort_by=='texts_in'   %}selected{% endif %}>Texts In</option>
+          <option value="form_submits" {% if sort_by=='form_submits' %}selected{% endif %}>Form Submits</option>
+          <option value="conv_rate"  {% if sort_by=='conv_rate'  %}selected{% endif %}>Conversion Rate</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn-apply">Apply</button>
+      <a href="/gl/dashboard" class="btn-reset" style="text-decoration:none;display:flex;align-items:center;">Reset</a>
+    </div>
+  </form>
+
+  <!-- ACTIVE FILTER PILLS -->
+  {% if date_preset != 'all' or city or vertical or county %}
+  <div class="active-filters">
+    {% if date_preset == '7d'  %}<span class="pill">Last 7 Days <a class="remove" href="?{{ query_without('date_preset') }}">×</a></span>{% endif %}
+    {% if date_preset == '30d' %}<span class="pill">Last 30 Days <a class="remove" href="?{{ query_without('date_preset') }}">×</a></span>{% endif %}
+    {% if date_preset == '90d' %}<span class="pill">Last 90 Days <a class="remove" href="?{{ query_without('date_preset') }}">×</a></span>{% endif %}
+    {% if date_preset == 'custom' and date_from %}<span class="pill">{{ date_from }} → {{ date_to or 'today' }} <a class="remove" href="?{{ query_without('date_preset,date_from,date_to') }}">×</a></span>{% endif %}
+    {% if county   %}<span class="pill">{{ county }} County <a class="remove" href="?{{ query_without('county') }}">×</a></span>{% endif %}
+    {% if city     %}<span class="pill">{{ city }} <a class="remove" href="?{{ query_without('city') }}">×</a></span>{% endif %}
+    {% if vertical %}<span class="pill">{{ vertical }} <a class="remove" href="?{{ query_without('vertical') }}">×</a></span>{% endif %}
+  </div>
+  {% endif %}
 
   <!-- SUMMARY CARDS -->
   <div class="cards">
@@ -107,6 +258,10 @@
     <div class="card green">
       <div class="label">Form Submits</div>
       <div class="value">{{ totals.form_submits }}</div>
+    </div>
+    <div class="card purple">
+      <div class="label">Conversion</div>
+      <div class="value">{% if totals.scans > 0 %}{{ "%.0f"|format(totals.form_submits / totals.scans * 100) }}%{% else %}—{% endif %}</div>
     </div>
     <div class="card blue">
       <div class="label">Calls In</div>
@@ -126,74 +281,93 @@
     </div>
   </div>
 
-  <!-- BREAKDOWN TABLE -->
-  <div class="section-title">Breakdown by City / Vertical</div>
+  <!-- TABLE -->
+  <div class="section-header">
+    <div class="section-title">Breakdown by City / Vertical</div>
+    <div class="result-count">{{ rows|length }} batch{{ 'es' if rows|length != 1 else '' }}</div>
+  </div>
+
   <div class="tbl-wrap">
     <table>
       <thead>
         <tr>
           <th>City / Vertical</th>
-          <th class="right">QR Scans</th>
+          <th>County</th>
+          <th class="right sorted" title="Sort by QR Scans">QR Scans <span class="sort-arrow">↓</span></th>
           <th class="right">SMS Taps</th>
           <th class="right">Form Submits</th>
+          <th class="right">Conversion</th>
           <th class="right">Calls In</th>
           <th class="right">Calls Out</th>
           <th class="right">Texts In</th>
           <th class="right">Texts Out</th>
-          <th class="right">Total Engagement</th>
-          <th>Funnel</th>
+          <th class="right">Days Live</th>
+          <th class="right">Total</th>
         </tr>
       </thead>
       <tbody>
         {% for row in rows %}
+        {% set conv = (row.form_submits / row.scans * 100) if row.scans > 0 else 0 %}
         {% set total_eng = row.scans + row.sms_taps + row.form_submits + row.calls_in + row.texts_in %}
         <tr>
           <td class="slug">
-            {{ row.slug.replace('-', ' ').title() }}
-            <br/><span style="font-size:11px;color:#444;font-weight:400;">
-              <a href="/gl/{{ row.slug }}" target="_blank" style="color:#555;text-decoration:none;">/gl/{{ row.slug }}</a>
+            {{ row.city }} {{ row.vertical }}
+            <br/><span style="font-size:10px;color:#444;font-weight:400;">
+              <a href="/gl/{{ row.slug }}" target="_blank" style="color:#444;text-decoration:none;">/gl/{{ row.slug }}</a>
             </span>
           </td>
+          <td class="county-badge"><span>{{ row.county }}</span></td>
           <td class="right">
-            <span class="badge badge-gold num {% if row.scans == 0 %}num-zero{% endif %}">{{ row.scans }}</span>
+            <span class="num {% if row.scans == 0 %}num-zero{% endif %}" style="color:{% if row.scans > 0 %}#c9a84c{% else %}#333{% endif %}">{{ row.scans }}</span>
           </td>
           <td class="right">
             <span class="num {% if row.sms_taps == 0 %}num-zero{% endif %}">{{ row.sms_taps }}</span>
           </td>
           <td class="right">
-            <span class="badge badge-green num {% if row.form_submits == 0 %}num-zero{% endif %}">{{ row.form_submits }}</span>
+            <span class="num {% if row.form_submits == 0 %}num-zero{% endif %}" style="color:{% if row.form_submits > 0 %}#4caf7d{% else %}#333{% endif %}">{{ row.form_submits }}</span>
           </td>
           <td class="right">
-            <span class="badge badge-blue num {% if row.calls_in == 0 %}num-zero{% endif %}">{{ row.calls_in }}</span>
+            <div class="conv-bar">
+              <span class="conv-pct" style="color:{% if conv >= 10 %}#a78bfa{% elif conv >= 5 %}#4caf7d{% elif conv > 0 %}#c9a84c{% else %}#333{% endif %}">
+                {% if conv > 0 %}{{ "%.0f"|format(conv) }}%{% else %}—{% endif %}
+              </span>
+              <div class="conv-track">
+                <div class="conv-fill {% if conv >= 10 %}great{% elif conv >= 5 %}good{% endif %}" style="width:{{ [conv * 4, 100]|min }}%"></div>
+              </div>
+            </div>
+          </td>
+          <td class="right">
+            <span class="num {% if row.calls_in == 0 %}num-zero{% endif %}" style="color:{% if row.calls_in > 0 %}#5b8dee{% else %}#333{% endif %}">{{ row.calls_in }}</span>
           </td>
           <td class="right">
             <span class="num {% if row.calls_out == 0 %}num-zero{% endif %}">{{ row.calls_out }}</span>
           </td>
           <td class="right">
-            <span class="badge badge-teal num {% if row.texts_in == 0 %}num-zero{% endif %}">{{ row.texts_in }}</span>
+            <span class="num {% if row.texts_in == 0 %}num-zero{% endif %}" style="color:{% if row.texts_in > 0 %}#4cb5c9{% else %}#333{% endif %}">{{ row.texts_in }}</span>
           </td>
           <td class="right">
             <span class="num {% if row.texts_out == 0 %}num-zero{% endif %}">{{ row.texts_out }}</span>
           </td>
           <td class="right">
-            <strong style="color:{% if total_eng > 0 %}#c9a84c{% else %}#444{% endif %}">{{ total_eng }}</strong>
-          </td>
-          <td>
-            {% if row.scans > 0 %}
-            <div class="funnel-bar" title="Scan → SMS tap → Form submit">
-              <div class="funnel-seg" style="background:#c9a84c; width:{{ [row.scans * 2, 60]|min }}px;"></div>
-              <div class="funnel-seg" style="background:#5b8dee; width:{{ [row.sms_taps * 2, 40]|min }}px;"></div>
-              <div class="funnel-seg" style="background:#4caf7d; width:{{ [row.form_submits * 2, 30]|min }}px;"></div>
-            </div>
+            {% if row.days_live is not none %}
+            <span class="days-chip {% if row.days_live <= 14 %}days-new{% elif row.days_live <= 45 %}days-mid{% else %}days-old{% endif %}">
+              {{ row.days_live }}d
+            </span>
             {% else %}
-            <span style="color:#333;font-size:11px;">no data</span>
+            <span style="color:#333">—</span>
             {% endif %}
+          </td>
+          <td class="right">
+            <strong style="color:{% if total_eng > 0 %}#c9a84c{% else %}#333{% endif %}">{{ total_eng }}</strong>
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="10" style="text-align:center;color:#444;padding:48px;">
-            No QR scan data yet. Pages go live when letters are mailed.
+          <td colspan="12">
+            <div class="empty">
+              <div class="icon">📭</div>
+              No data matches the selected filters. Letters go live when QR codes are mailed.
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -201,28 +375,38 @@
       {% if rows %}
       <tfoot>
         <tr>
-          <td><strong>TOTALS</strong></td>
+          <td colspan="2"><strong>TOTALS ({{ rows|length }} batches)</strong></td>
           <td class="right">{{ totals.scans }}</td>
           <td class="right">{{ totals.sms_taps }}</td>
           <td class="right">{{ totals.form_submits }}</td>
+          <td class="right" style="color:#a78bfa">{% if totals.scans > 0 %}{{ "%.0f"|format(totals.form_submits / totals.scans * 100) }}%{% else %}—{% endif %}</td>
           <td class="right">{{ totals.calls_in }}</td>
           <td class="right">{{ totals.calls_out }}</td>
           <td class="right">{{ totals.texts_in }}</td>
           <td class="right">{{ totals.texts_out }}</td>
-          <td class="right">{{ totals.scans + totals.sms_taps + totals.form_submits + totals.calls_in + totals.texts_in }}</td>
           <td></td>
+          <td class="right">{{ totals.scans + totals.sms_taps + totals.form_submits + totals.calls_in + totals.texts_in }}</td>
         </tr>
       </tfoot>
       {% endif %}
     </table>
   </div>
 
-  <div class="footer">
-    <p>Calls + texts sourced from FUB inbound/outbound on tracked phone numbers per city/vertical.</p>
-    <p style="margin-top:4px;">Email tracking coming soon. QR scans + SMS taps tracked on every page visit.</p>
+  <div class="note">
+    <strong>Conversion Rate</strong> = Form Submits ÷ QR Scans &nbsp;·&nbsp;
+    <strong>Days Live</strong> = days since first scan recorded &nbsp;·&nbsp;
+    <strong>Calls/Texts</strong> = all FUB activity on tracked phone numbers (not date-filtered — FUB API counts totals per number) &nbsp;·&nbsp;
+    <strong>Email tracking</strong> coming soon
   </div>
 
 </div>
+
+<script>
+function handleDatePreset(sel) {
+  var custom = document.getElementById('custom_dates');
+  custom.style.display = sel.value === 'custom' ? 'flex' : 'none';
+}
+</script>
 
 </body>
 </html>
