@@ -49,19 +49,19 @@
 </div>
 
 <!-- KPI Row 2 -->
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-3">
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">Listings Signed</div>
       <div class="stat-value" id="k-ls">{{ listings_signed }}</div>
-      <div class="stat-sub">YTD</div>
+      <div class="stat-sub">YTD &nbsp;|&nbsp; MTD: <span id="k-ls-mtd">{{ listings_signed_mtd }}</span></div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">Buyers Signed</div>
       <div class="stat-value" id="k-bs">{{ buyers_signed }}</div>
-      <div class="stat-sub">YTD</div>
+      <div class="stat-sub">YTD &nbsp;|&nbsp; MTD: <span id="k-bs-mtd">{{ buyers_signed_mtd }}</span></div>
     </div>
   </div>
   <div class="col-6 col-md-3">
@@ -76,6 +76,38 @@
       <div class="stat-label">Active Buyers</div>
       <div class="stat-value" id="k-ab">{{ active_buyers }}</div>
       <div class="stat-sub">In pipeline</div>
+    </div>
+  </div>
+</div>
+
+<!-- KPI Row 3 — Pending GCI + Offers -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Pending GCI</div>
+      <div class="stat-value" id="k-pending-gci">${{ "{:,.0f}".format(pending_gci) }}</div>
+      <div class="stat-sub"><span id="k-pending-count2">{{ pending_count }}</span> deals in pending</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Offers Out</div>
+      <div class="stat-value" id="k-offers-mtd">{{ offers_mtd }}</div>
+      <div class="stat-sub">MTD &nbsp;|&nbsp; YTD: <span id="k-offers-ytd">{{ offers_ytd }}</span></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Acceptance Rate MTD</div>
+      <div class="stat-value" id="k-accept-mtd">{{ acceptance_rate_mtd }}%</div>
+      <div class="stat-sub">YTD: <span id="k-accept-ytd">{{ acceptance_rate_ytd }}%</span></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Pre-Signed Pipeline</div>
+      <div class="stat-value" id="k-presigned">{{ presigned_count }}</div>
+      <div class="stat-sub">${{ "{:,.0f}".format(presigned_gci) }} projected GCI</div>
     </div>
   </div>
 </div>
@@ -229,10 +261,18 @@ function refreshKPI() {
   document.getElementById('k-goal-pct').textContent    = k.goal_pct + '%';
   document.getElementById('k-goal-bar').style.width    = Math.min(k.goal_pct,100) + '%';
   document.getElementById('k-team-goal').textContent   = Number(k.team_goal).toLocaleString('en-US', {maximumFractionDigits:0});
-  document.getElementById('k-ls').textContent = fmtInt(k.listings_signed);
-  document.getElementById('k-bs').textContent = fmtInt(k.buyers_signed);
-  document.getElementById('k-al').textContent = fmtInt(k.active_listings);
-  document.getElementById('k-ab').textContent = fmtInt(k.active_buyers);
+  document.getElementById('k-ls').textContent     = fmtInt(k.listings_signed);
+  document.getElementById('k-ls-mtd').textContent = fmtInt(k.listings_signed_mtd);
+  document.getElementById('k-bs').textContent     = fmtInt(k.buyers_signed);
+  document.getElementById('k-bs-mtd').textContent = fmtInt(k.buyers_signed_mtd);
+  document.getElementById('k-al').textContent     = fmtInt(k.active_listings);
+  document.getElementById('k-ab').textContent     = fmtInt(k.active_buyers);
+  document.getElementById('k-pending-gci').textContent  = '$' + Number(k.pending_gci).toLocaleString('en-US', {maximumFractionDigits:0});
+  document.getElementById('k-pending-count2').textContent = fmtInt(k.pending_count);
+  document.getElementById('k-offers-mtd').textContent   = fmtInt(k.offers_mtd);
+  document.getElementById('k-offers-ytd').textContent   = fmtInt(k.offers_ytd);
+  document.getElementById('k-accept-mtd').textContent   = k.acceptance_rate_mtd + '%';
+  document.getElementById('k-accept-ytd').textContent   = k.acceptance_rate_ytd + '%';
 }
 
 function refreshRecent() {
