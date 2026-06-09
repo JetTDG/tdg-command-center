@@ -6,10 +6,11 @@ Routes:
   GET  /gl/<slug>/qr.png   — serves the QR code image
   GET  /gl/qr/<slug>.png   — alternate path used in merge script
 """
-from flask import Blueprint, render_template, request, redirect, send_file, abort
+from flask import Blueprint, render_template, request, redirect, send_file, abort, jsonify
 from datetime import datetime
 from app import db
 from app.models import GLScan
+from app.gl_analytics import get_fub_activity, SLUG_PHONE
 import os, io, logging, requests as http
 
 log = logging.getLogger(__name__)
@@ -181,3 +182,66 @@ def qr_image(slug):
     except Exception as e:
         log.error(f"GL: QR generation failed: {e}")
         abort(500)
+
+
+@bp.route("/dashboard")
+def dashboard():
+    """Golden Letter Analytics Dashboard — scans, SMS taps, form submits, calls, texts."""
+    from sqlalchemy import func
+
+    # ── DB scan counts per slug ───────────────────────────────────────────────
+    rows = (db.session.query(
+                GLScan.slug,
+                GLScan.event_type,
+                func.count(GLScan.id).label('cnt')
+            )
+            .group_by(GLScan.slug, GLScan.event_type)
+            .all())
+
+    # Build per-slug stats dict
+    stats = {}
+    for slug, event_type, cnt in rows:
+        if slug not in stats:
+            stats[slug] = dict(slug=slug, scans=0, sms_taps=0, form_submits=0,
+                               calls_in=0, calls_out=0, texts_in=0, texts_out=0)
+        if event_type == 'scan':         stats[slug]['scans']       = cnt
+        elif event_type == 'sms_tap':    stats[slug]['sms_taps']    = cnt
+        elif event_type == 'form_submit': stats[slug]['form_submits'] = cnt
+
+    # ── FUB activity (calls + texts per tracked phone) ────────────────────────
+    active_slugs = list(stats.keys()) or list(SLUG_PHONE.keys())
+    fub = get_fub_activity(slugs=active_slugs)
+    for slug, activity in fub.items():
+        if slug not in stats:
+            stats[slug] = dict(slug=slug, scans=0, sms_taps=0, form_submits=0,
+                               calls_in=0, calls_out=0, texts_in=0, texts_out=0)
+        stats[slug].update(activity)
+
+    # Sort by total engagement descending
+    rows_out = sorted(stats.values(),
+                      key=lambda x: x['scans'] + x['sms_taps'] + x['form_submits'] + x['calls_in'],
+                      reverse=True)
+
+    # ── Totals ────────────────────────────────────────────────────────────────
+    totals = dict(scans=0, sms_taps=0, form_submits=0,
+                  calls_in=0, calls_out=0, texts_in=0, texts_out=0)
+    for r in rows_out:
+        for k in totals:
+            totals[k] += r.get(k, 0)
+
+    return render_template("gl_dashboard.html", rows=rows_out, totals=totals,
+                           generated_at=datetime.utcnow().strftime("%b %d, %Y %H:%M UTC"))
+
+
+@bp.route("/dashboard/data")
+def dashboard_data():
+    """JSON endpoint for dashboard auto-refresh."""
+    from sqlalchemy import func
+    rows = (db.session.query(GLScan.slug, GLScan.event_type,
+                             func.count(GLScan.id).label('cnt'))
+            .group_by(GLScan.slug, GLScan.event_type).all())
+    stats = {}
+    for slug, event_type, cnt in rows:
+        stats.setdefault(slug, {})['event_type'] = cnt
+    return jsonify(stats)
+

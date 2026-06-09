@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GL Analytics | TDG Command Center</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#0f0f0f; color:#e0e0e0; min-height:100vh; }
+
+    /* NAV */
+    .topbar { background:#111; border-bottom:1px solid #222; padding:14px 28px; display:flex; align-items:center; justify-content:space-between; }
+    .topbar .brand { font-size:13px; font-weight:700; color:#c9a84c; letter-spacing:0.1em; text-transform:uppercase; }
+    .topbar .sub   { font-size:12px; color:#555; }
+    .topbar .back  { font-size:12px; color:#666; text-decoration:none; }
+    .topbar .back:hover { color:#c9a84c; }
+
+    /* PAGE */
+    .page { max-width:1200px; margin:0 auto; padding:32px 24px; }
+
+    /* HEADER */
+    .page-header { margin-bottom:32px; }
+    .page-header h1 { font-size:24px; font-weight:800; color:#fff; margin-bottom:4px; }
+    .page-header p  { font-size:13px; color:#555; }
+    .refresh-note   { font-size:11px; color:#444; margin-top:6px; }
+
+    /* SUMMARY CARDS */
+    .cards { display:grid; grid-template-columns:repeat(7,1fr); gap:12px; margin-bottom:36px; }
+    @media(max-width:900px){ .cards { grid-template-columns:repeat(4,1fr); } }
+    @media(max-width:540px){ .cards { grid-template-columns:repeat(2,1fr); } }
+
+    .card { background:#161616; border:1px solid #222; border-radius:12px; padding:16px 14px; text-align:center; }
+    .card .label { font-size:10px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:#555; margin-bottom:8px; }
+    .card .value { font-size:28px; font-weight:800; color:#fff; }
+    .card.gold   { border-color:#c9a84c44; }
+    .card.gold .value { color:#c9a84c; }
+    .card.green  .value { color:#4caf7d; }
+    .card.blue   .value { color:#5b8dee; }
+    .card.teal   .value { color:#4cb5c9; }
+
+    /* TABLE */
+    .section-title { font-size:13px; font-weight:700; color:#666; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:12px; }
+
+    .tbl-wrap { overflow-x:auto; border-radius:12px; border:1px solid #222; }
+    table { width:100%; border-collapse:collapse; }
+    thead tr { background:#161616; }
+    thead th { padding:12px 16px; text-align:left; font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#555; white-space:nowrap; }
+    thead th.right { text-align:right; }
+
+    tbody tr { border-top:1px solid #1c1c1c; transition:background 0.1s; }
+    tbody tr:hover { background:#141414; }
+    tbody td { padding:13px 16px; font-size:13px; color:#ccc; white-space:nowrap; }
+    tbody td.right { text-align:right; }
+    tbody td.slug  { font-weight:700; color:#fff; font-size:13px; }
+
+    .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; }
+    .badge-gold  { background:#c9a84c22; color:#c9a84c; }
+    .badge-green { background:#4caf7d22; color:#4caf7d; }
+    .badge-blue  { background:#5b8dee22; color:#5b8dee; }
+    .badge-teal  { background:#4cb5c922; color:#4cb5c9; }
+    .badge-gray  { background:#33333388; color:#888; }
+
+    .num { font-variant-numeric:tabular-nums; font-weight:600; }
+    .num-zero { color:#444; font-weight:400; }
+
+    tfoot tr { border-top:2px solid #2a2a2a; background:#111; }
+    tfoot td { padding:13px 16px; font-size:13px; font-weight:800; color:#fff; }
+    tfoot td.right { text-align:right; color:#c9a84c; }
+
+    /* FUNNEL MINI */
+    .funnel-bar { display:flex; align-items:center; gap:6px; }
+    .funnel-seg { height:6px; border-radius:3px; min-width:3px; }
+
+    /* FOOTER */
+    .footer { text-align:center; margin-top:48px; font-size:11px; color:#333; }
+    .footer a { color:#444; text-decoration:none; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="brand">TDG Command Center</div>
+    <div class="sub">Commercial Golden Letter Analytics</div>
+  </div>
+  <a href="/" class="back">← Dashboard</a>
+</div>
+
+<div class="page">
+
+  <div class="page-header">
+    <h1>🏢 Golden Letter Analytics</h1>
+    <p>QR scan tracking, SMS engagement, and FUB inbound activity across all city/vertical batches.</p>
+    <p class="refresh-note">Generated {{ generated_at }} · FUB data pulled live from tracked phone numbers</p>
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div class="cards">
+    <div class="card gold">
+      <div class="label">QR Scans</div>
+      <div class="value">{{ totals.scans }}</div>
+    </div>
+    <div class="card">
+      <div class="label">SMS Taps</div>
+      <div class="value">{{ totals.sms_taps }}</div>
+    </div>
+    <div class="card green">
+      <div class="label">Form Submits</div>
+      <div class="value">{{ totals.form_submits }}</div>
+    </div>
+    <div class="card blue">
+      <div class="label">Calls In</div>
+      <div class="value">{{ totals.calls_in }}</div>
+    </div>
+    <div class="card">
+      <div class="label">Calls Out</div>
+      <div class="value">{{ totals.calls_out }}</div>
+    </div>
+    <div class="card teal">
+      <div class="label">Texts In</div>
+      <div class="value">{{ totals.texts_in }}</div>
+    </div>
+    <div class="card">
+      <div class="label">Texts Out</div>
+      <div class="value">{{ totals.texts_out }}</div>
+    </div>
+  </div>
+
+  <!-- BREAKDOWN TABLE -->
+  <div class="section-title">Breakdown by City / Vertical</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>City / Vertical</th>
+          <th class="right">QR Scans</th>
+          <th class="right">SMS Taps</th>
+          <th class="right">Form Submits</th>
+          <th class="right">Calls In</th>
+          <th class="right">Calls Out</th>
+          <th class="right">Texts In</th>
+          <th class="right">Texts Out</th>
+          <th class="right">Total Engagement</th>
+          <th>Funnel</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        {% set total_eng = row.scans + row.sms_taps + row.form_submits + row.calls_in + row.texts_in %}
+        <tr>
+          <td class="slug">
+            {{ row.slug.replace('-', ' ').title() }}
+            <br/><span style="font-size:11px;color:#444;font-weight:400;">
+              <a href="/gl/{{ row.slug }}" target="_blank" style="color:#555;text-decoration:none;">/gl/{{ row.slug }}</a>
+            </span>
+          </td>
+          <td class="right">
+            <span class="badge badge-gold num {% if row.scans == 0 %}num-zero{% endif %}">{{ row.scans }}</span>
+          </td>
+          <td class="right">
+            <span class="num {% if row.sms_taps == 0 %}num-zero{% endif %}">{{ row.sms_taps }}</span>
+          </td>
+          <td class="right">
+            <span class="badge badge-green num {% if row.form_submits == 0 %}num-zero{% endif %}">{{ row.form_submits }}</span>
+          </td>
+          <td class="right">
+            <span class="badge badge-blue num {% if row.calls_in == 0 %}num-zero{% endif %}">{{ row.calls_in }}</span>
+          </td>
+          <td class="right">
+            <span class="num {% if row.calls_out == 0 %}num-zero{% endif %}">{{ row.calls_out }}</span>
+          </td>
+          <td class="right">
+            <span class="badge badge-teal num {% if row.texts_in == 0 %}num-zero{% endif %}">{{ row.texts_in }}</span>
+          </td>
+          <td class="right">
+            <span class="num {% if row.texts_out == 0 %}num-zero{% endif %}">{{ row.texts_out }}</span>
+          </td>
+          <td class="right">
+            <strong style="color:{% if total_eng > 0 %}#c9a84c{% else %}#444{% endif %}">{{ total_eng }}</strong>
+          </td>
+          <td>
+            {% if row.scans > 0 %}
+            <div class="funnel-bar" title="Scan → SMS tap → Form submit">
+              <div class="funnel-seg" style="background:#c9a84c; width:{{ [row.scans * 2, 60]|min }}px;"></div>
+              <div class="funnel-seg" style="background:#5b8dee; width:{{ [row.sms_taps * 2, 40]|min }}px;"></div>
+              <div class="funnel-seg" style="background:#4caf7d; width:{{ [row.form_submits * 2, 30]|min }}px;"></div>
+            </div>
+            {% else %}
+            <span style="color:#333;font-size:11px;">no data</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="10" style="text-align:center;color:#444;padding:48px;">
+            No QR scan data yet. Pages go live when letters are mailed.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if rows %}
+      <tfoot>
+        <tr>
+          <td><strong>TOTALS</strong></td>
+          <td class="right">{{ totals.scans }}</td>
+          <td class="right">{{ totals.sms_taps }}</td>
+          <td class="right">{{ totals.form_submits }}</td>
+          <td class="right">{{ totals.calls_in }}</td>
+          <td class="right">{{ totals.calls_out }}</td>
+          <td class="right">{{ totals.texts_in }}</td>
+          <td class="right">{{ totals.texts_out }}</td>
+          <td class="right">{{ totals.scans + totals.sms_taps + totals.form_submits + totals.calls_in + totals.texts_in }}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+
+  <div class="footer">
+    <p>Calls + texts sourced from FUB inbound/outbound on tracked phone numbers per city/vertical.</p>
+    <p style="margin-top:4px;">Email tracking coming soon. QR scans + SMS taps tracked on every page visit.</p>
+  </div>
+
+</div>
+
+</body>
+</html>
