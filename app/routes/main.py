@@ -1049,6 +1049,8 @@ Key values:
 - status: Active, Pending, Closed, Pre-Signed, x-Cancelled, y-Sale Failed, z-Expired
 - transaction_type: Listing, Buyer, Commercial, Referral, Lease
 - year: 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026 (historical data available for all years)
+  NOTE: year=2021 has only 9 closed records — the 2021 CTE file captured those closings in the 2020 year file.
+  The 2020 file contains 314 closings (close_date 2020). 2021 closings data is not present in the Drive files.
 
 CRITICAL QUERY RULES:
 1. NEVER filter by year for status-based questions (Active, Pending, Pre-Signed counts).
