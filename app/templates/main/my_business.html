@@ -7,6 +7,9 @@
     <div class="page-subtitle">Transaction records — all agents</div>
   </div>
   <a href="{{ url_for('main.add_transaction') }}" class="btn btn-gold"><i class="bi bi-plus-lg me-1"></i>Add Transaction</a>
+  <a id="export-csv-btn" href="#" class="btn btn-outline-secondary btn-sm ms-2" style="align-self:center" title="Export current view to CSV">
+    <i class="bi bi-download me-1"></i>Export CSV
+  </a>
 </div>
 
 <!-- Summary bar -->
@@ -206,8 +209,12 @@ function monthChanged() {
           <td data-val="{{ t.lead_source or '' }}"><span class="ec" data-field="lead_source" data-tid="{{ t.id }}" data-list="dl-sources">{{ t.lead_source or '' }}</span></td>
           {# Signed Date col 14 #}
           <td data-val="{{ t.signed_date.isoformat() if t.signed_date else '' }}"><span class="ec" data-field="signed_date" data-tid="{{ t.id }}" data-type="date">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '' }}</span></td>
-          {# MLS Live col 15 #}
+          {# MLS Live col 13 — Listings/Commercial only, blank for Buyers/Referrals #}
+          {% if t.transaction_type in ('Buyer', 'Referral') %}
+          <td data-val=""></td>
+          {% else %}
           <td data-val="{{ t.mls_live_date.isoformat() if t.mls_live_date else '' }}"><span class="ec" data-field="mls_live_date" data-tid="{{ t.id }}" data-type="date">{{ t.mls_live_date.strftime('%m/%d/%y') if t.mls_live_date else '' }}</span></td>
+          {% endif %}
           {# Exp Date col 16 #}
           <td data-val="{{ t.expiry_date.isoformat() if t.expiry_date else '' }}"><span class="ec" data-field="expiry_date" data-tid="{{ t.id }}" data-type="date">{{ t.expiry_date.strftime('%m/%d/%y') if t.expiry_date else '' }}</span></td>
           {# Under Contr col 17 #}
@@ -1080,6 +1087,17 @@ flagMissing();
 
 // Restore any saved column filters + sort from a previous visit
 restoreState();
+
+// ── Export CSV — mirrors current filter params ────────────────────────────
+(function() {
+  var btn = document.getElementById('export-csv-btn');
+  if (!btn) return;
+  btn.addEventListener('click', function(e) {
+    e.preventDefault();
+    var p = new URLSearchParams(window.location.search);
+    window.location.href = '/my-business/export.csv?' + p.toString();
+  });
+})();
 
 // ── Column header full-name tooltips ─────────────────────────────────────
 (function() {

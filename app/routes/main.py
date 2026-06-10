@@ -397,19 +397,8 @@ def home():
 
 # ─── MY BUSINESS ────────────────────────────────────────────────────────────
 
-@bp.route('/my-business')
-@login_required
-def my_business():
-    year = int(request.args.get('year', current_year()))
-    month_filter = request.args.get('month', '')       # '' = all months, '1'-'12' = specific month
-    date_from    = request.args.get('date_from', '')   # YYYY-MM-DD within month
-    date_to      = request.args.get('date_to', '')     # YYYY-MM-DD within month
-    agent_id = request.args.get('agent_id', '')
-    status_filter = request.args.get('status', '')
-    type_filter = request.args.get('type', '')
-    lead_source_filter = request.args.get('lead_source', '')
-    admin_filter = request.args.get('admin_name', '')
-
+def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter, type_filter, lead_source_filter, admin_filter):
+    """Shared query builder for My Business — used by both view and CSV export."""
     query = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(
         Transaction.archived == False,
         or_(
@@ -418,32 +407,107 @@ def my_business():
             and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year)
         )
     )
-    # Month filter — narrow to a specific month within the year
-    # For Closed: use month column; For Pending: use projected_close_date month
     if month_filter:
         m = int(month_filter)
-        query = query.filter(
-            or_(
-                and_(Transaction.status == 'Closed', Transaction.month == m),
-                and_(Transaction.status == 'Pending', extract('month', Transaction.projected_close_date) == m),
-                and_(~Transaction.status.in_(['Closed', 'Pending']), Transaction.month == m)  # Other statuses use month
-            )
-        )
-    # Date-range filter within the month (uses close_date as primary date)
-    if date_from:
-        query = query.filter(Transaction.close_date >= date_from)
-    if date_to:
-        query = query.filter(Transaction.close_date <= date_to)
-    if agent_id:
-        query = query.filter(Transaction.agent_id == int(agent_id))
-    if status_filter:
-        query = query.filter(Transaction.status == status_filter)
-    if type_filter:
-        query = query.filter(Transaction.transaction_type == type_filter)
-    if lead_source_filter:
-        query = query.filter(Transaction.lead_source == lead_source_filter)
-    if admin_filter:
-        query = query.filter(Transaction.admin_name == admin_filter)
+        query = query.filter(or_(
+            and_(Transaction.status == 'Closed',  Transaction.month == m),
+            and_(Transaction.status == 'Pending', extract('month', Transaction.projected_close_date) == m),
+            and_(~Transaction.status.in_(['Closed', 'Pending']), Transaction.month == m)
+        ))
+    if date_from:   query = query.filter(Transaction.close_date >= date_from)
+    if date_to:     query = query.filter(Transaction.close_date <= date_to)
+    if agent_id:    query = query.filter(Transaction.agent_id == int(agent_id))
+    if status_filter: query = query.filter(Transaction.status == status_filter)
+    if type_filter:   query = query.filter(Transaction.transaction_type == type_filter)
+    if lead_source_filter: query = query.filter(Transaction.lead_source == lead_source_filter)
+    if admin_filter: query = query.filter(Transaction.admin_name == admin_filter)
+    return query
+
+@bp.route('/my-business/export.csv')
+@login_required
+def my_business_csv():
+    import csv, io
+    year             = int(request.args.get('year', current_year()))
+    month_filter     = request.args.get('month', '')
+    date_from        = request.args.get('date_from', '')
+    date_to          = request.args.get('date_to', '')
+    agent_id         = request.args.get('agent_id', '')
+    status_filter    = request.args.get('status', '')
+    type_filter      = request.args.get('type', '')
+    lead_source_filter = request.args.get('lead_source', '')
+    admin_filter     = request.args.get('admin_name', '')
+
+    txns = _mb_query(year, month_filter, date_from, date_to, agent_id,
+                     status_filter, type_filter, lead_source_filter, admin_filter
+                    ).order_by(Transaction.id.desc()).all()
+
+    def fmt_date(d): return d.strftime('%m/%d/%Y') if d else ''
+    def fmt_num(v):  return f"{v:,.2f}" if v is not None else ''
+
+    COLS = [
+        ('Agent',           lambda t: t.agent.name if t.agent else (t.primary_agent_name or '')),
+        ('Address',         lambda t: t.address or ''),
+        ('Type',            lambda t: t.transaction_type or ''),
+        ('Status',          lambda t: t.status or ''),
+        ('Sub Status',      lambda t: t.sub_status or ''),
+        ('Client(s)',       lambda t: t.client_name or ''),
+        ('Source',          lambda t: t.lead_source or ''),
+        ('Signed Date',     lambda t: fmt_date(t.signed_date)),
+        ('MLS Live',        lambda t: fmt_date(t.mls_live_date) if t.transaction_type not in ('Buyer','Referral') else ''),
+        ('Exp Date',        lambda t: fmt_date(t.expiry_date)),
+        ('Under Contract',  lambda t: fmt_date(t.under_contract_date)),
+        ('Proj Close',      lambda t: fmt_date(t.projected_close_date)),
+        ('Close Date',      lambda t: fmt_date(t.close_date)),
+        ('List Price',      lambda t: fmt_num(t.list_price)),
+        ('Sale Price',      lambda t: fmt_num(t.sale_price)),
+        ('Comm%',           lambda t: f"{t.commission_pct*100:.2f}" if t.commission_pct else ''),
+        ('GCI',             lambda t: fmt_num(t.gci)),
+        ('Bonus',           lambda t: fmt_num(t.bonus)),
+        ('Tx Fee',          lambda t: fmt_num(t.transaction_fee)),
+        ('Broker Split',    lambda t: fmt_num(t.broker_split)),
+        ('Franchise',       lambda t: fmt_num(t.franchise_fee)),
+        ('Referral',        lambda t: fmt_num(t.referral_fee)),
+        ('Primary Agent',   lambda t: t.primary_agent_name or ''),
+        ('Pri%',            lambda t: f"{t.primary_agent_pct*100:.1f}" if t.primary_agent_pct else ''),
+        ('Primary GCI',     lambda t: fmt_num(t.primary_agent_gci)),
+        ('2nd Agent',       lambda t: t.secondary_agent_name or ''),
+        ('2nd%',            lambda t: f"{t.secondary_agent_pct*100:.1f}" if t.secondary_agent_pct else ''),
+        ('2nd GCI',         lambda t: fmt_num(t.secondary_agent_gci)),
+        ('E&O',             lambda t: fmt_num(t.eo_fee)),
+        ('Lead Type',       lambda t: t.lead_type or ''),
+        ('Location',        lambda t: t.location or ''),
+        ('Co. Dollar',      lambda t: fmt_num(t.company_dollar)),
+        ('1099',            lambda t: fmt_num(t.company_dollar)),
+        ('Notes',           lambda t: t.notes or ''),
+    ]
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow([c[0] for c in COLS])
+    for t in txns:
+        w.writerow([c[1](t) for c in COLS])
+
+    from flask import Response
+    fname = f"my-business-{year}{('-'+month_filter) if month_filter else ''}.csv"
+    return Response(buf.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename="{fname}"'})
+
+
+@bp.route('/my-business')
+@login_required
+def my_business():
+    year = int(request.args.get('year', current_year()))
+    month_filter     = request.args.get('month', '')
+    date_from        = request.args.get('date_from', '')
+    date_to          = request.args.get('date_to', '')
+    agent_id         = request.args.get('agent_id', '')
+    status_filter    = request.args.get('status', '')
+    type_filter      = request.args.get('type', '')
+    lead_source_filter = request.args.get('lead_source', '')
+    admin_filter     = request.args.get('admin_name', '')
+
+    query = _mb_query(year, month_filter, date_from, date_to, agent_id,
+                      status_filter, type_filter, lead_source_filter, admin_filter)
 
     transactions = query.order_by(Transaction.id.desc()).all()
 
