@@ -1096,6 +1096,74 @@ flagMissing();
 // Restore any saved column filters + sort from a previous visit
 restoreState();
 
+// ── Column header full-name tooltips ─────────────────────────────────────
+(function() {
+  const COL_NAMES = {
+    0:  'Agent',
+    1:  'Address',
+    2:  'Days Until Listing Expires',
+    3:  'Days on Market',
+    4:  'Transaction Type',
+    5:  'Days Until Projected Close',
+    6:  'Days From Close to Expiration',
+    7:  'Previous List Price',
+    8:  'Current List Price',
+    9:  'List Date',
+    10: 'Status',
+    11: 'Sub Status',
+    12: 'Client(s)',
+    13: 'Lead Source',
+    14: 'Signed Date',
+    15: 'MLS Live Date',
+    16: 'Expiration Date',
+    17: 'Under Contract Date',
+    18: 'Projected Close Date',
+    19: 'Close Date',
+    20: 'Sale Price',
+    21: 'Commission %',
+    22: 'Units',
+    23: 'Gross Commission Income (GCI)',
+    24: 'Bonus',
+    25: 'Transaction Fee',
+    26: 'Broker Split',
+    27: 'Franchise Fee',
+    28: 'Referral',
+    29: 'Primary Agent',
+    30: 'Primary Agent Split %',
+    31: 'Primary Agent GCI',
+    32: '2nd Agent',
+    33: '2nd Agent Split %',
+    34: '2nd Agent GCI',
+    35: 'Member 3',
+    36: 'Member 3 Split %',
+    37: 'Member 3 GCI',
+    38: 'Member 4',
+    39: 'Member 4 Split %',
+    40: 'Member 4 GCI',
+    41: 'E&O Insurance',
+    42: 'Donation',
+    43: 'Other Fee',
+    44: 'Inspection',
+    45: 'Appraisal',
+    46: 'Mortgage Company',
+    47: 'Title Company',
+    48: 'Lead Type',
+    49: 'Infinity File Link',
+    50: 'Location',
+    51: 'Paid?',
+    52: 'Company Dollar',
+    53: '1099 Amount',
+    54: 'Net Income',
+    55: 'Taxes',
+    56: 'Net After Tax',
+  };
+  document.querySelectorAll('.col-hdr[data-col]').forEach(th => {
+    const col = parseInt(th.dataset.col);
+    const name = COL_NAMES[col];
+    if (name) th.title = name;
+  });
+})();
+
 // ── Floating bottom scrollbar ─────────────────────────────────────────────
 (function() {
   // Skip floating scrollbar on mobile — native touch scroll handles it
