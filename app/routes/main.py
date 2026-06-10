@@ -282,33 +282,36 @@ def home():
     }
 
     # Monthly trend — full year, all 12 months, Closed + Pending, Residential + Commercial
-    # For Closed: use close_date (stored as month)
-    # For Pending: use projected_close_date to reflect when they're expected to close
+    # Closed: derived from EXTRACT(month FROM close_date) — same source of truth as MyBusiness
+    # Pending: derived from EXTRACT(month FROM projected_close_date)
+    # Never uses the `month` column — that field has dirty data on many rows
     monthly_trend = []
     for m in range(1, 13):
         def msum(status_list, type_filter=None, exclude_types=None):
-            # Closed deals: use month column (based on close_date)
-            # Pending deals: use EXTRACT(month FROM projected_close_date)
+            # Closed: use close_date month, matching MyBusiness exactly
             closed_q = db.session.query(func.sum(Transaction.gci)).filter(
-                Transaction.year == year, Transaction.month == m,
-                Transaction.status == 'Closed'
+                Transaction.archived == False,
+                Transaction.status == 'Closed',
+                Transaction.close_date.isnot(None),
+                mb_year_filter(),
+                extract('month', Transaction.close_date) == m,
             )
             if type_filter:   closed_q = closed_q.filter(Transaction.transaction_type.in_(type_filter))
             if exclude_types: closed_q = closed_q.filter(~Transaction.transaction_type.in_(exclude_types))
             closed_sum = float(closed_q.scalar() or 0)
 
-            # Pending deals: extract month from projected_close_date
+            # Pending: use projected_close_date month
             pending_q = db.session.query(func.sum(Transaction.gci)).filter(
                 Transaction.archived == False,
+                Transaction.status == 'Pending',
+                Transaction.projected_close_date.isnot(None),
                 mb_year_filter(),
                 extract('month', Transaction.projected_close_date) == m,
-                Transaction.status == 'Pending'
             )
             if type_filter:   pending_q = pending_q.filter(Transaction.transaction_type.in_(type_filter))
             if exclude_types: pending_q = pending_q.filter(~Transaction.transaction_type.in_(exclude_types))
             pending_sum = float(pending_q.scalar() or 0)
 
-            # Return the appropriate sum based on status_list
             if 'Closed' in status_list and 'Pending' in status_list:
                 return closed_sum + pending_sum
             elif 'Closed' in status_list:
@@ -320,8 +323,11 @@ def home():
         def mvolume(status_list, type_filter=None, exclude_types=None):
             # Same logic as msum but for sale_price
             closed_q = db.session.query(func.sum(Transaction.sale_price)).filter(
-                Transaction.year == year, Transaction.month == m,
-                Transaction.status == 'Closed'
+                Transaction.archived == False,
+                Transaction.status == 'Closed',
+                Transaction.close_date.isnot(None),
+                mb_year_filter(),
+                extract('month', Transaction.close_date) == m,
             )
             if type_filter:   closed_q = closed_q.filter(Transaction.transaction_type.in_(type_filter))
             if exclude_types: closed_q = closed_q.filter(~Transaction.transaction_type.in_(exclude_types))
@@ -329,9 +335,10 @@ def home():
 
             pending_q = db.session.query(func.sum(Transaction.sale_price)).filter(
                 Transaction.archived == False,
+                Transaction.status == 'Pending',
+                Transaction.projected_close_date.isnot(None),
                 mb_year_filter(),
                 extract('month', Transaction.projected_close_date) == m,
-                Transaction.status == 'Pending'
             )
             if type_filter:   pending_q = pending_q.filter(Transaction.transaction_type.in_(type_filter))
             if exclude_types: pending_q = pending_q.filter(~Transaction.transaction_type.in_(exclude_types))
