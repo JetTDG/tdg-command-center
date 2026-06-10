@@ -137,8 +137,12 @@
       <input type="number" name="franchise_split" class="form-control" step="0.01" value="{{ t.franchise_split if t else '' }}">
     </div>
     <div class="col-md-2">
-      <label class="form-label">Referral Paid ($)</label>
-      <input type="number" name="referral_fee" class="form-control" step="0.01" value="{{ t.referral_fee if t else '' }}">
+      <label class="form-label">Referral %</label>
+      <input type="number" name="referral_pct" id="referral_pct" class="form-control" step="0.01" value="{% if t and t.referral_fee and t.sale_price %}{{ (t.referral_fee / t.sale_price * 100)|round(2) }}{% endif %}" placeholder="e.g. 25">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Referral ($) <small class="text-muted">auto-calc</small></label>
+      <input type="number" name="referral_fee" id="referral_fee" class="form-control" step="0.01" value="{{ t.referral_fee if t else '' }}" placeholder="Sale Price × Referral%">
     </div>
     <div class="col-md-2">
       <label class="form-label">E&amp;O ($)</label>
@@ -248,7 +252,24 @@ function calcAgentSplits() {
   }
 }
 
+// Auto-calculate Referral $ = Sale Price × Referral %
+function calcReferral() {
+  var sp = parseFloat(document.getElementById('sale_price').value) || 0;
+  var rp = parseFloat(document.getElementById('referral_pct').value) || 0;
+  var refField = document.getElementById('referral_fee');
+  if (sp > 0 && rp > 0 && !refField._manuallyEdited) {
+    refField.value = (sp * rp / 100).toFixed(2);
+  }
+}
+
+// Track manual override of referral $
+document.getElementById('referral_fee').addEventListener('input', function() {
+  this._manuallyEdited = true;
+});
+
 document.getElementById('sale_price').addEventListener('input', calcGCI);
+document.getElementById('sale_price').addEventListener('input', calcReferral);
+document.getElementById('referral_pct').addEventListener('input', calcReferral);
 document.getElementById('commission_pct').addEventListener('input', calcGCI);
 document.getElementById('gci').addEventListener('input', calcAgentSplits);
 document.getElementById('primary_agent_pct').addEventListener('input', calcAgentSplits);
@@ -257,6 +278,7 @@ document.getElementById('secondary_agent_pct').addEventListener('input', calcAge
 // Run on load for edit form
 window.addEventListener('DOMContentLoaded', function() {
   {% if t and t.gci %}document.getElementById('gci')._manuallyEdited = true;{% endif %}
+  {% if t and t.referral_fee %}document.getElementById('referral_fee')._manuallyEdited = true;{% endif %}
   calcAgentSplits();
 });
 </script>
