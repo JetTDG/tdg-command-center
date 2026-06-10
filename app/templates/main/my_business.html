@@ -69,6 +69,14 @@ function monthChanged() {
 }
 </script>
 
+<!-- ── Searchable option lists for inline Agent / Source editing ──────────── -->
+<datalist id="dl-agents">
+  {% for a in agents %}<option value="{{ a.name }}"></option>{% endfor %}
+</datalist>
+<datalist id="dl-sources">
+  {% for ls in lead_sources %}<option value="{{ ls }}"></option>{% endfor %}
+</datalist>
+
 <!-- Table -->
 <div class="card mt-1 p-0" style="overflow:hidden;">
   <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:74vh;position:relative;">
@@ -150,7 +158,7 @@ function monthChanged() {
         <tr data-tid="{{ t.id }}" data-row class="{{ row_class }}">
           {# Agent — sticky col 0 #}
           <td class="sticky-col" style="left:0;background:#fff" data-val="{{ t.primary_agent_name or (t.agent.name if t.agent else '') }}">
-            <span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}">{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</span>
+            <span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</span>
           </td>
           {# Address — sticky col 1 #}
           <td class="sticky-col" style="left:150px;min-width:180px;width:180px;background:#fff" data-val="{{ t.address or '' }}">
@@ -187,7 +195,7 @@ function monthChanged() {
           <td data-val="{{ s }}">
             <span class="badge-status {{ badge_cls }} ec-status-badge" data-tid="{{ t.id }}" title="Click to change">{{ s }}</span>
             <select class="es es-status" data-field="status" data-tid="{{ t.id }}" style="display:none;font-size:0.74rem;border:1px solid #d4a017;border-radius:3px;background:#fffbf0;width:100%">
-              {% for opt in ['Active','Pending','Closed','Pre-Signed','Signed','Coming Soon','Pipeline','Temp Off Market','Temp off Mark','x-Cancelled','y-Sale Failed','z-Expired'] %}
+              {% for opt in ['Active','Pending','Closed','Pre-Signed','Signed','LOI','Coming Soon','Pipeline','Temp Off Market','Temp off Mark','x-Cancelled','y-Sale Failed','z-Expired'] %}
               <option {% if s==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
             </select>
           </td>
@@ -202,7 +210,7 @@ function monthChanged() {
           {# Client(s) col 12 #}
           <td data-val="{{ t.client_name or '' }}"><span class="ec" data-field="client_name" data-tid="{{ t.id }}">{{ t.client_name or '' }}</span></td>
           {# Source col 13 #}
-          <td data-val="{{ t.lead_source or '' }}"><span class="ec" data-field="lead_source" data-tid="{{ t.id }}">{{ t.lead_source or '' }}</span></td>
+          <td data-val="{{ t.lead_source or '' }}"><span class="ec" data-field="lead_source" data-tid="{{ t.id }}" data-list="dl-sources">{{ t.lead_source or '' }}</span></td>
           {# Signed Date col 14 #}
           <td data-val="{{ t.signed_date.isoformat() if t.signed_date else '' }}"><span class="ec" data-field="signed_date" data-tid="{{ t.id }}" data-type="date">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '' }}</span></td>
           {# MLS Live col 15 #}
@@ -234,25 +242,25 @@ function monthChanged() {
           {# Referral col 30 #}
           <td data-val="{{ t.referral_fee or '' }}"><span class="ec num" data-field="referral_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.referral_fee) if t.referral_fee else '' }}</span></td>
           {# Primary Agent col 31 #}
-          <td data-val="{{ t.primary_agent_name or '' }}"><span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}">{{ t.primary_agent_name or '' }}</span></td>
+          <td data-val="{{ t.primary_agent_name or '' }}"><span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.primary_agent_name or '' }}</span></td>
           {# Pri% col 32 #}
           <td data-val="{{ t.primary_agent_pct or '' }}"><span class="ec num" data-field="primary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.primary_agent_pct*100) if t.primary_agent_pct else '' }}</span></td>
           {# Primary GCI col 33 #}
           <td data-val="{{ t.primary_agent_gci or '' }}"><span class="ec num" data-field="primary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.primary_agent_gci) if t.primary_agent_gci else '' }}</span></td>
           {# 2nd Agent col 34 #}
-          <td data-val="{{ t.secondary_agent_name or '' }}"><span class="ec" data-field="secondary_agent_name" data-tid="{{ t.id }}">{{ t.secondary_agent_name or '' }}</span></td>
+          <td data-val="{{ t.secondary_agent_name or '' }}"><span class="ec" data-field="secondary_agent_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.secondary_agent_name or '' }}</span></td>
           {# 2nd% col 35 #}
           <td data-val="{{ t.secondary_agent_pct or '' }}"><span class="ec num" data-field="secondary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.secondary_agent_pct*100) if t.secondary_agent_pct else '' }}</span></td>
           {# 2nd GCI col 36 #}
           <td data-val="{{ t.secondary_agent_gci or '' }}"><span class="ec num" data-field="secondary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.secondary_agent_gci) if t.secondary_agent_gci else '' }}</span></td>
           {# Member 3 col 37 #}
-          <td data-val="{{ t.member3_name or '' }}"><span class="ec" data-field="member3_name" data-tid="{{ t.id }}">{{ t.member3_name or '' }}</span></td>
+          <td data-val="{{ t.member3_name or '' }}"><span class="ec" data-field="member3_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.member3_name or '' }}</span></td>
           {# M3% col 38 #}
           <td data-val="{{ t.member3_pct or '' }}"><span class="ec num" data-field="member3_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member3_pct*100) if t.member3_pct else '' }}</span></td>
           {# M3 GCI col 39 #}
           <td data-val="{{ t.member3_gci or '' }}"><span class="ec num" data-field="member3_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.member3_gci) if t.member3_gci else '' }}</span></td>
           {# Member 4 col 40 #}
-          <td data-val="{{ t.member4_name or '' }}"><span class="ec" data-field="member4_name" data-tid="{{ t.id }}">{{ t.member4_name or '' }}</span></td>
+          <td data-val="{{ t.member4_name or '' }}"><span class="ec" data-field="member4_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.member4_name or '' }}</span></td>
           {# M4% col 41 #}
           <td data-val="{{ t.member4_pct or '' }}"><span class="ec num" data-field="member4_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member4_pct*100) if t.member4_pct else '' }}</span></td>
           {# M4 GCI col 42 #}
@@ -447,6 +455,9 @@ td.urgent { color:#c00 !important; font-weight:700; }
 .ec.saved { background:#d1fae5; transition:background 1.2s; }
 .ec.error { background:#fee2e2; }
 .num { text-align:right; }
+/* Missing required field — red flag */
+td.cell-missing { background:#fee2e2 !important; box-shadow:inset 0 0 0 1px #f5b5b5; }
+td.cell-missing.sticky-col { background:#fee2e2 !important; }
 .es { font-size:0.74rem; border:0; background:transparent; padding:0; width:100%; cursor:pointer; }
 .es:focus { outline:1px solid var(--tdg-gold); background:#fffbf0; }
 .ro { cursor:default; }
@@ -546,6 +557,8 @@ document.querySelectorAll('.ec').forEach(function(span) {
     const isPct=span.dataset.pct, dtype=span.dataset.type;
     const inp = document.createElement('input');
     inp.type = dtype==='date' ? 'date' : 'text';
+    // Searchable dropdown (Agent / Source) — attach datalist if present
+    if (span.dataset.list) { inp.setAttribute('list', span.dataset.list); inp.setAttribute('autocomplete', 'off'); }
     inp.style.cssText = 'width:100%;border:1px solid #d4a017;border-radius:3px;padding:1px 4px;font-size:0.74rem;background:#fffbf0;';
     let raw = span.textContent.trim();
     if (dtype==='date' && raw) {
@@ -569,6 +582,19 @@ document.querySelectorAll('.ec').forEach(function(span) {
           else if (span.classList.contains('num')&&nv){span.textContent=parseFloat(nv.replace(/,/g,'')).toLocaleString('en-US',{maximumFractionDigits:0});}
           else{span.textContent=nv;}
           span.closest('td').dataset.val = nv;
+          // Re-apply $ on money fields, and refresh the missing-field flag for this cell
+          if (typeof MONEY_FIELDS!=='undefined' && MONEY_FIELDS.has(field)) money$(span);
+          if (typeof flagMissing==='function') {
+            const td=span.closest('td');
+            if (nv && nv!=='—') td.classList.remove('cell-missing');
+          }
+          // Auto-grow the searchable list: add newly-typed value so it's available next time
+          if (span.dataset.list && nv) {
+            const dl = document.getElementById(span.dataset.list);
+            if (dl && ![...dl.options].some(o => o.value === nv)) {
+              const o = document.createElement('option'); o.value = nv; dl.appendChild(o);
+            }
+          }
           span.classList.add('saved'); setTimeout(()=>span.classList.remove('saved'),1500);
           refreshComputed(tid);
         } else { span.classList.add('error'); setTimeout(()=>span.classList.remove('error'),2000); alert('Save failed: '+(d.error||'unknown')); }
@@ -626,6 +652,8 @@ function refreshComputed(tid) {
     set(6,  d.exp_in);
     set(52, d.company_dollar, true);
     set(53, d.company_dollar, true);
+    // re-apply $ prefix on the two computed money columns
+    [52,53].forEach(i=>{ if(cells[i]&&cells[i].textContent.trim()&&!cells[i].textContent.trim().startsWith('$')) cells[i].textContent='$'+cells[i].textContent.trim(); });
   }).catch(()=>{});
 }
 
@@ -635,6 +663,34 @@ function refreshComputed(tid) {
 
 const activeFilters = {};  // colIdx → Set of allowed values
 let sortCol = -1, sortDir = 1;  // 1=asc, -1=desc
+
+// ── Persist column filters + sort across reloads / adds (per browser) ──────
+const MB_STATE_KEY = 'mb_filter_state_v1';
+function saveState() {
+  try {
+    const f = {};
+    Object.entries(activeFilters).forEach(([ci, set]) => { f[ci] = [...set]; });
+    localStorage.setItem(MB_STATE_KEY, JSON.stringify({ filters: f, sortCol, sortDir }));
+  } catch (e) {}
+}
+function restoreState() {
+  let st; try { st = JSON.parse(localStorage.getItem(MB_STATE_KEY) || 'null'); } catch (e) { return; }
+  if (!st) return;
+  if (st.filters) {
+    Object.entries(st.filters).forEach(([ci, vals]) => {
+      activeFilters[ci] = new Set(vals);
+      const th = document.querySelector('.col-hdr[data-col="'+ci+'"]');
+      if (th) th.classList.add('filtered');
+    });
+  }
+  if (typeof st.sortCol === 'number' && st.sortCol >= 0) {
+    sortCol = st.sortCol; sortDir = st.sortDir || 1;
+    const th = document.querySelector('.col-hdr[data-col="'+sortCol+'"]');
+    if (th) { const b = th.querySelector('.sbtn'); if (b) b.textContent = sortDir===1?'↑':'↓'; }
+    sortByCol(sortCol, sortDir);
+  }
+  applyFilters();
+}
 
 // ── Get all visible rows in current DOM order ─────────────────────────────
 function getAllRows() {
@@ -862,6 +918,7 @@ document.querySelectorAll('.col-hdr[data-col]').forEach(th => {
       const btn = th.querySelector('.sbtn');
       if (btn) btn.textContent = sortDir===1 ? '↑' : '↓';
       sortByCol(colIdx, sortDir);
+      saveState();
       return;
     }
     // Filter button or header click → open dropdown
@@ -909,6 +966,7 @@ document.getElementById('fdd-apply').addEventListener('click', function() {
     if (curTh) curTh.classList.add('filtered');
   }
   applyFilters();
+  saveState();
   dd.style.display = 'none';
 });
 
@@ -918,6 +976,7 @@ document.getElementById('fdd-clear').addEventListener('click', function() {
   if (curTh) curTh.classList.remove('filtered');
   fddBoxes.querySelectorAll('input').forEach(i=>i.checked=true);
   applyFilters();
+  saveState();
   dd.style.display = 'none';
 });
 
@@ -928,6 +987,7 @@ document.getElementById('clear-filters-btn').addEventListener('click', function(
   document.querySelectorAll('.sbtn').forEach(b=>b.textContent='⇅');
   sortCol=-1; sortDir=1;
   applyFilters();
+  try { localStorage.removeItem(MB_STATE_KEY); } catch(e) {}
   // Also reset server-side month/date filters and reload
   var url = new URL(window.location.href);
   url.searchParams.delete('month');
@@ -943,6 +1003,98 @@ document.addEventListener('click', e => {
 
 // Seed totals on page load (all rows visible)
 updateTotals(getAllRows());
+
+// ══════════════════════════════════════════════════════════════════════════
+//  DISPLAY LAYER — $ formatting · past-due dates · missing-field flags
+//  (Display-only: never touches td.dataset.val, so sort/filter/totals stay numeric)
+// ══════════════════════════════════════════════════════════════════════════
+
+// Dollar-value fields → show a leading $ (NOT units, NOT percentages)
+const MONEY_FIELDS = new Set([
+  'old_list_price','list_price','sale_price','gci','bonus','transaction_fee',
+  'broker_split','franchise_split','referral_fee','primary_agent_gci',
+  'secondary_agent_gci','member3_gci','member4_gci','eo_fee','donation',
+  'other_fee','net_income','taxes','net_after_taxes'
+]);
+// Computed read-only money columns (by td index): Co. Dollar, 1099
+const MONEY_COL_IDX = new Set([52, 53]);
+
+function money$(span) {
+  const t = span.textContent.trim();
+  if (t && t !== '—' && !t.startsWith('$')) span.textContent = '$' + t;
+}
+function applyMoneyFormat(root) {
+  (root || document).querySelectorAll('.ec.num[data-field]').forEach(span => {
+    if (MONEY_FIELDS.has(span.dataset.field)) money$(span);
+  });
+  // computed read-only tds
+  document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
+    const cells = row.querySelectorAll('td');
+    MONEY_COL_IDX.forEach(i => {
+      const td = cells[i];
+      if (td && td.textContent.trim() && !td.textContent.trim().startsWith('$')) {
+        td.textContent = '$' + td.textContent.trim();
+      }
+    });
+  });
+}
+
+// ── Past-due closing date → red ───────────────────────────────────────────
+// Proj Close (col 18) or Close Date (col 19) in the past while deal NOT closed/dead.
+const CLOSED_DONE = new Set(['Closed','x-Cancelled','y-Sale Failed','z-Expired']);
+function flagPastDue() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
+    const cells = row.querySelectorAll('td');
+    const status = (cells[10] && cells[10].dataset.val) || '';
+    if (CLOSED_DONE.has(status)) return;            // settled deals never "past due"
+    [18, 19].forEach(ci => {
+      const td = cells[ci]; if (!td) return;
+      const iso = isoDate(td.dataset.val || '');
+      if (!iso) return;
+      const d = new Date(iso); d.setHours(0,0,0,0);
+      if (d < today) {
+        const span = td.querySelector('.ec') || td;
+        span.style.color = '#c00';
+        span.style.fontWeight = '700';
+        td.title = 'Closing date is past due';
+      }
+    });
+  });
+}
+
+// ── Missing core field → red cell ─────────────────────────────────────────
+// Flags blanks in the identity/tracking fields only (keeps noise down).
+const REQUIRED_COL_IDX = [
+  {i:0,  label:'Agent'},
+  {i:1,  label:'Address'},
+  {i:10, label:'Status'},
+  {i:12, label:'Client(s)'},
+  {i:13, label:'Source'}
+];
+function flagMissing() {
+  document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
+    if (row.classList.contains('row-dead')) return;  // don't nag dead deals
+    const cells = row.querySelectorAll('td');
+    REQUIRED_COL_IDX.forEach(({i,label}) => {
+      const td = cells[i]; if (!td) return;
+      const v = (td.dataset.val || '').trim();
+      if (!v || v === '—') {
+        td.classList.add('cell-missing');
+        td.title = label + ' is missing';
+      } else {
+        td.classList.remove('cell-missing');
+      }
+    });
+  });
+}
+
+applyMoneyFormat();
+flagPastDue();
+flagMissing();
+
+// Restore any saved column filters + sort from a previous visit
+restoreState();
 
 // ── Floating bottom scrollbar ─────────────────────────────────────────────
 (function() {

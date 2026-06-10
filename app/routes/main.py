@@ -441,7 +441,7 @@ def my_business():
     }
 
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
-    statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Coming Soon',
+    statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
                 'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
     admin_names = ['Joanne Sumiec', 'Julie Kelsey']
 
@@ -529,7 +529,7 @@ def add_transaction():
         flash('Transaction added successfully.', 'success')
         return redirect(url_for('main.my_business'))
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
-    statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Coming Soon',
+    statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
                 'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
     lead_sources = [r[0] for r in db.session.query(Transaction.lead_source)
                     .filter(Transaction.lead_source.isnot(None), Transaction.lead_source != '')
@@ -586,7 +586,7 @@ def edit_transaction(tid):
         flash('Transaction updated.', 'success')
         return redirect(url_for('main.my_business'))
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
-    statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Coming Soon',
+    statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
                 'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
     lead_sources = [r[0] for r in db.session.query(Transaction.lead_source)
                     .filter(Transaction.lead_source.isnot(None), Transaction.lead_source != '')

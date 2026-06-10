@@ -42,10 +42,12 @@
     </div>
     <div class="col-md-3">
       <label class="form-label">Lead Source</label>
-      <select name="lead_source" class="form-select">
-        <option value="">— none —</option>
-        {% for ls in lead_sources %}<option {% if t and t.lead_source==ls %}selected{% endif %} value="{{ ls }}">{{ ls }}</option>{% endfor %}
-      </select>
+      <input type="text" name="lead_source" class="form-control" list="dl-form-sources"
+             value="{{ t.lead_source if t and t.lead_source else '' }}" autocomplete="off"
+             placeholder="Type or pick…">
+      <datalist id="dl-form-sources">
+        {% for ls in lead_sources %}<option value="{{ ls }}"></option>{% endfor %}
+      </datalist>
     </div>
 
     <div class="col-md-6">
@@ -158,7 +160,7 @@
 
     <div class="col-md-3">
       <label class="form-label">Primary Agent</label>
-      <input type="text" name="primary_agent_name" class="form-control" value="{{ t.primary_agent_name if t else '' }}" placeholder="Name">
+      <input type="text" name="primary_agent_name" class="form-control" list="dl-form-agents" autocomplete="off" value="{{ t.primary_agent_name if t else '' }}" placeholder="Name">
     </div>
     <div class="col-md-1">
       <label class="form-label">% Split</label>
@@ -170,7 +172,10 @@
     </div>
     <div class="col-md-3">
       <label class="form-label">Secondary Agent</label>
-      <input type="text" name="secondary_agent_name" class="form-control" value="{{ t.secondary_agent_name if t else '' }}" placeholder="Name">
+      <input type="text" name="secondary_agent_name" class="form-control" list="dl-form-agents" autocomplete="off" value="{{ t.secondary_agent_name if t else '' }}" placeholder="Name">
+      <datalist id="dl-form-agents">
+        {% for a in agents %}<option value="{{ a.name }}"></option>{% endfor %}
+      </datalist>
     </div>
     <div class="col-md-1">
       <label class="form-label">% Split</label>
