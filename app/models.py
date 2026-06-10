@@ -124,6 +124,7 @@ class Transaction(db.Model):
     year = db.Column(db.Integer)
     month = db.Column(db.Integer)
     notes = db.Column(db.Text)
+    archived = db.Column(db.Boolean, default=False)  # True = old historical, hidden from My Business
     fub_id = db.Column(db.String(50))
     docusign_id = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

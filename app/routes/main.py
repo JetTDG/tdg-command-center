@@ -387,6 +387,7 @@ def my_business():
     admin_filter = request.args.get('admin_name', '')
 
     query = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(
+        Transaction.archived == False,
         or_(
             Transaction.year == year,
             and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
@@ -432,12 +433,12 @@ def my_business():
 
     summary = {
         # Active = current status regardless of year (a listing active today is active)
-        'active_listings': Transaction.query.filter_by(transaction_type='Listing', status='Active').count(),
-        'active_buyers':   Transaction.query.filter_by(transaction_type='Buyer',   status='Active').count(),
-        'pending':         Transaction.query.filter(Transaction.status=='Pending',  year_filter(Transaction)).count(),
-        'closed':          Transaction.query.filter(Transaction.status=='Closed',   year_filter(Transaction)).count(),
+        'active_listings': Transaction.query.filter_by(transaction_type='Listing', status='Active', archived=False).count(),
+        'active_buyers':   Transaction.query.filter_by(transaction_type='Buyer',   status='Active', archived=False).count(),
+        'pending':         Transaction.query.filter(Transaction.archived==False, Transaction.status=='Pending',  year_filter(Transaction)).count(),
+        'closed':          Transaction.query.filter(Transaction.archived==False, Transaction.status=='Closed',   year_filter(Transaction)).count(),
         # Pipeline = Pre-Signed (signed but not yet under contract)
-        'pipeline':        Transaction.query.filter(Transaction.status=='Pre-Signed', year_filter(Transaction)).count(),
+        'pipeline':        Transaction.query.filter(Transaction.archived==False, Transaction.status=='Pre-Signed', year_filter(Transaction)).count(),
     }
 
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()

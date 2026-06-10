@@ -1,0 +1,21 @@
+Script started on Tue Jun  9 23:09:20 2026
+Command: #!/usr/bin/env bash
+# alert.sh - send Discord alert from server crons
+# Usage: alert.sh \"message\"
+DISCORD_TOKEN=\" + bot + \"
+CHANNEL_ID=\" + ch + \"
+MSG=\"\${1:-alert}\"
+curl -sf -o /dev/null \\\\
+  -H \"Authorization: Bot \${DISCORD_TOKEN}\" \\\\
+  -H \"Content-Type: application/json\" \\\\
+  -d \"{\\\\\"content\\\\\":\\\\\"\${MSG}\\\\\"}\" \\\\
+  \"https://discord.com/api/v10/channels/\${CHANNEL_ID}/messages\" 2>/dev/null || true
+
+^Dscript: #!/usr/bin/env bash
+# alert.sh - send Discord alert from server crons
+# Usage: alert.sh \"message\"
+DISCORD_TOKEN=\": No such file or directory
+Script started, output file is =
+
+Command exit status: 1
+Script done on Tue Jun  9 23:09:20 2026
