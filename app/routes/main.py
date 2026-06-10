@@ -118,15 +118,24 @@ def home():
     month_closed = mtd_closed_count()
     month_gci    = mtd_closed_gci()
 
-    # ── Pending / Pre-Signed: no year filter — current pipeline only ──────────
+    # ── Pending / Pre-Signed: same year_filter as MyBusiness ─────────────────
+    def mb_year_filter():
+        """Identical year resolution used by /my-business — all three anchors."""
+        return or_(
+            Transaction.year == year,
+            and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
+            and_(Transaction.year == None, Transaction.close_date == None,
+                 extract('year', Transaction.signed_date) == year)
+        )
+
     def pending_count_q(type_filter=None, exclude_types=None):
-        q = Transaction.query.filter(Transaction.archived == False, Transaction.status == 'Pending')
+        q = Transaction.query.filter(Transaction.archived == False, Transaction.status == 'Pending', mb_year_filter())
         if type_filter:    q = q.filter(Transaction.transaction_type.in_(type_filter))
         if exclude_types:  q = q.filter(~Transaction.transaction_type.in_(exclude_types))
         return q.count()
 
     def pending_gci_q(type_filter=None, exclude_types=None):
-        q = db.session.query(func.sum(Transaction.gci)).filter(Transaction.archived == False, Transaction.status == 'Pending')
+        q = db.session.query(func.sum(Transaction.gci)).filter(Transaction.archived == False, Transaction.status == 'Pending', mb_year_filter())
         if type_filter:    q = q.filter(Transaction.transaction_type.in_(type_filter))
         if exclude_types:  q = q.filter(~Transaction.transaction_type.in_(exclude_types))
         return float(q.scalar() or 0)
@@ -290,7 +299,8 @@ def home():
 
             # Pending deals: extract month from projected_close_date
             pending_q = db.session.query(func.sum(Transaction.gci)).filter(
-                extract('year', Transaction.projected_close_date) == year,
+                Transaction.archived == False,
+                mb_year_filter(),
                 extract('month', Transaction.projected_close_date) == m,
                 Transaction.status == 'Pending'
             )
@@ -318,7 +328,8 @@ def home():
             closed_sum = float(closed_q.scalar() or 0)
 
             pending_q = db.session.query(func.sum(Transaction.sale_price)).filter(
-                extract('year', Transaction.projected_close_date) == year,
+                Transaction.archived == False,
+                mb_year_filter(),
                 extract('month', Transaction.projected_close_date) == m,
                 Transaction.status == 'Pending'
             )
