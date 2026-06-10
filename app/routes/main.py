@@ -1074,7 +1074,12 @@ def leaderboard_agent_deals():
 
 # ─── ASK / NLQ ──────────────────────────────────────────────────────────────
 
-GDRIVE_FOLDER_ID = '1Ntaaxh51HpLC4lQ_oTozUd254qr0ewK9'
+# Ask page scans BOTH Drive folders: the original Ask resources + the CTE historical docs folder
+GDRIVE_FOLDER_IDS = [
+    '1Ntaaxh51HpLC4lQ_oTozUd254qr0ewK9',   # original Ask resources
+    '1IPQtj28PhGftVOE0lKAKCKaX7Nb3y9cm',   # CTE historical / signed docs folder
+]
+GDRIVE_FOLDER_ID = GDRIVE_FOLDER_IDS[0]  # back-compat alias
 
 def load_knowledge_base():
     """Load the TDG static knowledge base (Canva site + docs index)."""
@@ -1103,18 +1108,28 @@ def fetch_gdrive_context(question, api_key):
         drive_svc = gbuild('drive', 'v3', credentials=creds)
         sheets_svc = gbuild('sheets', 'v4', credentials=creds)
 
-        # List files in folder
-        files = drive_svc.files().list(
-            q=f"'{GDRIVE_FOLDER_ID}' in parents",
-            fields='files(id, name, mimeType)'
-        ).execute().get('files', [])
+        # List files across ALL configured folders (original + CTE historical)
+        files = []
+        seen_ids = set()
+        for folder_id in GDRIVE_FOLDER_IDS:
+            try:
+                ff = drive_svc.files().list(
+                    q=f"'{folder_id}' in parents",
+                    fields='files(id, name, mimeType)'
+                ).execute().get('files', [])
+                for f in ff:
+                    if f['id'] not in seen_ids:
+                        seen_ids.add(f['id'])
+                        files.append(f)
+            except Exception:
+                continue
 
         if not files:
             return ''
 
-        # Pull first 3 sheets worth of data (keep context manageable)
+        # Pull first sheets/docs worth of data (keep context manageable across both folders)
         context_parts = []
-        for f in files[:6]:
+        for f in files[:10]:
             name = f['name']
             mime = f['mimeType']
             try:
