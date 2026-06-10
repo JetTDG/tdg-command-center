@@ -206,17 +206,19 @@ const chart = new Chart(ctx, {
   options: {
     responsive: true,
     plugins: {
-      legend: { display:true, position:'top', labels:{ color:'#555', boxWidth:14, font:{size:11} } },
+      legend: { display:true, position:'bottom', labels:{ color:'#555', boxWidth:12, padding:12, font:{size:11} } },
       tooltip: { callbacks: { label: c => ` ${c.dataset.label}: $` + fmt(c.parsed.y) } },
       datalabels: {
+        // 'auto' lets the plugin hide any label that would overlap a neighbour
         display: function(c) {
           const pi = c.dataIndex, ds = c.chart.data.datasets;
           const pv = ds[1].data[pi]||0, cv = ds[0].data[pi]||0;
-          if (pv>0 && c.datasetIndex===1) return true;
-          if (pv===0 && cv>0 && c.datasetIndex===0) return true;
+          if (pv>0 && c.datasetIndex===1) return 'auto';
+          if (pv===0 && cv>0 && c.datasetIndex===0) return 'auto';
           return false;
         },
-        anchor:'end', align:'end', offset:2, color:'#555', font:{size:10, weight:'600'},
+        anchor:'end', align:'end', offset:4, clamp:true, clip:false,
+        color:'#444', font:{ size: window.innerWidth < 600 ? 9 : 10, weight:'600' },
         formatter: function(v,c) {
           const pi=c.dataIndex, ds=c.chart.data.datasets;
           const total=(ds[0].data[pi]||0)+(ds[1].data[pi]||0);
@@ -225,10 +227,11 @@ const chart = new Chart(ctx, {
       }
     },
     scales: {
-      y: { stacked:true, ticks:{color:'#8b949e', callback:v=>'$'+fmt(v)}, grid:{color:'#eee'} },
-      x: { stacked:true, ticks:{color:'#8b949e'}, grid:{display:false} }
+      y: { stacked:true, beginAtZero:true, ticks:{color:'#8b949e', maxTicksLimit:4, callback:v=>'$'+fmt(v)}, grid:{color:'#eee'} },
+      x: { stacked:true, ticks:{color:'#8b949e', autoSkip:false, maxRotation:45, minRotation:45, font:{size: window.innerWidth < 600 ? 9 : 11}}, grid:{display:false} }
     },
-    layout: { padding:{top:20} }
+    maxBarThickness: 44,
+    layout: { padding:{top:28} }
   }
 });
 
