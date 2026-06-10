@@ -1,16 +1,23 @@
 {% extends 'base.html' %}
 {% block title %}CEO Summary — TDG Command Center{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-start mb-3">
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
   <div>
     <div class="page-title">CEO Summary</div>
     <div class="page-subtitle">Executive overview — {{ year }}</div>
   </div>
-  <form method="GET" class="d-flex gap-2">
-    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
-      {% for y in years %}<option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>{% endfor %}
-    </select>
-  </form>
+  <div class="d-flex gap-2 align-items-center flex-wrap">
+    <div class="btn-group btn-group-sm" role="group" aria-label="Segment">
+      <button type="button" class="btn btn-outline-secondary active" id="seg-combined" onclick="setSegment('combined',this)">Combined</button>
+      <button type="button" class="btn btn-outline-secondary" id="seg-res" onclick="setSegment('res',this)">Residential</button>
+      <button type="button" class="btn btn-outline-secondary" id="seg-comm" onclick="setSegment('comm',this)">Commercial</button>
+    </div>
+    <form method="GET" class="d-flex gap-2">
+      <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+        {% for y in years %}<option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+      </select>
+    </form>
+  </div>
 </div>
 
 <!-- ── TOP 3 METRIC CARDS ─────────────────────────────────────── -->
@@ -18,25 +25,25 @@
   <div class="col-md-4">
     <div class="stat-card">
       <div class="stat-label">Total GCI</div>
-      <div class="stat-value">{{ "${:,.0f}".format(ytd_gci) }}</div>
-      <div class="stat-sub">+ {{ "${:,.0f}".format(proj_gci) }} pending</div>
-      <div class="stat-sub mt-1">Goal: {{ "${:,.0f}".format(team_gci_goal) }} &nbsp;·&nbsp; <strong>{{ goal_pct }}%</strong></div>
-      <div class="progress mt-2"><div class="progress-bar" style="width:{{ [goal_pct,100]|min }}%"></div></div>
+      <div class="stat-value" id="c-ytd-gci">{{ "${:,.0f}".format(ytd_gci) }}</div>
+      <div class="stat-sub">+ <span id="c-proj-gci">{{ "${:,.0f}".format(proj_gci) }}</span> pending</div>
+      <div class="stat-sub mt-1">Goal: {{ "${:,.0f}".format(team_gci_goal) }} &nbsp;·&nbsp; <strong id="c-goal-pct">{{ goal_pct }}%</strong></div>
+      <div class="progress mt-2"><div class="progress-bar" id="c-goal-bar" style="width:{{ [goal_pct,100]|min }}%"></div></div>
     </div>
   </div>
   <div class="col-md-4">
     <div class="stat-card">
       <div class="stat-label">Total Volume</div>
-      <div class="stat-value">{{ "${:,.0f}".format(ytd_volume) }}</div>
-      <div class="stat-sub">+ {{ "${:,.0f}".format(proj_volume) }} pending</div>
-      <div class="stat-sub mt-1">{{ ytd_units }} closed &nbsp;·&nbsp; {{ proj_units }} pending</div>
+      <div class="stat-value" id="c-ytd-volume">{{ "${:,.0f}".format(ytd_volume) }}</div>
+      <div class="stat-sub">+ <span id="c-proj-volume">{{ "${:,.0f}".format(proj_volume) }}</span> pending</div>
+      <div class="stat-sub mt-1"><span id="c-ytd-units">{{ ytd_units }}</span> closed &nbsp;·&nbsp; <span id="c-proj-units">{{ proj_units }}</span> pending</div>
     </div>
   </div>
   <div class="col-md-4">
     <div class="stat-card">
       <div class="stat-label">Company Dollar</div>
-      <div class="stat-value">{{ "${:,.0f}".format(ytd_co_dollar) }}</div>
-      <div class="stat-sub">+ {{ "${:,.0f}".format(proj_co_dollar) }} pending</div>
+      <div class="stat-value" id="c-ytd-co">{{ "${:,.0f}".format(ytd_co_dollar) }}</div>
+      <div class="stat-sub">+ <span id="c-proj-co">{{ "${:,.0f}".format(proj_co_dollar) }}</span> pending</div>
       <div class="stat-sub mt-1">GCI minus agent splits, fees &amp; referrals</div>
     </div>
   </div>
@@ -47,7 +54,7 @@
   <div class="col-md-3">
     <div class="stat-card">
       <div class="stat-label">Closed Units</div>
-      <div class="stat-value">{{ ytd_units }}</div>
+      <div class="stat-value" id="c-units2">{{ ytd_units }}</div>
       <div class="stat-sub">vs {{ prior_units }} prior year
         {% if units_yoy_pct >= 0 %}<span class="text-success">▲ {{ units_yoy_pct }}%</span>
         {% else %}<span class="text-danger">▼ {{ units_yoy_pct|abs }}%</span>{% endif %}
@@ -57,20 +64,20 @@
   <div class="col-md-3">
     <div class="stat-card">
       <div class="stat-label">Pending Units</div>
-      <div class="stat-value">{{ proj_units }}</div>
-      <div class="stat-sub">{{ "${:,.0f}".format(proj_gci) }} projected GCI</div>
+      <div class="stat-value" id="c-proj-units2">{{ proj_units }}</div>
+      <div class="stat-sub"><span id="c-proj-gci2">{{ "${:,.0f}".format(proj_gci) }}</span> projected GCI</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="stat-card">
       <div class="stat-label">Listings Signed</div>
-      <div class="stat-value">{{ listings_signed }}</div>
+      <div class="stat-value" id="c-listings">{{ listings_signed }}</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="stat-card">
       <div class="stat-label">Buyers Signed</div>
-      <div class="stat-value">{{ buyers_signed }}</div>
+      <div class="stat-value" id="c-buyers">{{ buyers_signed }}</div>
     </div>
   </div>
 </div>
@@ -82,7 +89,7 @@
       <h6 class="mb-0 fw-semibold">Monthly Performance</h6>
       <div class="d-flex gap-2 flex-wrap">
         <!-- Metric toggle -->
-        <div class="btn-group btn-group-sm" role="group">
+        <div class="btn-group btn-group-sm" id="metric-group" role="group">
           <button type="button" class="btn btn-outline-secondary active" onclick="setMetric('gci',this)">GCI</button>
           <button type="button" class="btn btn-outline-secondary" onclick="setMetric('volume',this)">Volume</button>
           <button type="button" class="btn btn-outline-secondary" onclick="setMetric('co',this)">Company $</button>
@@ -120,10 +127,12 @@
 <script>
 Chart.register(ChartDataLabels);
 
-const monthly = {{ monthly | tojson }};
+const segData = {{ seg | tojson }};
+let segment = 'combined';
+let monthly = segData[segment].monthly;
 const labels  = monthly.map(m => m.month);
 
-const data = {
+let data = {
   gci:    { closed: monthly.map(m=>m.closed_gci),    pending: monthly.map(m=>m.pending_gci) },
   volume: { closed: monthly.map(m=>m.closed_volume), pending: monthly.map(m=>m.pending_volume) },
   co:     { closed: monthly.map(m=>m.closed_co),     pending: monthly.map(m=>m.pending_co) },
@@ -196,10 +205,49 @@ const chart = new Chart(ctx, {
 
 function setMetric(metric, btn) {
   currentMetric = metric;
-  document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#metric-group .btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   chart.data.datasets[0].data = data[metric].closed;
   chart.data.datasets[1].data = data[metric].pending;
+  chart.update();
+}
+
+const usd = v => '$' + Number(v||0).toLocaleString('en-US', {maximumFractionDigits:0});
+
+function setSegment(s, btn) {
+  segment = s;
+  // toggle active state only within the segment button group
+  ['seg-combined','seg-res','seg-comm'].forEach(id => document.getElementById(id).classList.remove('active'));
+  btn.classList.add('active');
+
+  const d = segData[s];
+  // refresh cards
+  document.getElementById('c-ytd-gci').textContent    = usd(d.ytd_gci);
+  document.getElementById('c-proj-gci').textContent   = usd(d.proj_gci);
+  document.getElementById('c-ytd-volume').textContent = usd(d.ytd_volume);
+  document.getElementById('c-proj-volume').textContent= usd(d.proj_volume);
+  document.getElementById('c-ytd-units').textContent  = d.ytd_units;
+  document.getElementById('c-proj-units').textContent = d.proj_units;
+  document.getElementById('c-ytd-co').textContent     = usd(d.ytd_co_dollar);
+  document.getElementById('c-proj-co').textContent    = usd(d.proj_co_dollar);
+  document.getElementById('c-units2').textContent     = d.ytd_units;
+  document.getElementById('c-proj-units2').textContent= d.proj_units;
+  document.getElementById('c-proj-gci2').textContent  = usd(d.proj_gci);
+  document.getElementById('c-listings').textContent   = d.listings_signed;
+  document.getElementById('c-buyers').textContent     = d.buyers_signed;
+  // goal % only meaningful on combined (team goal is company-wide); show for combined
+  const gp = document.getElementById('c-goal-pct');
+  if (gp) { gp.textContent = (s==='combined') ? gp.textContent : '—'; }
+
+  // rebuild chart data arrays for this segment
+  monthly = d.monthly;
+  data = {
+    gci:    { closed: monthly.map(m=>m.closed_gci),    pending: monthly.map(m=>m.pending_gci) },
+    volume: { closed: monthly.map(m=>m.closed_volume), pending: monthly.map(m=>m.pending_volume) },
+    co:     { closed: monthly.map(m=>m.closed_co),     pending: monthly.map(m=>m.pending_co) },
+  };
+  chart.data.datasets[0].data = data[currentMetric].closed;
+  chart.data.datasets[1].data = data[currentMetric].pending;
   chart.update();
 }
 </script>

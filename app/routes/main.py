@@ -1289,6 +1289,8 @@ Answer in 1-3 sentences:"""
 def ceo_summary():
     year = int(request.args.get('year', current_year()))
 
+    COMMERCIAL_TYPES = ('Commercial', 'Lease')
+
     def company_dollar(t):
         return (
             (t.gci or 0)
@@ -1299,62 +1301,87 @@ def ceo_summary():
             - (t.franchise_split or 0)
         )
 
-    closed = Transaction.query.filter_by(year=year, status='Closed').all()
-    pending = Transaction.query.filter_by(year=year, status='Pending').all()
+    all_closed  = Transaction.query.filter_by(year=year, status='Closed').all()
+    all_pending = Transaction.query.filter_by(year=year, status='Pending').all()
 
-    # YTD totals (closed)
-    ytd_gci     = sum((t.gci or 0) for t in closed)
-    ytd_volume  = sum((t.sale_price or 0) for t in closed)
-    ytd_co_dollar = sum(company_dollar(t) for t in closed)
-    ytd_units   = len(closed)
+    def is_comm(t): return (t.transaction_type or '') in COMMERCIAL_TYPES
 
-    # Pending totals
-    proj_gci      = sum((t.gci or 0) for t in pending)
-    proj_volume   = sum((t.sale_price or 0) for t in pending)
-    proj_co_dollar = sum(company_dollar(t) for t in pending)
-    proj_units    = len(pending)
+    def seg_filter(rows, seg):
+        if seg == 'res':  return [t for t in rows if not is_comm(t)]
+        if seg == 'comm': return [t for t in rows if is_comm(t)]
+        return rows
 
-    listings_signed = Transaction.query.filter(
-        Transaction.year == year,
-        Transaction.transaction_type == 'Listing',
-        Transaction.status.notin_(['x-Cancelled', 'y-Sale Failed', 'z-Expired'])
-    ).count()
-    buyers_signed = Transaction.query.filter(
-        Transaction.year == year,
-        Transaction.transaction_type == 'Buyer',
-        Transaction.status.notin_(['x-Cancelled', 'y-Sale Failed', 'z-Expired'])
-    ).count()
+    def build_segment(seg):
+        closed  = seg_filter(all_closed, seg)
+        pending = seg_filter(all_pending, seg)
+        # monthly breakdown
+        monthly = []
+        for m in range(1, 13):
+            mc = [t for t in closed  if t.month == m]
+            mp = [t for t in pending if t.projected_close_date and t.projected_close_date.month == m]
+            monthly.append({
+                'month':          calendar.month_abbr[m],
+                'closed_gci':     round(sum((t.gci or 0) for t in mc), 2),
+                'pending_gci':    round(sum((t.gci or 0) for t in mp), 2),
+                'closed_volume':  round(sum((t.sale_price or 0) for t in mc), 2),
+                'pending_volume': round(sum((t.sale_price or 0) for t in mp), 2),
+                'closed_co':      round(sum(company_dollar(t) for t in mc), 2),
+                'pending_co':     round(sum(company_dollar(t) for t in mp), 2),
+                'closed_units':   len(mc),
+                'pending_units':  len(mp),
+            })
+        # signed counts within segment
+        ls = sum(1 for t in seg_filter(
+            Transaction.query.filter(
+                Transaction.year == year,
+                Transaction.transaction_type == 'Listing',
+                Transaction.status.notin_(['x-Cancelled','y-Sale Failed','z-Expired'])
+            ).all(), 'combined' if seg=='combined' else seg))
+        bs = sum(1 for t in seg_filter(
+            Transaction.query.filter(
+                Transaction.year == year,
+                Transaction.transaction_type == 'Buyer',
+                Transaction.status.notin_(['x-Cancelled','y-Sale Failed','z-Expired'])
+            ).all(), 'combined' if seg=='combined' else seg))
+        # prior-year (same segment)
+        prior = seg_filter(Transaction.query.filter_by(year=year-1, status='Closed').all(), seg)
+        prior_gci   = sum((t.gci or 0) for t in prior)
+        prior_units = len(prior)
+        ytd_gci = sum((t.gci or 0) for t in closed)
+        ytd_units = len(closed)
+        return {
+            'ytd_gci':        round(ytd_gci, 2),
+            'ytd_volume':     round(sum((t.sale_price or 0) for t in closed), 2),
+            'ytd_co_dollar':  round(sum(company_dollar(t) for t in closed), 2),
+            'ytd_units':      ytd_units,
+            'proj_gci':       round(sum((t.gci or 0) for t in pending), 2),
+            'proj_volume':    round(sum((t.sale_price or 0) for t in pending), 2),
+            'proj_co_dollar': round(sum(company_dollar(t) for t in pending), 2),
+            'proj_units':     len(pending),
+            'listings_signed': ls,
+            'buyers_signed':   bs,
+            'prior_gci':       round(prior_gci, 2),
+            'prior_units':     prior_units,
+            'gci_yoy_pct':     round((ytd_gci - prior_gci) / prior_gci * 100, 1) if prior_gci else 0,
+            'units_yoy_pct':   round((ytd_units - prior_units) / prior_units * 100, 1) if prior_units else 0,
+            'monthly':         monthly,
+        }
+
+    seg = {
+        'combined': build_segment('combined'),
+        'res':      build_segment('res'),
+        'comm':     build_segment('comm'),
+    }
 
     team_gci_goal = db.session.query(func.sum(BusinessPlan.gci_goal)).filter_by(year=year).scalar() or 0
     team_unit_goal = db.session.query(
         func.sum(BusinessPlan.listing_unit_goal) + func.sum(BusinessPlan.buyer_unit_goal)
     ).filter_by(year=year).scalar() or 0
 
-    # Monthly breakdown — all 3 metrics, closed + pending
-    # For closed: use month column
-    # For pending: extract month from projected_close_date
-    monthly = []
-    for m in range(1, 13):
-        mc = [t for t in closed  if t.month == m]
-        mp = [t for t in pending if t.projected_close_date and t.projected_close_date.month == m]
-        monthly.append({
-            'month':          calendar.month_abbr[m],
-            'closed_gci':     round(sum((t.gci or 0) for t in mc), 2),
-            'pending_gci':    round(sum((t.gci or 0) for t in mp), 2),
-            'closed_volume':  round(sum((t.sale_price or 0) for t in mc), 2),
-            'pending_volume': round(sum((t.sale_price or 0) for t in mp), 2),
-            'closed_co':      round(sum(company_dollar(t) for t in mc), 2),
-            'pending_co':     round(sum(company_dollar(t) for t in mp), 2),
-            'closed_units':   len(mc),
-            'pending_units':  len(mp),
-        })
+    # default (combined) values for initial server render
+    c = seg['combined']
 
-    # Prior year comparison
-    prior_closed = Transaction.query.filter_by(year=year-1, status='Closed').all()
-    prior_gci   = sum((t.gci or 0) for t in prior_closed)
-    prior_units = len(prior_closed)
-
-    # Lead gen YTD
+    # Lead gen YTD (not segmented)
     lg = db.session.query(
         func.sum(LeadGenLog.contacts),
         func.sum(LeadGenLog.listing_appts_set),
@@ -1367,24 +1394,25 @@ def ceo_summary():
 
     return render_template('main/ceo_summary.html',
         year=year,
-        ytd_gci=ytd_gci,
-        ytd_volume=ytd_volume,
-        ytd_co_dollar=ytd_co_dollar,
-        ytd_units=ytd_units,
-        proj_gci=proj_gci,
-        proj_volume=proj_volume,
-        proj_co_dollar=proj_co_dollar,
-        proj_units=proj_units,
-        listings_signed=listings_signed,
-        buyers_signed=buyers_signed,
+        seg=seg,
+        ytd_gci=c['ytd_gci'],
+        ytd_volume=c['ytd_volume'],
+        ytd_co_dollar=c['ytd_co_dollar'],
+        ytd_units=c['ytd_units'],
+        proj_gci=c['proj_gci'],
+        proj_volume=c['proj_volume'],
+        proj_co_dollar=c['proj_co_dollar'],
+        proj_units=c['proj_units'],
+        listings_signed=c['listings_signed'],
+        buyers_signed=c['buyers_signed'],
         team_gci_goal=team_gci_goal,
         team_unit_goal=int(team_unit_goal or 0),
-        goal_pct=round(ytd_gci / team_gci_goal * 100, 1) if team_gci_goal else 0,
-        monthly=monthly,
-        prior_gci=prior_gci,
-        prior_units=prior_units,
-        gci_yoy_pct=round((ytd_gci - prior_gci) / prior_gci * 100, 1) if prior_gci else 0,
-        units_yoy_pct=round((ytd_units - prior_units) / prior_units * 100, 1) if prior_units else 0,
+        goal_pct=round(c['ytd_gci'] / team_gci_goal * 100, 1) if team_gci_goal else 0,
+        monthly=c['monthly'],
+        prior_gci=c['prior_gci'],
+        prior_units=c['prior_units'],
+        gci_yoy_pct=c['gci_yoy_pct'],
+        units_yoy_pct=c['units_yoy_pct'],
         lg_contacts=lg[0] or 0,
         lg_listing_set=lg[1] or 0,
         lg_listing_held=lg[2] or 0,

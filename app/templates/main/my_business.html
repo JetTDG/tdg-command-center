@@ -470,21 +470,8 @@ tr.row-hidden { display:none; }
 #mb-float-scroll::-webkit-scrollbar-thumb { background:#888; border-radius:4px; }
 
 /* ── Mobile touch scrolling ─────────────────────────── */
-#mb-table-wrap {
-  -webkit-overflow-scrolling: touch;
-  overflow-x: scroll;
-  overflow-y: scroll;
-  /* Force iOS to recognize this as a scrollable container in both axes */
-  will-change: scroll-position;
-}
-/* Sticky cols must NOT block touch — let wrapper handle it */
-.sticky-col {
-  touch-action: none;
-}
-/* Table itself must not trap touches */
-#mb-table {
-  touch-action: auto;
-}
+/* Single scroll container (no -webkit-overflow-scrolling momentum layer —
+   it desyncs sticky header/columns on iOS). Sticky cols stay locked. */
 @media (max-width: 1024px) {
   #mb-table-wrap { max-height: 70vh; }
   #mb-table { font-size: 0.7rem; }
@@ -752,23 +739,113 @@ let curTh = null, curCol = -1;
 
 function openDD(th, colIdx, e) {
   curTh = th; curCol = colIdx;
-  const vals   = getColUniqueVals(colIdx);
   const active = activeFilters[colIdx] || null;
   fddSearch.value = '';
   fddBoxes.innerHTML = '';
-  vals.forEach(v => {
-    const id='fc_'+Math.random().toString(36).slice(2);
-    const chk = !active || active.has(v);
-    fddBoxes.innerHTML += `<label class="d-flex align-items-center gap-1 mb-1" style="font-size:0.8rem;cursor:pointer">
-      <input type="checkbox" id="${id}" value="${v}" ${chk?'checked':''}> ${v===''?'<em style="color:#aaa">(Blank)</em>':v}
-    </label>`;
-  });
+
+  if (DATE_COLS.has(colIdx)) {
+    // ── DATE COLUMN: month → date hierarchy (filter by whole month or individual dates) ──
+    buildDateFilter(colIdx, active);
+  } else {
+    const vals = getColUniqueVals(colIdx);
+    vals.forEach(v => {
+      const id='fc_'+Math.random().toString(36).slice(2);
+      const chk = !active || active.has(v);
+      fddBoxes.innerHTML += `<label class="d-flex align-items-center gap-1 mb-1" style="font-size:0.8rem;cursor:pointer">
+        <input type="checkbox" id="${id}" value="${v}" ${chk?'checked':''}> ${v===''?'<em style="color:#aaa">(Blank)</em>':v}
+      </label>`;
+    });
+  }
   const rect = th.getBoundingClientRect();
   dd.style.top  = (rect.bottom+2)+'px';
   dd.style.left = Math.min(rect.left, window.innerWidth-300)+'px';
   dd.style.display = 'block';
   fddSearch.focus();
   e.stopPropagation();
+}
+
+// Date columns (by data-col index): any column showing a date value
+const DATE_COLS = new Set([5, 9, 14, 15, 16, 17, 18, 19]);
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Normalize a cell value to YYYY-MM-DD (or '' if blank/non-date)
+function isoDate(v) {
+  if (!v) return '';
+  v = v.trim();
+  let m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);            // 2026-05-14
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);        // 5/14/2026 or 05/14/26
+  if (m) {
+    let yr = m[3].length===2 ? '20'+m[3] : m[3];
+    return `${yr}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+  }
+  return '';
+}
+
+// Build the month→date checkbox tree for a date column
+function buildDateFilter(colIdx, active) {
+  // group raw cell values by YYYY-MM
+  const groups = {};   // 'YYYY-MM' -> Set(rawValues)
+  const blanks = new Set();
+  getAllRows().forEach(row => {
+    const raw = getCellVal(row, colIdx);
+    const iso = isoDate(raw);
+    if (!iso) { blanks.add(raw); return; }
+    const ym = iso.slice(0,7);
+    (groups[ym] = groups[ym] || new Set()).add(raw);
+  });
+  const months = Object.keys(groups).sort();
+
+  let html = '';
+  months.forEach(ym => {
+    const [y,mm] = ym.split('-');
+    const label = `${MONTH_NAMES[parseInt(mm)-1]} ${y}`;
+    const raws = [...groups[ym]].sort((a,b)=>isoDate(a).localeCompare(isoDate(b)));
+    const allChecked = !active || raws.every(r => active.has(r));
+    html += `<div class="dt-month" style="margin-bottom:2px">
+      <label class="d-flex align-items-center gap-1" style="font-size:.8rem;font-weight:600;cursor:pointer;background:#f3f3f3;padding:2px 4px;border-radius:3px">
+        <input type="checkbox" class="dt-month-chk" data-ym="${ym}" ${allChecked?'checked':''}>
+        <span style="flex:1">${label}</span>
+        <span class="dt-toggle" data-ym="${ym}" style="color:#888;font-size:.7rem">▸</span>
+      </label>
+      <div class="dt-days" data-ym="${ym}" style="display:none;padding-left:16px">`;
+    raws.forEach(r => {
+      const chk = !active || active.has(r);
+      html += `<label class="d-flex align-items-center gap-1 mb-1" style="font-size:.78rem;cursor:pointer">
+        <input type="checkbox" class="dt-day" data-ym="${ym}" value="${r}" ${chk?'checked':''}> ${r}
+      </label>`;
+    });
+    html += `</div></div>`;
+  });
+  if (blanks.size) {
+    const chk = !active || [...blanks].every(b=>active.has(b));
+    html += `<label class="d-flex align-items-center gap-1 mb-1" style="font-size:.8rem;cursor:pointer">
+      <input type="checkbox" class="dt-day" data-ym="__blank" value="" ${chk?'checked':''}> <em style="color:#aaa">(Blank)</em>
+    </label>`;
+  }
+  fddBoxes.innerHTML = html;
+
+  // expand/collapse a month
+  fddBoxes.querySelectorAll('.dt-toggle').forEach(t => t.addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+    const days = fddBoxes.querySelector(`.dt-days[data-ym="${t.dataset.ym}"]`);
+    const open = days.style.display==='block';
+    days.style.display = open?'none':'block';
+    t.textContent = open?'▸':'▾';
+  }));
+  // month checkbox toggles all its days
+  fddBoxes.querySelectorAll('.dt-month-chk').forEach(mc => mc.addEventListener('change', () => {
+    fddBoxes.querySelectorAll(`.dt-day[data-ym="${mc.dataset.ym}"]`).forEach(d => d.checked = mc.checked);
+  }));
+  // a day change updates its month checkbox state
+  fddBoxes.querySelectorAll('.dt-day').forEach(d => d.addEventListener('change', () => {
+    const ym = d.dataset.ym;
+    const mc = fddBoxes.querySelector(`.dt-month-chk[data-ym="${ym}"]`);
+    if (mc) {
+      const days = [...fddBoxes.querySelectorAll(`.dt-day[data-ym="${ym}"]`)];
+      mc.checked = days.every(x=>x.checked);
+    }
+  }));
 }
 
 document.querySelectorAll('.col-hdr[data-col]').forEach(th => {
@@ -796,7 +873,21 @@ document.querySelectorAll('.col-hdr[data-col]').forEach(th => {
 // Search inside dropdown
 fddSearch.addEventListener('input', function() {
   const q = this.value.toLowerCase();
-  fddBoxes.querySelectorAll('label').forEach(l => l.style.display=l.textContent.toLowerCase().includes(q)?'':'none');
+  if (DATE_COLS.has(curCol)) {
+    // search across day labels; show month if any day matches
+    fddBoxes.querySelectorAll('.dt-month').forEach(mo => {
+      let any = false;
+      mo.querySelectorAll('.dt-days label').forEach(l => {
+        const hit = l.textContent.toLowerCase().includes(q);
+        l.style.display = hit ? '' : 'none';
+        if (hit) any = true;
+      });
+      mo.style.display = (q==='' || any) ? '' : 'none';
+      if (q!=='' && any) mo.querySelector('.dt-days').style.display='block';
+    });
+  } else {
+    fddBoxes.querySelectorAll('label').forEach(l => l.style.display=l.textContent.toLowerCase().includes(q)?'':'none');
+  }
 });
 
 // Quick select links
@@ -806,8 +897,10 @@ document.getElementById('fdd-select-none').addEventListener('click',   e=>{ e.pr
 
 // Apply filter
 document.getElementById('fdd-apply').addEventListener('click', function() {
-  const checked = [...fddBoxes.querySelectorAll('input:checked')].map(i=>i.value);
-  const all     = [...fddBoxes.querySelectorAll('input')].map(i=>i.value);
+  // For date columns, only leaf (.dt-day) checkboxes carry values; month checkboxes are controls
+  const inputSel = DATE_COLS.has(curCol) ? 'input.dt-day' : 'input';
+  const checked = [...fddBoxes.querySelectorAll(inputSel+':checked')].map(i=>i.value);
+  const all     = [...fddBoxes.querySelectorAll(inputSel)].map(i=>i.value);
   if (checked.length === all.length) {
     delete activeFilters[curCol];
     if (curTh) curTh.classList.remove('filtered');
