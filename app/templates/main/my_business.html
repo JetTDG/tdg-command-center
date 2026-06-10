@@ -712,11 +712,11 @@ function fmtMoney(n) {
 function updateTotals(visibleRows) {
   let salePriceSum = 0, unitsSum = 0, gciSum = 0, priGciSum = 0, coDollarSum = 0;
   visibleRows.forEach(row => {
-    salePriceSum += parseMoney(getCellVal(row, 20));
-    unitsSum     += parseMoney(getCellVal(row, 22));
-    gciSum       += parseMoney(getCellVal(row, 23));
-    priGciSum    += parseMoney(getCellVal(row, 31));
-    coDollarSum  += parseMoney(getCellVal(row, 52));
+    salePriceSum += parseMoney(getCellVal(row, 18));
+    unitsSum     += parseMoney(getCellVal(row, 20));
+    gciSum       += parseMoney(getCellVal(row, 21));
+    priGciSum    += parseMoney(getCellVal(row, 29));
+    coDollarSum  += parseMoney(getCellVal(row, 50));
   });
   document.getElementById('tot-records').textContent   = visibleRows.length;
   document.getElementById('tot-sale-price').textContent = fmtMoney(salePriceSum);
@@ -1034,15 +1034,15 @@ function applyMoneyFormat(root) {
 }
 
 // ── Past-due closing date → red ───────────────────────────────────────────
-// Proj Close (col 18) or Close Date (col 19) in the past while deal NOT closed/dead.
+// Proj Close (col 16) or Close Date (col 17) in the past while deal NOT closed/dead.
 const CLOSED_DONE = new Set(['Closed','x-Cancelled','y-Sale Failed','z-Expired']);
 function flagPastDue() {
   const today = new Date(); today.setHours(0,0,0,0);
   document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
     const cells = row.querySelectorAll('td');
-    const status = (cells[10] && cells[10].dataset.val) || '';
+    const status = (cells[8] && cells[8].dataset.val) || '';
     if (CLOSED_DONE.has(status)) return;            // settled deals never "past due"
-    [18, 19].forEach(ci => {
+    [16, 17].forEach(ci => {
       const td = cells[ci]; if (!td) return;
       const iso = isoDate(td.dataset.val || '');
       if (!iso) return;
