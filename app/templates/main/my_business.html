@@ -210,8 +210,8 @@ function monthChanged() {
           {# Signed Date col 14 #}
           <td data-val="{{ t.signed_date.isoformat() if t.signed_date else '' }}"><span class="ec" data-field="signed_date" data-tid="{{ t.id }}" data-type="date">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '' }}</span></td>
           {# MLS Live col 13 — Listings/Commercial only, blank for Buyers/Referrals #}
-          {% if t.transaction_type in ('Buyer', 'Referral') %}
-          <td data-val=""></td>
+          {% if t.transaction_type in ('Buyer', 'Referral') or t.sub_status in ('CRE Buyer',) %}
+          <td data-val="" class="ro" style="background:#f3f4f6;cursor:default;" title="N/A for buyers"></td>
           {% else %}
           <td data-val="{{ t.mls_live_date.isoformat() if t.mls_live_date else '' }}"><span class="ec" data-field="mls_live_date" data-tid="{{ t.id }}" data-type="date">{{ t.mls_live_date.strftime('%m/%d/%y') if t.mls_live_date else '' }}</span></td>
           {% endif %}
@@ -1060,9 +1060,9 @@ function flagPastDue() {
 const REQUIRED_COL_IDX = [
   {i:0,  label:'Agent'},
   {i:1,  label:'Address'},
-  {i:10, label:'Status'},
-  {i:12, label:'Client(s)'},
-  {i:13, label:'Source'}
+  {i:8,  label:'Status'},
+  {i:10, label:'Client(s)'},
+  {i:11, label:'Source'}
 ];
 function flagMissing() {
   document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
@@ -1070,6 +1070,7 @@ function flagMissing() {
     const cells = row.querySelectorAll('td');
     REQUIRED_COL_IDX.forEach(({i,label}) => {
       const td = cells[i]; if (!td) return;
+      if (td.classList.contains('ro')) return;  // greyed-out N/A cells never flagged
       const v = (td.dataset.val || '').trim();
       if (!v || v === '—') {
         td.classList.add('cell-missing');
