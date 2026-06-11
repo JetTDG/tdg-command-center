@@ -700,7 +700,7 @@ function getFieldVal(row, fieldName) {
   return td ? (td.dataset.val || '') : '';
 }
 function refreshComputed(tid) {
-  fetch('/api/transaction/'+tid+'/computed').then(r=>r.json()).then(d=>{\
+  fetch('/api/transaction/'+tid+'/computed').then(r=>r.json()).then(d=>{
     if (!d.ok) return;
     const row = document.querySelector('tr[data-tid="'+tid+'"]');
     if (!row) return;
