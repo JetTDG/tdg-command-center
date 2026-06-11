@@ -125,6 +125,7 @@ class Transaction(db.Model):
     year = db.Column(db.Integer)
     month = db.Column(db.Integer)
     notes = db.Column(db.Text)
+    amt_paid = db.Column(db.Float)     # amount paid to agent
     archived = db.Column(db.Boolean, default=False)  # True = old historical, hidden from My Business
     division = db.Column(db.String(50))               # 'Commercial' or 'Residential' — stored in DB
     fub_id = db.Column(db.String(50))
