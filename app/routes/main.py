@@ -614,11 +614,27 @@ def add_transaction():
             notes=f.get('notes', ''),
         )
         db.session.add(t)
-        # Only auto-calc GCI if TC left it blank or it matches the formula
+        # Detect manual overrides: if TC entered a value that differs from the formula,
+        # treat it as a flat-fee override and leave it alone.  0 or blank = auto-calc.
+        gci_base_price = (t.sale_price or t.list_price or 0)
         submitted_gci = float(f.get('gci') or 0)
-        formula_gci   = round((t.sale_price or t.list_price or 0) * (t.commission_pct or 0), 2)
-        recalc = (submitted_gci == 0 or submitted_gci == formula_gci)
-        apply_formulas(t, recalc_gci=recalc)
+        formula_gci   = round(gci_base_price * (t.commission_pct or 0), 2)
+        recalc_gci    = (submitted_gci == 0 or submitted_gci == formula_gci)
+
+        def _agent_recalc(gci_field, pct_attr):
+            submitted = float(f.get(gci_field) or 0)
+            pct = getattr(t, pct_attr) or 0
+            gci_net = (t.gci or 0) - (t.referral_fee or 0)
+            formula  = round(gci_net * pct, 2) if pct else 0
+            return submitted == 0 or submitted == formula
+
+        apply_formulas(t,
+            recalc_gci=recalc_gci,
+            recalc_primary=_agent_recalc('primary_agent_gci', 'primary_agent_pct'),
+            recalc_secondary=_agent_recalc('secondary_agent_gci', 'secondary_agent_pct'),
+            recalc_member3=_agent_recalc('member3_gci', 'member3_pct'),
+            recalc_member4=_agent_recalc('member4_gci', 'member4_pct'),
+        )
         db.session.commit()
         return redirect(url_for('main.my_business'))
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
@@ -675,11 +691,27 @@ def edit_transaction(tid):
         t.month = int(f.get('month') or current_month())
         t.notes = f.get('notes', '')
         t.updated_at = datetime.utcnow()
-        # Only auto-calc GCI if TC left it blank or it still matches the formula
+        # Detect manual overrides — same logic as add: 0/blank = auto-calc, anything
+        # else that differs from the formula = flat-fee override, leave it alone.
+        gci_base_price = (t.sale_price or t.list_price or 0)
         submitted_gci = float(f.get('gci') or 0)
-        formula_gci   = round((t.sale_price or t.list_price or 0) * (t.commission_pct or 0), 2)
-        recalc = (submitted_gci == 0 or submitted_gci == formula_gci)
-        apply_formulas(t, recalc_gci=recalc)
+        formula_gci   = round(gci_base_price * (t.commission_pct or 0), 2)
+        recalc_gci    = (submitted_gci == 0 or submitted_gci == formula_gci)
+
+        def _agent_recalc(gci_field, pct_attr):
+            submitted = float(f.get(gci_field) or 0)
+            pct = getattr(t, pct_attr) or 0
+            gci_net = (t.gci or 0) - (t.referral_fee or 0)
+            formula  = round(gci_net * pct, 2) if pct else 0
+            return submitted == 0 or submitted == formula
+
+        apply_formulas(t,
+            recalc_gci=recalc_gci,
+            recalc_primary=_agent_recalc('primary_agent_gci', 'primary_agent_pct'),
+            recalc_secondary=_agent_recalc('secondary_agent_gci', 'secondary_agent_pct'),
+            recalc_member3=_agent_recalc('member3_gci', 'member3_pct'),
+            recalc_member4=_agent_recalc('member4_gci', 'member4_pct'),
+        )
         db.session.commit()
         flash('Transaction updated.', 'success')
         return redirect(url_for('main.my_business'))
@@ -754,13 +786,28 @@ def patch_transaction(tid):
         FORMULA_TRIGGERS = {
             'sale_price','list_price','commission_pct','gci','referral_fee',
             'primary_agent_pct','secondary_agent_pct','member3_pct','member4_pct',
+            'primary_agent_gci','secondary_agent_gci','member3_gci','member4_gci',
             'bonus','transaction_fee','broker_split','franchise_split',
             'eo_fee','donation','other_fee','taxes',
         }
-        # Only recalc GCI when price/rate fields change — not when GCI itself is edited
-        GCI_TRIGGERS = {'sale_price', 'list_price', 'commission_pct'}
         if field in FORMULA_TRIGGERS:
-            apply_formulas(t, recalc_gci=(field in GCI_TRIGGERS))
+            # GCI recalcs only when a price/rate field changes (not when GCI itself is inline-edited)
+            GCI_TRIGGERS = {'sale_price', 'list_price', 'commission_pct'}
+            # Agent GCI recalcs only when their pct changes — not when their GCI is directly edited
+            AGENT_GCI_MAP = {
+                'primary_agent_gci':   'recalc_primary',
+                'secondary_agent_gci': 'recalc_secondary',
+                'member3_gci':         'recalc_member3',
+                'member4_gci':         'recalc_member4',
+            }
+            agent_flags = {flag: True for flag in AGENT_GCI_MAP.values()}
+            if field in AGENT_GCI_MAP:
+                # TC is directly editing this agent's GCI — treat as manual override
+                agent_flags[AGENT_GCI_MAP[field]] = False
+            apply_formulas(t,
+                recalc_gci=(field in GCI_TRIGGERS),
+                **agent_flags,
+            )
 
         t.updated_at = datetime.utcnow()
         # Write audit log entry (committed together)
@@ -1814,31 +1861,42 @@ def _parse_date(val):
     return None
 
 
-def apply_formulas(t, recalc_gci=True):
-    """Auto-calculate GCI, agent GCIs, net_after_taxes — matches CTE formulas exactly.
-    Call after setting any financial field in add, edit, or inline patch.
-    recalc_gci=False: skip GCI recalc (e.g. TC entered a flat fee manually).
+def apply_formulas(t, recalc_gci=True,
+                   recalc_primary=True, recalc_secondary=True,
+                   recalc_member3=True, recalc_member4=True):
+    """Auto-calculate GCI, agent GCIs, Co. Dollar, 1099, net_after_taxes.
+    Matches CTE formulas exactly.  Call after setting any financial field.
+
+    recalc_gci=False       → TC entered a flat-fee GCI; leave it alone.
+    recalc_primary=False   → TC entered a flat-fee primary agent GCI; leave it alone.
+    recalc_secondary=False → same for secondary agent.
+    recalc_member3/4=False → same for members 3/4.
+
+    Co. Dollar and 1099 are always live @property calculations — never stored,
+    never need a flag; they automatically reflect whatever GCI / agent GCIs are set to.
     """
-    # GCI = sale_price × comm_pct  (fallback to list_price if no sale_price yet)
-    # Only recalculate if triggered by a price/rate change, not a manual GCI entry
+    # ── GCI ─────────────────────────────────────────────────────────────────
     if recalc_gci:
         price = t.sale_price or t.list_price or 0
         if price and t.commission_pct:
             t.gci = round(price * t.commission_pct, 2)
 
-    # Agent GCIs = (GCI − referral) × pct  (CTE: referral comes off GCI first)
+    # ── Agent GCIs = (GCI − referral) × pct ─────────────────────────────────
+    # CTE: referral comes off GCI first, then agent % applies to remainder.
+    # Skip any agent whose GCI was manually overridden (flat fee / special deal).
     gci_base = (t.gci or 0) - (t.referral_fee or 0)
     if gci_base > 0:
-        if t.primary_agent_pct:
+        if recalc_primary and t.primary_agent_pct:
             t.primary_agent_gci = round(gci_base * t.primary_agent_pct, 2)
-        if t.secondary_agent_pct:
+        if recalc_secondary and t.secondary_agent_pct:
             t.secondary_agent_gci = round(gci_base * t.secondary_agent_pct, 2)
-        if t.member3_pct:
+        if recalc_member3 and t.member3_pct:
             t.member3_gci = round(gci_base * t.member3_pct, 2)
-        if t.member4_pct:
+        if recalc_member4 and t.member4_pct:
             t.member4_gci = round(gci_base * t.member4_pct, 2)
 
-    # Net after taxes = income_1099 − taxes
+    # ── Net after taxes ──────────────────────────────────────────────────────
+    # Co. Dollar and income_1099 are @property — always live, no flag needed.
     i1099 = t.income_1099
     if i1099 is not None and t.taxes:
         t.net_after_taxes = round(i1099 - t.taxes, 2)
