@@ -125,17 +125,13 @@ class Transaction(db.Model):
     month = db.Column(db.Integer)
     notes = db.Column(db.Text)
     archived = db.Column(db.Boolean, default=False)  # True = old historical, hidden from My Business
+    division = db.Column(db.String(50))               # 'Commercial' or 'Residential' — stored in DB
     fub_id = db.Column(db.String(50))
     docusign_id = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # ── Computed Properties (CTE formula parity) ─────────────────────────────
-
-    @property
-    def division(self):
-        """Commercial if transaction_type is Commercial, otherwise Residential."""
-        return 'Commercial' if self.transaction_type == 'Commercial' else 'Residential'
 
     @property
     def dom(self):
