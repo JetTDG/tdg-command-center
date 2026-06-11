@@ -81,7 +81,7 @@ function monthChanged() {
 </datalist>
 
 <!-- Table -->
-<div class="card mt-1 p-0" style="overflow:clip;">
+<div class="card mt-1 p-0" style="overflow:hidden;">
   <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:74vh;position:relative;touch-action:pan-x pan-y;">
     <table class="table table-hover table-bordered mb-0" id="mb-table" style="min-width:5200px;table-layout:fixed;font-size:0.74rem;">
       <colgroup>
@@ -139,7 +139,7 @@ function monthChanged() {
         <col style="width:145px"><!-- 51 Notes -->
         <col style="width:108px"><!-- Actions -->
       </colgroup>
-      <thead style="position:sticky;top:0;z-index:20;background:#f8f9fa;">
+      <thead style="background:#f8f9fa;">
         <tr>
           <th class="col-hdr sticky-col" data-col="0" style="left:0;width:100px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Status</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr sticky-col" data-col="1" style="left:100px;width:90px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Type</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
@@ -426,7 +426,7 @@ function monthChanged() {
 <style>
 .sticky-col { position:sticky; z-index:10; }
 #mb-table td, #mb-table th { white-space:nowrap; padding:3px 6px; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; }
-#mb-table thead th { font-size:0.71rem; font-weight:600; color:#555; background:#f8f9fa; border-bottom:2px solid #dee2e6; user-select:none; }
+#mb-table thead th { font-size:0.71rem; font-weight:600; color:#555; background:#f8f9fa; border-bottom:2px solid #dee2e6; user-select:none; position:sticky; top:0; z-index:15; }
 
 /* ═══════════════════════════════════════════════════════
    ROW BACKGROUND — monochrome by Type
@@ -519,8 +519,9 @@ tr.row-hidden { display:none; }
 #mb-float-scroll::-webkit-scrollbar-thumb { background:#888; border-radius:4px; }
 
 /* ── Mobile touch scrolling ─────────────────────────── */
-/* Single scroll container (no -webkit-overflow-scrolling momentum layer —
-   it desyncs sticky header/columns on iOS). Sticky cols stay locked. */
+/* Keep -webkit-overflow-scrolling OFF — it creates a compositing layer
+   that desyncs position:sticky headers/columns on iOS Safari.
+   Sticky works via position:sticky on each <th> directly. */
 @media (max-width: 1024px) {
   #mb-table-wrap { max-height: 70vh; overflow-x: scroll; overflow-y: scroll; touch-action: pan-x pan-y; }
   #mb-table { font-size: 0.7rem; }
