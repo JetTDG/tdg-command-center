@@ -511,6 +511,8 @@ td.cell-missing.sticky-col { background:#fee2e2 !important; }
 .ro { cursor:default; }
 /* ── Column header: every col gets filter ▾ + sort ⇅ ── */
 .col-hdr { cursor:pointer; position:relative; padding:2px 4px !important; }
+/* sticky-col headers must override the position:relative from .col-hdr */
+.col-hdr.sticky-col { position:sticky !important; }
 .col-hdr:hover { background:#ececec !important; }
 .col-hdr.filtered { background:#fffbf0 !important; }
 /* Inner flex wrapper — lives INSIDE the th, not on it */
