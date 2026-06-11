@@ -227,7 +227,7 @@ function monthChanged() {
           {# Type col 1 — sticky #}
           <td class="sticky-col" style="left:100px;width:90px;background:#fff" data-val="{{ t.transaction_type or '' }}">
             <select class="es" data-field="transaction_type" data-tid="{{ t.id }}">
-              {% for opt in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
+              {% for opt in ['Listing','Buyer','Referral','Lease','CRE Listing','CRE Buyer','CRE Landlord Rep','CRE Tenant Rep','CRE Business Only','Other'] %}
               <option {% if t.transaction_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
             </select>
           </td>

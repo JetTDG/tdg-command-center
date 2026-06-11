@@ -50,7 +50,7 @@ class Transaction(db.Model):
     __tablename__ = 'transactions'
     id = db.Column(db.Integer, primary_key=True)
     agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True)  # nullable for import
-    transaction_type = db.Column(db.String(20))   # Listing, Buyer, Other, Referral, Lease, Commercial
+    transaction_type = db.Column(db.String(50))   # Listing, Buyer, Other, Referral, Lease, CRE Listing, CRE Buyer, CRE Landlord Rep, CRE Tenant Rep, CRE Business Only
     status = db.Column(db.String(30))             # Active, Pending, Closed, etc.
     sub_status = db.Column(db.String(50))
     lead_type = db.Column(db.String(30))          # Team, Agent
