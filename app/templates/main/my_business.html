@@ -87,7 +87,7 @@ function monthChanged() {
       <colgroup>
         <col style="width:90px"> <!-- 0 Division -->
         <col style="width:90px"> <!-- 1 Status -->
-        <col style="width:90px"> <!-- 2 Type -->
+        <col style="width:130px"> <!-- 2 Type -->
         <col style="width:120px"><!-- 3 Agent -->
         <col style="width:150px"><!-- 4 Address -->
         <col style="width:120px"><!-- 5 Client(s) -->
@@ -142,9 +142,9 @@ function monthChanged() {
         <tr>
           <th class="col-hdr sticky-col" data-col="0" style="left:0;width:90px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Division</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr sticky-col" data-col="1" style="left:90px;width:100px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Status</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr sticky-col" data-col="2" style="left:190px;width:90px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Type</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr sticky-col" data-col="3" style="left:280px;width:120px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Agent</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr sticky-col" data-col="4" style="left:400px;width:150px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Address</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="2" style="left:190px;width:130px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Type</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="3" style="left:320px;width:120px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Agent</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="4" style="left:440px;width:150px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Address</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="6"  style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Client(s)</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="7"  style="width:100px"><div class="col-hdr-inner"><span class="hdr-label">Orig List Price</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="8"  style="width:100px"><div class="col-hdr-inner"><span class="hdr-label">Adj List Price</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
@@ -221,19 +221,19 @@ function monthChanged() {
               <option {% if s==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
             </select>
           </td>
-          {# Type col 1 — sticky #}
-          <td class="sticky-col" style="left:100px;width:90px;background:#fff" data-val="{{ t.transaction_type or '' }}">
+          {# Type col 2 — sticky #}
+          <td class="sticky-col" style="left:190px;width:130px;background:#fff" data-val="{{ t.transaction_type or '' }}">
             <select class="es" data-field="transaction_type" data-tid="{{ t.id }}">
               {% for opt in ['Listing','Buyer','Referral','Lease','CRE Listing','CRE Buyer','CRE Landlord Rep','CRE Tenant Rep','CRE Business Only','Other'] %}
               <option {% if t.transaction_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
             </select>
           </td>
           {# Agent col 3 — sticky #}
-          <td class="sticky-col" style="left:280px;width:120px;background:#fff" data-val="{{ t.primary_agent_name or (t.agent.name if t.agent else '') }}">
+          <td class="sticky-col" style="left:320px;width:120px;background:#fff" data-val="{{ t.primary_agent_name or (t.agent.name if t.agent else '') }}">
             <span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</span>
           </td>
           {# Address col 4 — sticky #}
-          <td class="sticky-col" style="left:400px;width:150px;background:#fff" data-val="{{ t.address or '' }}">
+          <td class="sticky-col" style="left:440px;width:150px;background:#fff" data-val="{{ t.address or '' }}">
             <span class="ec" data-field="address" data-tid="{{ t.id }}">{{ t.address or '' }}</span>
           </td>
           {# Client(s) col 5 #}
