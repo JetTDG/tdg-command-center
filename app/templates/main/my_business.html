@@ -266,11 +266,11 @@ function monthChanged() {
           <td data-val="{{ t.mls_live_date.isoformat() if t.mls_live_date else '' }}"><span class="ec" data-field="mls_live_date" data-tid="{{ t.id }}" data-type="date">{{ t.mls_live_date.strftime('%m/%d/%y') if t.mls_live_date else '' }}</span></td>
           {% endif %}
           {# DOM col 12 — days on market: today minus MLS Live date only; blank if no live date #}
-          <td class="text-center ro num-col" data-val="{{ t.dom if t.dom is not none else '' }}">{{ t.dom if t.dom is not none else '' }}</td>
+          <td class="text-center ro num-col" data-field="dom" data-val="{{ t.dom if t.dom is not none else '' }}">{{ t.dom if t.dom is not none else '' }}</td>
           {# Exp Date col 13 #}
           <td data-val="{{ t.expiry_date.isoformat() if t.expiry_date else '' }}"><span class="ec" data-field="expiry_date" data-tid="{{ t.id }}" data-type="date">{{ t.expiry_date.strftime('%m/%d/%y') if t.expiry_date else '' }}</span></td>
           {# EXP countdown col 14 — days until listing expires #}
-          <td class="text-center ro num-col {% if t.exp_in is not none and t.exp_in < 30 %}urgent{% endif %}" data-val="{{ t.exp_in if t.exp_in is not none else '' }}">{{ t.exp_in if t.exp_in is not none else '' }}</td>
+          <td class="text-center ro num-col {% if t.exp_in is not none and t.exp_in < 30 %}urgent{% endif %}" data-field="exp_in" data-val="{{ t.exp_in if t.exp_in is not none else '' }}">{{ t.exp_in if t.exp_in is not none else '' }}</td>
           {# Under Contr col 15 #}
           <td data-val="{{ t.under_contract_date.isoformat() if t.under_contract_date else '' }}"><span class="ec" data-field="under_contract_date" data-tid="{{ t.id }}" data-type="date">{{ t.under_contract_date.strftime('%m/%d/%y') if t.under_contract_date else '' }}</span></td>
           {# Proj Close col 16 #}
@@ -347,9 +347,9 @@ function monthChanged() {
             <input type="checkbox" class="ec-bool" data-field="paid" data-tid="{{ t.id }}" {% if t.paid %}checked{% endif %}>
           </td>
           {# Co. Dollar col 48 — computed, read-only #}
-          <td class="fw-semibold ro" style="background:#f0fdf4;color:#166534" data-val="{{ t.company_dollar or '' }}">{{ "{:,.0f}".format(t.company_dollar) if t.company_dollar else '' }}</td>
+          <td class="fw-semibold ro" data-field="company_dollar" style="background:#f0fdf4;color:#166534" data-val="{{ t.company_dollar or '' }}">{{ "{:,.0f}".format(t.company_dollar) if t.company_dollar else '' }}</td>
           {# 1099 Income col 49 — computed: Co. Dollar minus broker/franchise/E&O/donation/other #}
-          <td class="ro text-muted" data-val="{{ t.income_1099 or '' }}">{{ "{:,.0f}".format(t.income_1099) if t.income_1099 else '' }}</td>
+          <td class="ro text-muted" data-field="income_1099" data-val="{{ t.income_1099 or '' }}">{{ "{:,.0f}".format(t.income_1099) if t.income_1099 else '' }}</td>
           {# Admin col 50 #}
           <td data-val="{{ t.admin_name or '' }}">
             <select class="es" data-field="admin_name" data-tid="{{ t.id }}">
@@ -633,6 +633,9 @@ document.querySelectorAll('.ec').forEach(function(span) {
           if (typeof flagMissing==='function') {
             const td=span.closest('td');
             if (nv && nv!=='—') { td.classList.remove('cell-missing'); td.classList.remove('cell-no-address'); }
+            else if (field === 'address' && (row.dataset.txtype==='Buyer') && (row.dataset.status==='Active')) {
+              td.classList.remove('cell-missing'); td.classList.add('cell-no-address');
+            }
           }
           // Auto-grow the searchable list: add newly-typed value so it's available next time
           if (span.dataset.list && nv) {
@@ -682,29 +685,42 @@ document.querySelectorAll('.ec-bool').forEach(cb => {
   });
 });
 
-// ── Refresh computed cells after save ─────────────────────────────────────
-// td indices: exp=3, dom=4, gci=21, pri_gci=29, sec_gci=32, m3_gci=35, m4_gci=38, co_dollar=50, 1099=51
+// ══════════════════════════════════════════════════════════════════════════
+//  FIELD-BASED CELL LOOKUP — position-independent, survives column reorders
+// ══════════════════════════════════════════════════════════════════════════
+// Returns the <td> whose inner span has data-field="fieldName", OR the <td>
+// that itself carries data-field="fieldName" (for computed read-only cells).
+function getCellByField(row, fieldName) {
+  const span = row.querySelector('span[data-field="'+fieldName+'"]');
+  if (span) return span.closest('td');
+  return row.querySelector('td[data-field="'+fieldName+'"]') || null;
+}
+function getFieldVal(row, fieldName) {
+  const td = getCellByField(row, fieldName);
+  return td ? (td.dataset.val || '') : '';
+}
 function refreshComputed(tid) {
-  fetch('/api/transaction/'+tid+'/computed').then(r=>r.json()).then(d=>{
+  fetch('/api/transaction/'+tid+'/computed').then(r=>r.json()).then(d=>{\
     if (!d.ok) return;
     const row = document.querySelector('tr[data-tid="'+tid+'"]');
     if (!row) return;
-    const cells = row.querySelectorAll('td');
     const fmt = v => v!=null&&v!=='' ? parseFloat(v).toLocaleString('en-US',{maximumFractionDigits:0}) : '';
-    const set = (i,v,f) => { if(cells[i]){cells[i].dataset.val=v??'';cells[i].textContent=f?fmt(v):(v??'');} };
-    set(3,  d.exp_in);
-    set(4,  d.dom);
-    // Computed financial fields
-    set(21, d.gci,              true);
-    set(29, d.primary_agent_gci, true);
-    set(32, d.secondary_agent_gci, true);
-    set(35, d.member3_gci,      true);
-    set(38, d.member4_gci,      true);
-    set(50, d.company_dollar,   true);
-    set(51, d.income_1099,      true);
-    // re-apply $ prefix on money columns
-    [21,29,32,35,38,50,51].forEach(i=>{ if(cells[i]&&cells[i].textContent.trim()&&!cells[i].textContent.trim().startsWith('$')) cells[i].textContent='$'+cells[i].textContent.trim(); });
-    // Also refresh footer totals
+    const setF = (field, v, money) => {
+      const td = getCellByField(row, field); if (!td) return;
+      td.dataset.val = v ?? '';
+      const span = td.querySelector('.ec') || td;
+      span.textContent = money ? (v ? '$'+fmt(v) : '') : (v ?? '');
+    };
+    setF('exp_in',            d.exp_in);
+    setF('dom',               d.dom);
+    setF('gci',               d.gci,               true);
+    setF('primary_agent_gci', d.primary_agent_gci,  true);
+    setF('secondary_agent_gci', d.secondary_agent_gci, true);
+    setF('member3_gci',       d.member3_gci,        true);
+    setF('member4_gci',       d.member4_gci,        true);
+    setF('company_dollar',    d.company_dollar,     true);
+    setF('income_1099',       d.income_1099,        true);
+    // Refresh footer totals
     const allRows = [...document.querySelectorAll('#mb-tbody tr[data-row]')].filter(r=>r.style.display!=='none');
     updateTotals(allRows);
   }).catch(()=>{});
@@ -771,12 +787,12 @@ function fmtMoney(n) {
 function updateTotals(visibleRows) {
   let salePriceSum = 0, gciSum = 0, priGciSum = 0, coDollarSum = 0;
   visibleRows.forEach(row => {
-    salePriceSum += parseMoney(getCellVal(row, 18));
-    gciSum       += parseMoney(getCellVal(row, 20));
-    priGciSum    += parseMoney(getCellVal(row, 27));
-    coDollarSum  += parseMoney(getCellVal(row, 48));
+    salePriceSum += parseMoney(getFieldVal(row, 'sale_price'));
+    gciSum       += parseMoney(getFieldVal(row, 'gci'));
+    priGciSum    += parseMoney(getFieldVal(row, 'primary_agent_gci'));
+    coDollarSum  += parseMoney(getFieldVal(row, 'company_dollar'));
   });
-  document.getElementById('tot-records').textContent   = visibleRows.length;
+  document.getElementById('tot-records').textContent    = visibleRows.length;
   document.getElementById('tot-sale-price').textContent = fmtMoney(salePriceSum);
   document.getElementById('tot-gci').textContent        = fmtMoney(gciSum);
   document.getElementById('tot-pri-gci').textContent    = fmtMoney(priGciSum);
@@ -1068,8 +1084,8 @@ const MONEY_FIELDS = new Set([
   'secondary_agent_gci','member3_gci','member4_gci','eo_fee','donation',
   'other_fee'
 ]);
-// Computed read-only money columns (by td index): Co. Dollar, 1099
-const MONEY_COL_IDX = new Set([50, 51]);
+// Computed read-only money columns — use data-field now, no index needed
+const MONEY_COL_FIELDS = new Set(['company_dollar','income_1099']);
 
 function money$(span) {
   const t = span.textContent.trim();
@@ -1079,11 +1095,10 @@ function applyMoneyFormat(root) {
   (root || document).querySelectorAll('.ec.num[data-field]').forEach(span => {
     if (MONEY_FIELDS.has(span.dataset.field)) money$(span);
   });
-  // computed read-only tds
+  // computed read-only tds — find by data-field, not index
   document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
-    const cells = row.querySelectorAll('td');
-    MONEY_COL_IDX.forEach(i => {
-      const td = cells[i];
+    MONEY_COL_FIELDS.forEach(field => {
+      const td = getCellByField(row, field);
       if (td && td.textContent.trim() && !td.textContent.trim().startsWith('$')) {
         td.textContent = '$' + td.textContent.trim();
       }
@@ -1097,11 +1112,10 @@ const CLOSED_DONE = new Set(['Closed','x-Cancelled','y-Sale Failed','z-Expired']
 function flagPastDue() {
   const today = new Date(); today.setHours(0,0,0,0);
   document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
-    const cells = row.querySelectorAll('td');
-    const status = (cells[1] && cells[1].dataset.val) || '';  // col1=Status (col0=Division)
-    if (CLOSED_DONE.has(status)) return;            // settled deals never "past due"
-    [16, 17].forEach(ci => {
-      const td = cells[ci]; if (!td) return;
+    const status = (row.dataset.status || '').trim();
+    if (CLOSED_DONE.has(status)) return;  // settled deals never "past due"
+    ['projected_close_date','close_date'].forEach(field => {
+      const td = getCellByField(row, field); if (!td) return;
       const iso = isoDate(td.dataset.val || '');
       if (!iso) return;
       const d = new Date(iso); d.setHours(0,0,0,0);
@@ -1115,27 +1129,25 @@ function flagPastDue() {
   });
 }
 
-// ── Missing core field → red cell ─────────────────────────────────────────
-// Flags blanks in the identity/tracking fields only (keeps noise down).
-const REQUIRED_COL_IDX = [
-  {i:1,  label:'Status'},
-  {i:4,  label:'Agent'},
-  {i:5,  label:'Address'},
-  {i:6,  label:'Client(s)'},
-  {i:10, label:'Source'}
+// Required fields — identified by data-field name, not column index
+const REQUIRED_FIELDS = [
+  {f:'status',             label:'Status'},
+  {f:'primary_agent_name', label:'Agent'},
+  {f:'address',            label:'Address'},
+  {f:'client_name',        label:'Client(s)'},
+  {f:'lead_source',        label:'Source'},
 ];
 function flagMissing() {
   document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
-    if (row.classList.contains('row-dead')) return;  // don't nag dead deals
+    if (row.classList.contains('row-dead')) return;
     const status = (row.dataset.status || '').trim();
     const txtype = (row.dataset.txtype || '').trim();
     const isActiveBuyer = (txtype === 'Buyer' && status === 'Active');
-    const cells = row.querySelectorAll('td');
-    REQUIRED_COL_IDX.forEach(({i,label}) => {
-      const td = cells[i]; if (!td) return;
-      if (td.classList.contains('ro')) return;  // greyed-out N/A cells never flagged
-      // Address (col 5) is not required for Active Buyers — show grey instead
-      if (i === 5 && isActiveBuyer) {
+    REQUIRED_FIELDS.forEach(({f, label}) => {
+      const td = getCellByField(row, f); if (!td) return;
+      if (td.classList.contains('ro')) return;
+      // Address not required for Active Buyers — show grey instead
+      if (f === 'address' && isActiveBuyer) {
         td.classList.remove('cell-missing');
         const v = (td.dataset.val || '').trim();
         if (!v || v === '—') {
