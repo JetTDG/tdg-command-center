@@ -784,9 +784,19 @@ function getAllRows() {
   return [...document.querySelectorAll('#mb-tbody tr[data-row]')];
 }
 
+// ── Map data-col attribute value → actual td positional index ────────────
+// data-col values skip numbers (e.g. after column deletions), but td positions
+// are always sequential. Build the map once from the header row.
+const COL_TO_TD_IDX = {};
+document.querySelectorAll('thead tr th[data-col]').forEach((th, actualIdx) => {
+  COL_TO_TD_IDX[parseInt(th.dataset.col)] = actualIdx;
+});
+
 // ── Get cell value for sort/filter ───────────────────────────────────────
 function getCellVal(row, colIdx) {
-  const td = row.querySelectorAll('td')[colIdx];
+  const tdIdx = COL_TO_TD_IDX[colIdx];
+  if (tdIdx === undefined) return '';
+  const td = row.querySelectorAll('td')[tdIdx];
   return td ? (td.dataset.val || '').trim() : '';
 }
 
