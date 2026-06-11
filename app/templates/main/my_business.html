@@ -86,12 +86,12 @@ function monthChanged() {
     <table class="table table-hover table-bordered mb-0" id="mb-table" style="min-width:5400px;table-layout:fixed;font-size:0.74rem;">
       <thead style="position:sticky;top:0;z-index:20;background:#f8f9fa;">
         <tr>
-          <th class="col-hdr sticky-col" data-col="0" style="left:0;min-width:150px;width:150px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Agent</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr sticky-col" data-col="1" style="left:150px;min-width:180px;width:180px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Address</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="2" style="min-width:130px"><div class="col-hdr-inner"><span class="hdr-label">Client(s)</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="3" style="min-width:90px"><div class="col-hdr-inner"><span class="hdr-label">Type</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="4" style="min-width:110px"><div class="col-hdr-inner"><span class="hdr-label">Sub Status</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="5" style="min-width:100px"><div class="col-hdr-inner"><span class="hdr-label">Status</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="0" style="left:0;min-width:100px;width:100px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Status</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="1" style="left:100px;min-width:90px;width:90px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Type</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="2" style="left:190px;min-width:110px;width:110px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Sub Status</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="3" style="left:300px;min-width:150px;width:150px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Agent</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="4" style="left:450px;min-width:180px;width:180px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Address</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="5" style="min-width:130px"><div class="col-hdr-inner"><span class="hdr-label">Client(s)</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="6" style="min-width:70px;width:70px" title="Days to Expiry"><div class="col-hdr-inner"><span class="hdr-label">EXP</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="7" style="min-width:70px;width:70px" title="Days on Market"><div class="col-hdr-inner"><span class="hdr-label">DOM</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="8" style="min-width:100px"><div class="col-hdr-inner"><span class="hdr-label">Old List $</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
@@ -154,45 +154,45 @@ function monthChanged() {
         {% set is_dead = t.status in ('x-Cancelled','y-Sale Failed','z-Expired') %}
         {% set row_class = 'row-pending' if is_pending else ('row-dead' if is_dead else typ_class) %}
         <tr data-tid="{{ t.id }}" data-row class="{{ row_class }}">
-          {# Agent — sticky col 0 #}
-          <td class="sticky-col" style="left:0;background:#fff" data-val="{{ t.primary_agent_name or (t.agent.name if t.agent else '') }}">
-            <span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</span>
-          </td>
-          {# Address — sticky col 1 #}
-          <td class="sticky-col" style="left:150px;min-width:180px;width:180px;background:#fff" data-val="{{ t.address or '' }}">
-            <span class="ec" data-field="address" data-tid="{{ t.id }}">{{ t.address or '' }}</span>
-          </td>
-          {# Client(s) col 2 #}
-          <td data-val="{{ t.client_name or '' }}"><span class="ec" data-field="client_name" data-tid="{{ t.id }}">{{ t.client_name or '' }}</span></td>
-          {# Type col 3 #}
-          <td data-val="{{ t.transaction_type or '' }}">
-            <select class="es" data-field="transaction_type" data-tid="{{ t.id }}">
-              {% for opt in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
-              <option {% if t.transaction_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
-            </select>
-          </td>
-          {# Sub Status col 4 #}
-          <td data-val="{{ t.sub_status or '' }}">
-            <select class="es" data-field="sub_status" data-tid="{{ t.id }}">
-              <option value="">—</option>
-              {% for opt in ['CRE Buyer','CRE Listing','CRE Lease','Landlord Rep','Tenant Rep','Business-only'] %}
-              <option {% if t.sub_status==opt %}selected{% endif %} value="{{ opt }}">{{ opt }}</option>{% endfor %}
-            </select>
-          </td>
-          {# Status col 5 — badge + inline select #}
+          {# Status col 0 — sticky, badge + inline select #}
           {% set s = t.status or '' %}
           {% set badge_cls = {
             'Active':'badge-active','Pending':'badge-pending','Signed':'badge-signed',
             'Pre-Signed':'badge-presigned','Closed':'badge-closed',
             'x-Cancelled':'badge-cancelled','y-Sale Failed':'badge-failed','z-Expired':'badge-expired'
           }.get(s, 'badge-other') %}
-          <td data-val="{{ s }}">
+          <td class="sticky-col" style="left:0;width:100px;background:#fff" data-val="{{ s }}">
             <span class="badge-status {{ badge_cls }} ec-status-badge" data-tid="{{ t.id }}" title="Click to change">{{ s }}</span>
             <select class="es es-status" data-field="status" data-tid="{{ t.id }}" style="display:none;font-size:0.74rem;border:1px solid #d4a017;border-radius:3px;background:#fffbf0;width:100%">
               {% for opt in ['Active','Pending','Closed','Pre-Signed','Signed','LOI','Coming Soon','Pipeline','Temp Off Market','Temp off Mark','x-Cancelled','y-Sale Failed','z-Expired'] %}
               <option {% if s==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
             </select>
           </td>
+          {# Type col 1 — sticky #}
+          <td class="sticky-col" style="left:100px;width:90px;background:#fff" data-val="{{ t.transaction_type or '' }}">
+            <select class="es" data-field="transaction_type" data-tid="{{ t.id }}">
+              {% for opt in ['Listing','Buyer','Referral','Lease','Commercial','Other'] %}
+              <option {% if t.transaction_type==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+            </select>
+          </td>
+          {# Sub Status col 2 — sticky #}
+          <td class="sticky-col" style="left:190px;width:110px;background:#fff" data-val="{{ t.sub_status or '' }}">
+            <select class="es" data-field="sub_status" data-tid="{{ t.id }}">
+              <option value="">—</option>
+              {% for opt in ['CRE Buyer','CRE Listing','CRE Lease','Landlord Rep','Tenant Rep','Business-only'] %}
+              <option {% if t.sub_status==opt %}selected{% endif %} value="{{ opt }}">{{ opt }}</option>{% endfor %}
+            </select>
+          </td>
+          {# Agent col 3 — sticky #}
+          <td class="sticky-col" style="left:300px;min-width:150px;width:150px;background:#fff" data-val="{{ t.primary_agent_name or (t.agent.name if t.agent else '') }}">
+            <span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</span>
+          </td>
+          {# Address col 4 — sticky #}
+          <td class="sticky-col" style="left:450px;min-width:180px;width:180px;background:#fff" data-val="{{ t.address or '' }}">
+            <span class="ec" data-field="address" data-tid="{{ t.id }}">{{ t.address or '' }}</span>
+          </td>
+          {# Client(s) col 5 #}
+          <td data-val="{{ t.client_name or '' }}"><span class="ec" data-field="client_name" data-tid="{{ t.id }}">{{ t.client_name or '' }}</span></td>
           {# EXP IN col 6 — days to expiry #}
           <td class="text-center ro num-col {% if t.exp_in is not none and t.exp_in < 30 %}urgent{% endif %}" data-val="{{ t.exp_in if t.exp_in is not none else '' }}">{{ t.exp_in if t.exp_in is not none else '' }}</td>
           {# DOM col 7 — days on market #}
@@ -1042,7 +1042,7 @@ function flagPastDue() {
   const today = new Date(); today.setHours(0,0,0,0);
   document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
     const cells = row.querySelectorAll('td');
-    const status = (cells[5] && cells[5].dataset.val) || '';
+    const status = (cells[0] && cells[0].dataset.val) || '';
     if (CLOSED_DONE.has(status)) return;            // settled deals never "past due"
     [16, 17].forEach(ci => {
       const td = cells[ci]; if (!td) return;
@@ -1062,10 +1062,10 @@ function flagPastDue() {
 // ── Missing core field → red cell ─────────────────────────────────────────
 // Flags blanks in the identity/tracking fields only (keeps noise down).
 const REQUIRED_COL_IDX = [
-  {i:0,  label:'Agent'},
-  {i:1,  label:'Address'},
-  {i:2,  label:'Client(s)'},
-  {i:5,  label:'Status'},
+  {i:0,  label:'Status'},
+  {i:3,  label:'Agent'},
+  {i:4,  label:'Address'},
+  {i:5,  label:'Client(s)'},
   {i:11, label:'Source'}
 ];
 function flagMissing() {
