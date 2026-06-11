@@ -477,7 +477,7 @@ def my_business_csv():
         ('Lead Type',       lambda t: t.lead_type or ''),
         ('Location',        lambda t: t.location or ''),
         ('Co. Dollar',      lambda t: fmt_num(t.company_dollar)),
-        ('1099',            lambda t: fmt_num(t.company_dollar)),
+        ('1099',            lambda t: fmt_num(t.income_1099)),
         ('Notes',           lambda t: t.notes or ''),
     ]
 
@@ -614,8 +614,8 @@ def add_transaction():
             notes=f.get('notes', ''),
         )
         db.session.add(t)
+        apply_formulas(t)
         db.session.commit()
-        flash('Transaction added successfully.', 'success')
         return redirect(url_for('main.my_business'))
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
     statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
@@ -671,6 +671,7 @@ def edit_transaction(tid):
         t.month = int(f.get('month') or current_month())
         t.notes = f.get('notes', '')
         t.updated_at = datetime.utcnow()
+        apply_formulas(t)
         db.session.commit()
         flash('Transaction updated.', 'success')
         return redirect(url_for('main.my_business'))
@@ -741,18 +742,15 @@ def patch_transaction(tid):
         elif field in BOOL_FIELDS:
             setattr(t, field, value.strip().lower() in ('true','1','yes'))
 
-        # Auto-recalculate GCI if sale_price or commission_pct changed
-        if field in ('sale_price', 'commission_pct') and t.sale_price and t.commission_pct:
-            t.gci = round(t.sale_price * t.commission_pct, 2)
-        # Auto-recalculate agent GCIs if gci or pcts changed
-        if field in ('gci', 'primary_agent_pct') and t.gci and t.primary_agent_pct:
-            t.primary_agent_gci = round(t.gci * t.primary_agent_pct, 2)
-        if field in ('gci', 'secondary_agent_pct') and t.gci and t.secondary_agent_pct:
-            t.secondary_agent_gci = round(t.gci * t.secondary_agent_pct, 2)
-        if field in ('gci', 'member3_pct') and t.gci and t.member3_pct:
-            t.member3_gci = round(t.gci * t.member3_pct, 2)
-        if field in ('gci', 'member4_pct') and t.gci and t.member4_pct:
-            t.member4_gci = round(t.gci * t.member4_pct, 2)
+        # Auto-recalculate all formula fields whenever any financial input changes
+        FORMULA_TRIGGERS = {
+            'sale_price','list_price','commission_pct','gci','referral_fee',
+            'primary_agent_pct','secondary_agent_pct','member3_pct','member4_pct',
+            'bonus','transaction_fee','broker_split','franchise_split',
+            'eo_fee','donation','other_fee','taxes',
+        }
+        if field in FORMULA_TRIGGERS:
+            apply_formulas(t)
 
         t.updated_at = datetime.utcnow()
         # Write audit log entry (committed together)
@@ -786,11 +784,13 @@ def transaction_computed(tid):
         'exp_in': t.exp_in,
         'up_closing': t.up_closing,
         'company_dollar': t.company_dollar,
+        'income_1099': t.income_1099,
         'gci': t.gci,
         'primary_agent_gci': t.primary_agent_gci,
         'secondary_agent_gci': t.secondary_agent_gci,
         'member3_gci': t.member3_gci,
         'member4_gci': t.member4_gci,
+        'net_after_taxes': t.net_after_taxes,
     })
 
 
@@ -1802,3 +1802,30 @@ def _parse_date(val):
         except (ValueError, TypeError):
             continue
     return None
+
+
+def apply_formulas(t):
+    """Auto-calculate GCI, agent GCIs, net_after_taxes — matches CTE formulas exactly.
+    Call after setting any financial field in add, edit, or inline patch.
+    """
+    # GCI = sale_price × comm_pct  (fallback to list_price if no sale_price yet)
+    price = t.sale_price or t.list_price or 0
+    if price and t.commission_pct:
+        t.gci = round(price * t.commission_pct, 2)
+
+    # Agent GCIs = (GCI − referral) × pct  (CTE: referral comes off GCI first)
+    gci_base = (t.gci or 0) - (t.referral_fee or 0)
+    if gci_base > 0:
+        if t.primary_agent_pct:
+            t.primary_agent_gci = round(gci_base * t.primary_agent_pct, 2)
+        if t.secondary_agent_pct:
+            t.secondary_agent_gci = round(gci_base * t.secondary_agent_pct, 2)
+        if t.member3_pct:
+            t.member3_gci = round(gci_base * t.member3_pct, 2)
+        if t.member4_pct:
+            t.member4_gci = round(gci_base * t.member4_pct, 2)
+
+    # Net after taxes = income_1099 − taxes
+    i1099 = t.income_1099
+    if i1099 is not None and t.taxes:
+        t.net_after_taxes = round(i1099 - t.taxes, 2)

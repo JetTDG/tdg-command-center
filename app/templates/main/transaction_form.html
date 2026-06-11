@@ -148,11 +148,23 @@
     </div>
     <div class="col-md-2">
       <label class="form-label">E&amp;O ($)</label>
-      <input type="number" name="taxes" class="form-control" step="0.01" value="{{ t.taxes if t else '' }}" placeholder="E&O insurance">
+      <input type="number" name="eo_fee" id="eo_fee" class="form-control" step="0.01" value="{{ t.eo_fee if t else '' }}">
     </div>
     <div class="col-md-2">
-      <label class="form-label">Other Fees ($)</label>
-      <input type="number" name="net_after_taxes" class="form-control" step="0.01" value="{{ t.net_after_taxes if t else '' }}" placeholder="Misc fees">
+      <label class="form-label">Donation ($)</label>
+      <input type="number" name="donation" id="donation" class="form-control" step="0.01" value="{{ t.donation if t else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Other Fee ($)</label>
+      <input type="number" name="other_fee" id="other_fee" class="form-control" step="0.01" value="{{ t.other_fee if t else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Co. Dollar <small class="text-muted">auto</small></label>
+      <input type="text" id="preview_company_dollar" class="form-control" readonly style="background:#f0fdf4;color:#166534;font-weight:600" placeholder="—">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">1099 Income <small class="text-muted">auto</small></label>
+      <input type="text" id="preview_income_1099" class="form-control" readonly style="background:#f8f9fa" placeholder="—">
     </div>
 
     {# ── SECTION: Agent Splits ────────────────────────────────────── #}
@@ -224,67 +236,74 @@
 </form>
 
 <script>
-// Auto-calculate GCI = Sale Price × Commission %
-function calcGCI() {
-  var sp = parseFloat(document.getElementById('sale_price').value) || 0;
-  var cp = parseFloat(document.getElementById('commission_pct').value) || 0;
+// ── CTE Formula Live Preview ──────────────────────────────────────────────
+// Matches backend apply_formulas() exactly so TC sees results before saving.
+
+function fmtMoney(v) {
+  if (!v || isNaN(v)) return '';
+  return '$' + parseFloat(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function g(id) { return parseFloat(document.getElementById(id)?.value) || 0; }
+
+function calcAll() {
+  // GCI = sale_price × comm_pct  (fallback list_price)
+  var sp = g('sale_price') || g('list_price');
+  var cp = g('commission_pct');
   var gciField = document.getElementById('gci');
-  // Only auto-fill if GCI is empty or matches previous auto-calc
-  if (sp > 0 && cp > 0) {
-    var calc = (sp * cp / 100).toFixed(2);
-    if (!gciField._manuallyEdited) {
-      gciField.value = calc;
-    }
+  if (sp > 0 && cp > 0 && !gciField._manuallyEdited) {
+    gciField.value = (sp * cp / 100).toFixed(2);
   }
-  calcAgentSplits();
-}
 
-// Track if GCI was manually overridden
-document.getElementById('gci').addEventListener('input', function() {
-  this._manuallyEdited = true;
-});
-
-// Auto-calculate agent splits
-function calcAgentSplits() {
-  var gci = parseFloat(document.getElementById('gci').value) || 0;
-  var pPct = parseFloat(document.getElementById('primary_agent_pct').value) || 0;
-  var sPct = parseFloat(document.getElementById('secondary_agent_pct').value) || 0;
-  if (gci > 0 && pPct > 0) {
-    document.getElementById('primary_agent_gci').value = (gci * pPct / 100).toFixed(2);
-  }
-  if (gci > 0 && sPct > 0) {
-    document.getElementById('secondary_agent_gci').value = (gci * sPct / 100).toFixed(2);
-  }
-}
-
-// Auto-calculate Referral $ = Sale Price × Referral %
-function calcReferral() {
-  var sp = parseFloat(document.getElementById('sale_price').value) || 0;
-  var rp = parseFloat(document.getElementById('referral_pct').value) || 0;
+  // Referral $ = sale_price × referral_pct
+  var rp = g('referral_pct');
   var refField = document.getElementById('referral_fee');
   if (sp > 0 && rp > 0 && !refField._manuallyEdited) {
     refField.value = (sp * rp / 100).toFixed(2);
   }
+
+  // Agent GCIs = (GCI − referral) × pct
+  var gci      = g('gci');
+  var referral = g('referral_fee');
+  var base     = Math.max(0, gci - referral);
+  var pPct = g('primary_agent_pct');
+  var sPct = g('secondary_agent_pct');
+  if (base > 0 && pPct > 0) document.getElementById('primary_agent_gci').value   = (base * pPct / 100).toFixed(2);
+  if (base > 0 && sPct > 0) document.getElementById('secondary_agent_gci').value = (base * sPct / 100).toFixed(2);
+
+  // Co. Dollar = GCI + Bonus + TxFee − Referral − agent GCIs
+  var priGci = parseFloat(document.getElementById('primary_agent_gci').value) || 0;
+  var secGci = parseFloat(document.getElementById('secondary_agent_gci').value) || 0;
+  var bonus  = g('bonus');
+  var txFee  = g('transaction_fee');
+  var coDollar = gci + bonus + txFee - referral - priGci - secGci;
+
+  // 1099 = Co. Dollar − BrokerSplit − FranchiseSplit − E&O − Donation − Other
+  var broker    = g('broker_split');
+  var franchise = g('franchise_split');
+  var eo        = g('eo_fee');
+  var donation  = g('donation');
+  var otherFee  = g('other_fee');
+  var income1099 = coDollar - broker - franchise - eo - donation - otherFee;
+
+  document.getElementById('preview_company_dollar').value = coDollar > 0 ? fmtMoney(coDollar) : '';
+  document.getElementById('preview_income_1099').value    = income1099 > 0 ? fmtMoney(income1099) : '';
 }
 
-// Track manual override of referral $
-document.getElementById('referral_fee').addEventListener('input', function() {
-  this._manuallyEdited = true;
+// Track manual GCI override
+document.getElementById('gci').addEventListener('input', function() { this._manuallyEdited = true; calcAll(); });
+document.getElementById('referral_fee').addEventListener('input', function() { this._manuallyEdited = true; calcAll(); });
+
+// Wire all inputs to recalculate
+['sale_price','list_price','commission_pct','referral_pct',
+ 'primary_agent_pct','secondary_agent_pct',
+ 'bonus','transaction_fee','broker_split','franchise_split',
+ 'eo_fee','donation','other_fee'
+].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('input', calcAll);
 });
 
-document.getElementById('sale_price').addEventListener('input', calcGCI);
-document.getElementById('sale_price').addEventListener('input', calcReferral);
-document.getElementById('referral_pct').addEventListener('input', calcReferral);
-document.getElementById('commission_pct').addEventListener('input', calcGCI);
-document.getElementById('gci').addEventListener('input', calcAgentSplits);
-document.getElementById('primary_agent_pct').addEventListener('input', calcAgentSplits);
-document.getElementById('secondary_agent_pct').addEventListener('input', calcAgentSplits);
-
-// Run on load for edit form
-window.addEventListener('DOMContentLoaded', function() {
-  {% if t and t.gci %}document.getElementById('gci')._manuallyEdited = true;{% endif %}
-  {% if t and t.referral_fee %}document.getElementById('referral_fee')._manuallyEdited = true;{% endif %}
-  calcAgentSplits();
-});
+// Run on load if editing existing transaction
+calcAll();
 </script>
 {% endblock %}

@@ -294,10 +294,10 @@ function monthChanged() {
           <td class="text-center" data-val="{{ 'Yes' if t.paid else '' }}">
             <input type="checkbox" class="ec-bool" data-field="paid" data-tid="{{ t.id }}" {% if t.paid %}checked{% endif %}>
           </td>
-          {# Co. Dollar col 54 — computed, read-only #}
+          {# Co. Dollar col 49 — computed, read-only #}
           <td class="fw-semibold ro" style="background:#f0fdf4;color:#166534" data-val="{{ t.company_dollar or '' }}">{{ "{:,.0f}".format(t.company_dollar) if t.company_dollar else '' }}</td>
-          {# 1099 Income col 55 = Co. Dollar #}
-          <td class="ro text-muted" data-val="{{ t.company_dollar or '' }}">{{ "{:,.0f}".format(t.company_dollar) if t.company_dollar else '' }}</td>
+          {# 1099 Income col 50 — computed: Co. Dollar minus broker/franchise/E&O/donation/other #}
+          <td class="ro text-muted" data-val="{{ t.income_1099 or '' }}">{{ "{:,.0f}".format(t.income_1099) if t.income_1099 else '' }}</td>
           {# Net Income col 56 #}
           <td data-val="{{ t.net_income or '' }}"><span class="ec num" data-field="net_income" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.net_income) if t.net_income else '' }}</span></td>
           {# Taxes col 57 #}
@@ -631,7 +631,7 @@ document.querySelectorAll('.ec-bool').forEach(cb => {
 });
 
 // ── Refresh computed cells after save ─────────────────────────────────────
-// td indices: exp=2, dom=3, co_dollar=49, 1099=50
+// td indices: exp=2, dom=3, gci=20, pri_gci=28, sec_gci=31, m3_gci=34, m4_gci=37, co_dollar=49, 1099=50
 function refreshComputed(tid) {
   fetch('/api/transaction/'+tid+'/computed').then(r=>r.json()).then(d=>{
     if (!d.ok) return;
@@ -642,12 +642,19 @@ function refreshComputed(tid) {
     const set = (i,v,f) => { if(cells[i]){cells[i].dataset.val=v??'';cells[i].textContent=f?fmt(v):(v??'');} };
     set(2,  d.exp_in);
     set(3,  d.dom);
-    
-    
-    set(49, d.company_dollar, true);
-    set(50, d.company_dollar, true);
-    // re-apply $ prefix on the two computed money columns
-    [49,50].forEach(i=>{ if(cells[i]&&cells[i].textContent.trim()&&!cells[i].textContent.trim().startsWith('$')) cells[i].textContent='$'+cells[i].textContent.trim(); });
+    // Computed financial fields
+    set(20, d.gci,              true);
+    set(28, d.primary_agent_gci, true);
+    set(31, d.secondary_agent_gci, true);
+    set(34, d.member3_gci,      true);
+    set(37, d.member4_gci,      true);
+    set(49, d.company_dollar,   true);
+    set(50, d.income_1099,      true);
+    // re-apply $ prefix on money columns
+    [20,28,31,34,37,49,50].forEach(i=>{ if(cells[i]&&cells[i].textContent.trim()&&!cells[i].textContent.trim().startsWith('$')) cells[i].textContent='$'+cells[i].textContent.trim(); });
+    // Also refresh footer totals
+    const allRows = [...document.querySelectorAll('#mb-tbody tr[data-row]')].filter(r=>r.style.display!=='none');
+    updateTotals(allRows);
   }).catch(()=>{});
 }
 

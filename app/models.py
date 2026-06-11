@@ -168,7 +168,10 @@ class Transaction(db.Model):
 
     @property
     def company_dollar(self):
-        """GCI − all agent splits − referral − tx fee − franchise − E&O − donation − other."""
+        """CTE 'Team TDG' formula:
+        GCI + Bonus + TxFee − Referral − all agent GCIs
+        (Broker Split, Franchise, E&O, Donation, Other are NOT deducted here — they come off in 1099)
+        """
         if not self.gci:
             return None
         deductions = sum(filter(None, [
@@ -177,14 +180,29 @@ class Transaction(db.Model):
             self.member3_gci,
             self.member4_gci,
             self.referral_fee,
+        ]))
+        additions = sum(filter(None, [
+            self.bonus,
             self.transaction_fee,
+        ]))
+        return round(self.gci + additions - deductions, 2)
+
+    @property
+    def income_1099(self):
+        """CTE '1099 Income' formula:
+        Company Dollar − BrokerSplit − FranchiseSplit − E&O − Donation − Other
+        """
+        cd = self.company_dollar
+        if cd is None:
+            return None
+        deductions = sum(filter(None, [
+            self.broker_split,
             self.franchise_split,
             self.eo_fee,
             self.donation,
             self.other_fee,
-            self.bonus,
         ]))
-        return round(self.gci - deductions, 2)
+        return round(cd - deductions, 2)
 
     def __repr__(self):
         return f'<Transaction {self.address} - {self.status}>'
