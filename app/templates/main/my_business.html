@@ -82,12 +82,11 @@ function monthChanged() {
 
 <!-- Table -->
 <div class="card mt-1 p-0" style="overflow:hidden;">
-  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:74vh;position:relative;touch-action:pan-x pan-y;">
+  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:74vh;position:relative;">
     <table class="table table-hover table-bordered mb-0" id="mb-table" style="min-width:5200px;table-layout:fixed;font-size:0.74rem;">
       <colgroup>
-        <col style="width:90px"> <!-- 0 Division -->
-        <col style="width:90px"> <!-- 1 Status -->
-        <col style="width:90px"> <!-- 2 Type -->
+        <col style="width:100px"><!-- 0 Status -->
+        <col style="width:90px"> <!-- 1 Type -->
         <col style="width:110px"><!-- 2 Sub Status -->
         <col style="width:120px"><!-- 3 Agent -->
         <col style="width:150px"><!-- 4 Address -->
@@ -136,65 +135,70 @@ function monthChanged() {
         <col style="width:58px"> <!-- 47 Paid? -->
         <col style="width:108px"><!-- 48 Co. Dollar -->
         <col style="width:88px"> <!-- 49 1099 -->
-        <col style="width:108px"><!-- 50 Admin -->
-        <col style="width:145px"><!-- 51 Notes -->
+        <col style="width:88px"> <!-- 50 Net Income -->
+        <col style="width:78px"> <!-- 51 Taxes -->
+        <col style="width:98px"> <!-- 52 Net After Tax -->
+        <col style="width:108px"><!-- 53 Admin -->
+        <col style="width:145px"><!-- 54 Notes -->
         <col style="width:108px"><!-- Actions -->
       </colgroup>
-      <thead style="background:#f8f9fa;">
+      <thead style="position:sticky;top:0;z-index:20;background:#f8f9fa;">
         <tr>
-          <th class="col-hdr sticky-col" data-col="0" style="left:0;width:90px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Division</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr sticky-col" data-col="1" style="left:90px;width:100px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Status</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr sticky-col" data-col="2" style="left:190px;width:90px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Type</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr sticky-col" data-col="3" style="left:280px;width:110px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Sub Status</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr sticky-col" data-col="4" style="left:390px;width:120px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Agent</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr sticky-col" data-col="5" style="left:510px;width:150px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Address</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="6"  style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Client(s)</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="7"  style="width:90px"><div class="col-hdr-inner"><span class="hdr-label">Old List $</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="8"  style="width:100px"><div class="col-hdr-inner"><span class="hdr-label">List Price</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="9"  style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">List Date</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="10"  style="width:110px"><div class="col-hdr-inner"><span class="hdr-label">Source</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="11" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Signed Date</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="12" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">MLS Live</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="13" style="width:58px" title="Days on Market (today − MLS Live date)"><div class="col-hdr-inner"><span class="hdr-label">DOM</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="14" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Exp Date</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="15" style="width:55px" title="Days until listing expires"><div class="col-hdr-inner"><span class="hdr-label">EXP</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="16" style="width:92px"><div class="col-hdr-inner"><span class="hdr-label">Under Contr</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="17" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Proj Close</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="18" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Close Date</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="19" style="width:100px"><div class="col-hdr-inner"><span class="hdr-label">Sale Price</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="20" style="width:58px"><div class="col-hdr-inner"><span class="hdr-label">Comm%</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="21" style="width:100px;color:var(--tdg-gold)"><div class="col-hdr-inner"><span class="hdr-label">GCI</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="22" style="width:82px"><div class="col-hdr-inner"><span class="hdr-label">Tx Fee</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="23" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Broker Split</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="24" style="width:82px"><div class="col-hdr-inner"><span class="hdr-label">Franchise</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="25" style="width:78px"><div class="col-hdr-inner"><span class="hdr-label">Referral</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="26" style="width:130px"><div class="col-hdr-inner"><span class="hdr-label">Primary Agent</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="27" style="width:52px"><div class="col-hdr-inner"><span class="hdr-label">Pri%</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="28" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Primary GCI</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="29" style="width:130px"><div class="col-hdr-inner"><span class="hdr-label">2nd Agent</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="30" style="width:52px"><div class="col-hdr-inner"><span class="hdr-label">2nd%</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="31" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">2nd GCI</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="32" style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Member 3</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="33" style="width:52px"><div class="col-hdr-inner"><span class="hdr-label">M3%</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="34" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">M3 GCI</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="35" style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Member 4</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="36" style="width:52px"><div class="col-hdr-inner"><span class="hdr-label">M4%</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="37" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">M4 GCI</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="38" style="width:68px"><div class="col-hdr-inner"><span class="hdr-label">E&amp;O</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="39" style="width:78px"><div class="col-hdr-inner"><span class="hdr-label">Donation</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="40" style="width:78px"><div class="col-hdr-inner"><span class="hdr-label">Other Fee</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="41" style="width:92px"><div class="col-hdr-inner"><span class="hdr-label">Inspection</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="42" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Appraisal</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="43" style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Mortgage Co</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="44" style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Title Co</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="45" style="width:82px"><div class="col-hdr-inner"><span class="hdr-label">Lead Type</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="46" style="width:58px"><div class="col-hdr-inner"><span class="hdr-label">&#8734; File</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="47" style="width:95px"><div class="col-hdr-inner"><span class="hdr-label">Location</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="48" style="width:58px"><div class="col-hdr-inner"><span class="hdr-label">Paid?</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="49" style="width:108px;background:#f0fdf4"><div class="col-hdr-inner"><span class="hdr-label">Co. Dollar</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="50" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">1099</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="51" style="width:108px"><div class="col-hdr-inner"><span class="hdr-label">Admin</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="52" style="width:145px"><div class="col-hdr-inner"><span class="hdr-label">Notes</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="0" style="left:0;width:100px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Status</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="1" style="left:100px;width:90px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Type</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="2" style="left:190px;width:110px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Sub Status</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="3" style="left:300px;width:120px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Agent</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr sticky-col" data-col="4" style="left:420px;width:150px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Address</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="5"  style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Client(s)</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="6"  style="width:90px"><div class="col-hdr-inner"><span class="hdr-label">Old List $</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="7"  style="width:100px"><div class="col-hdr-inner"><span class="hdr-label">List Price</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="8"  style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">List Date</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="9"  style="width:110px"><div class="col-hdr-inner"><span class="hdr-label">Source</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="10" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Signed Date</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="11" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">MLS Live</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="12" style="width:58px" title="Days on Market (today − MLS Live date)"><div class="col-hdr-inner"><span class="hdr-label">DOM</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="13" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Exp Date</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="14" style="width:55px" title="Days until listing expires"><div class="col-hdr-inner"><span class="hdr-label">EXP</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="15" style="width:92px"><div class="col-hdr-inner"><span class="hdr-label">Under Contr</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="16" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Proj Close</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="17" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Close Date</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="18" style="width:100px"><div class="col-hdr-inner"><span class="hdr-label">Sale Price</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="19" style="width:58px"><div class="col-hdr-inner"><span class="hdr-label">Comm%</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="20" style="width:100px;color:var(--tdg-gold)"><div class="col-hdr-inner"><span class="hdr-label">GCI</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="21" style="width:82px"><div class="col-hdr-inner"><span class="hdr-label">Tx Fee</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="22" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Broker Split</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="23" style="width:82px"><div class="col-hdr-inner"><span class="hdr-label">Franchise</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="24" style="width:78px"><div class="col-hdr-inner"><span class="hdr-label">Referral</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="25" style="width:130px"><div class="col-hdr-inner"><span class="hdr-label">Primary Agent</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="26" style="width:52px"><div class="col-hdr-inner"><span class="hdr-label">Pri%</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="27" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Primary GCI</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="28" style="width:130px"><div class="col-hdr-inner"><span class="hdr-label">2nd Agent</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="29" style="width:52px"><div class="col-hdr-inner"><span class="hdr-label">2nd%</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="30" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">2nd GCI</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="31" style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Member 3</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="32" style="width:52px"><div class="col-hdr-inner"><span class="hdr-label">M3%</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="33" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">M3 GCI</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="34" style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Member 4</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="35" style="width:52px"><div class="col-hdr-inner"><span class="hdr-label">M4%</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="36" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">M4 GCI</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="37" style="width:68px"><div class="col-hdr-inner"><span class="hdr-label">E&amp;O</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="38" style="width:78px"><div class="col-hdr-inner"><span class="hdr-label">Donation</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="39" style="width:78px"><div class="col-hdr-inner"><span class="hdr-label">Other Fee</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="40" style="width:92px"><div class="col-hdr-inner"><span class="hdr-label">Inspection</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="41" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Appraisal</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="42" style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Mortgage Co</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="43" style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Title Co</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="44" style="width:82px"><div class="col-hdr-inner"><span class="hdr-label">Lead Type</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="45" style="width:58px"><div class="col-hdr-inner"><span class="hdr-label">&#8734; File</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="46" style="width:95px"><div class="col-hdr-inner"><span class="hdr-label">Location</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="47" style="width:58px"><div class="col-hdr-inner"><span class="hdr-label">Paid?</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="48" style="width:108px;background:#f0fdf4"><div class="col-hdr-inner"><span class="hdr-label">Co. Dollar</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="49" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">1099</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="50" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Net Income</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="51" style="width:78px"><div class="col-hdr-inner"><span class="hdr-label">Taxes</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="52" style="width:98px"><div class="col-hdr-inner"><span class="hdr-label">Net After Tax</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="53" style="width:108px"><div class="col-hdr-inner"><span class="hdr-label">Admin</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="54" style="width:145px"><div class="col-hdr-inner"><span class="hdr-label">Notes</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" style="position:sticky;right:0;width:108px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner">Actions</div></th>
         </tr>
       </thead>
@@ -207,17 +211,15 @@ function monthChanged() {
         {% set is_pending = t.status in ('Pending','`Pending','Pre-Signed','Signed') %}
         {% set is_dead = t.status in ('x-Cancelled','y-Sale Failed','z-Expired') %}
         {% set row_class = 'row-pending' if is_pending else ('row-dead' if is_dead else typ_class) %}
-        <tr data-tid="{{ t.id }}" data-row class="{{ row_class }}">
-          {# Division col 0 — sticky, computed from Type #}
-          <td class="sticky-col" style="left:0;width:90px;background:inherit" data-val="{{ t.division }}"><span style="font-size:0.7rem;color:#666">{{ t.division }}</span></td>
-          {# Status col 1 — sticky, badge + inline select #}
+        <tr data-tid="{{ t.id }}" data-row data-status="{{ t.status or '' }}" data-txtype="{{ t.transaction_type or '' }}" class="{{ row_class }}">
+          {# Status col 0 — sticky, badge + inline select #}
           {% set s = t.status or '' %}
           {% set badge_cls = {
             'Active':'badge-active','Pending':'badge-pending','Signed':'badge-signed',
             'Pre-Signed':'badge-presigned','Closed':'badge-closed',
             'x-Cancelled':'badge-cancelled','y-Sale Failed':'badge-failed','z-Expired':'badge-expired'
           }.get(s, 'badge-other') %}
-          <td class="sticky-col" style="left:90px;width:100px;background:#fff" data-val="{{ s }}">
+          <td class="sticky-col" style="left:0;width:100px;background:#fff" data-val="{{ s }}">
             <span class="badge-status {{ badge_cls }} ec-status-badge" data-tid="{{ t.id }}" title="Click to change">{{ s }}</span>
             <select class="es es-status" data-field="status" data-tid="{{ t.id }}" style="display:none;font-size:0.74rem;border:1px solid #d4a017;border-radius:3px;background:#fffbf0;width:100%">
               {% for opt in ['Active','Pending','Closed','Pre-Signed','Signed','LOI','Coming Soon','Pipeline','Temp Off Market','Temp off Mark','x-Cancelled','y-Sale Failed','z-Expired'] %}
@@ -350,14 +352,20 @@ function monthChanged() {
           <td class="fw-semibold ro" style="background:#f0fdf4;color:#166534" data-val="{{ t.company_dollar or '' }}">{{ "{:,.0f}".format(t.company_dollar) if t.company_dollar else '' }}</td>
           {# 1099 Income col 49 — computed: Co. Dollar minus broker/franchise/E&O/donation/other #}
           <td class="ro text-muted" data-val="{{ t.income_1099 or '' }}">{{ "{:,.0f}".format(t.income_1099) if t.income_1099 else '' }}</td>
-          {# Admin col 50 #}
+          {# Net Income col 50 #}
+          <td data-val="{{ t.net_income or '' }}"><span class="ec num" data-field="net_income" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.net_income) if t.net_income else '' }}</span></td>
+          {# Taxes col 51 #}
+          <td data-val="{{ t.taxes or '' }}"><span class="ec num" data-field="taxes" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.taxes) if t.taxes else '' }}</span></td>
+          {# Net After Tax col 52 #}
+          <td data-val="{{ t.net_after_taxes or '' }}"><span class="ec num" data-field="net_after_taxes" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.net_after_taxes) if t.net_after_taxes else '' }}</span></td>
+          {# Admin col 53 #}
           <td data-val="{{ t.admin_name or '' }}">
             <select class="es" data-field="admin_name" data-tid="{{ t.id }}">
               <option value="">— assign —</option>
               {% for a in admin_names %}<option {% if t.admin_name==a %}selected{% endif %} value="{{ a }}">{{ a }}</option>{% endfor %}
             </select>
           </td>
-          {# Notes col 51 #}
+          {# Notes col 54 #}
           <td data-val="{{ t.notes or '' }}"><span class="ec" data-field="notes" data-tid="{{ t.id }}">{{ t.notes or '' }}</span></td>
           {# Actions — sticky right #}
           <td style="position:sticky;right:0;background:#fff;white-space:nowrap;z-index:10">
@@ -430,7 +438,7 @@ function monthChanged() {
 <style>
 .sticky-col { position:sticky; z-index:10; }
 #mb-table td, #mb-table th { white-space:nowrap; padding:3px 6px; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; }
-#mb-table thead th { font-size:0.71rem; font-weight:600; color:#555; background:#f8f9fa; border-bottom:2px solid #dee2e6; user-select:none; position:sticky; top:0; z-index:15; }
+#mb-table thead th { font-size:0.71rem; font-weight:600; color:#555; background:#f8f9fa; border-bottom:2px solid #dee2e6; user-select:none; }
 
 /* ═══════════════════════════════════════════════════════
    ROW BACKGROUND — monochrome by Type
@@ -498,6 +506,9 @@ td.urgent { color:#c00 !important; font-weight:700; }
 /* Missing required field — red flag */
 td.cell-missing { background:#fee2e2 !important; box-shadow:inset 0 0 0 1px #f5b5b5; }
 td.cell-missing.sticky-col { background:#fee2e2 !important; }
+/* Active Buyer address — not required, show grey (no property yet) */
+td.cell-no-address { background:#e8e8e8 !important; color:#aaa !important; }
+td.cell-no-address.sticky-col { background:#e8e8e8 !important; color:#aaa !important; }
 .es { font-size:0.74rem; border:0; background:transparent; padding:0; width:100%; cursor:pointer; }
 .es:focus { outline:1px solid var(--tdg-gold); background:#fffbf0; }
 .ro { cursor:default; }
@@ -523,11 +534,10 @@ tr.row-hidden { display:none; }
 #mb-float-scroll::-webkit-scrollbar-thumb { background:#888; border-radius:4px; }
 
 /* ── Mobile touch scrolling ─────────────────────────── */
-/* Keep -webkit-overflow-scrolling OFF — it creates a compositing layer
-   that desyncs position:sticky headers/columns on iOS Safari.
-   Sticky works via position:sticky on each <th> directly. */
+/* Single scroll container (no -webkit-overflow-scrolling momentum layer —
+   it desyncs sticky header/columns on iOS). Sticky cols stay locked. */
 @media (max-width: 1024px) {
-  #mb-table-wrap { max-height: 70vh; overflow-x: scroll; overflow-y: scroll; touch-action: pan-x pan-y; }
+  #mb-table-wrap { max-height: 70vh; }
   #mb-table { font-size: 0.7rem; }
   #mb-table td, #mb-table th { padding: 2px 4px !important; }
 }
@@ -629,7 +639,7 @@ document.querySelectorAll('.ec').forEach(function(span) {
           if (typeof MONEY_FIELDS!=='undefined' && MONEY_FIELDS.has(field)) money$(span);
           if (typeof flagMissing==='function') {
             const td=span.closest('td');
-            if (nv && nv!=='—') td.classList.remove('cell-missing');
+            if (nv && nv!=='—') { td.classList.remove('cell-missing'); td.classList.remove('cell-no-address'); }
           }
           // Auto-grow the searchable list: add newly-typed value so it's available next time
           if (span.dataset.list && nv) {
@@ -680,7 +690,7 @@ document.querySelectorAll('.ec-bool').forEach(cb => {
 });
 
 // ── Refresh computed cells after save ─────────────────────────────────────
-// td indices: exp=3, dom=4, gci=21, pri_gci=29, sec_gci=32, m3_gci=35, m4_gci=38, co_dollar=50, 1099=51
+// td indices: exp=2, dom=3, gci=20, pri_gci=28, sec_gci=31, m3_gci=34, m4_gci=37, co_dollar=49, 1099=50
 function refreshComputed(tid) {
   fetch('/api/transaction/'+tid+'/computed').then(r=>r.json()).then(d=>{
     if (!d.ok) return;
@@ -689,18 +699,18 @@ function refreshComputed(tid) {
     const cells = row.querySelectorAll('td');
     const fmt = v => v!=null&&v!=='' ? parseFloat(v).toLocaleString('en-US',{maximumFractionDigits:0}) : '';
     const set = (i,v,f) => { if(cells[i]){cells[i].dataset.val=v??'';cells[i].textContent=f?fmt(v):(v??'');} };
-    set(3,  d.exp_in);
-    set(4,  d.dom);
+    set(2,  d.exp_in);
+    set(3,  d.dom);
     // Computed financial fields
-    set(21, d.gci,              true);
-    set(29, d.primary_agent_gci, true);
-    set(32, d.secondary_agent_gci, true);
-    set(35, d.member3_gci,      true);
-    set(38, d.member4_gci,      true);
-    set(50, d.company_dollar,   true);
-    set(51, d.income_1099,      true);
+    set(20, d.gci,              true);
+    set(28, d.primary_agent_gci, true);
+    set(31, d.secondary_agent_gci, true);
+    set(34, d.member3_gci,      true);
+    set(37, d.member4_gci,      true);
+    set(49, d.company_dollar,   true);
+    set(50, d.income_1099,      true);
     // re-apply $ prefix on money columns
-    [21,29,32,35,38,50,51].forEach(i=>{ if(cells[i]&&cells[i].textContent.trim()&&!cells[i].textContent.trim().startsWith('$')) cells[i].textContent='$'+cells[i].textContent.trim(); });
+    [20,28,31,34,37,49,50].forEach(i=>{ if(cells[i]&&cells[i].textContent.trim()&&!cells[i].textContent.trim().startsWith('$')) cells[i].textContent='$'+cells[i].textContent.trim(); });
     // Also refresh footer totals
     const allRows = [...document.querySelectorAll('#mb-tbody tr[data-row]')].filter(r=>r.style.display!=='none');
     updateTotals(allRows);
@@ -1063,10 +1073,10 @@ const MONEY_FIELDS = new Set([
   'old_list_price','list_price','sale_price','gci','bonus','transaction_fee',
   'broker_split','franchise_split','referral_fee','primary_agent_gci',
   'secondary_agent_gci','member3_gci','member4_gci','eo_fee','donation',
-  'other_fee'
+  'other_fee','net_income','taxes','net_after_taxes'
 ]);
 // Computed read-only money columns (by td index): Co. Dollar, 1099
-const MONEY_COL_IDX = new Set([50, 51]);
+const MONEY_COL_IDX = new Set([52, 53]);
 
 function money$(span) {
   const t = span.textContent.trim();
@@ -1095,7 +1105,7 @@ function flagPastDue() {
   const today = new Date(); today.setHours(0,0,0,0);
   document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
     const cells = row.querySelectorAll('td');
-    const status = (cells[1] && cells[1].dataset.val) || '';  // col1=Status (col0=Division)
+    const status = (cells[0] && cells[0].dataset.val) || '';
     if (CLOSED_DONE.has(status)) return;            // settled deals never "past due"
     [16, 17].forEach(ci => {
       const td = cells[ci]; if (!td) return;
@@ -1115,19 +1125,35 @@ function flagPastDue() {
 // ── Missing core field → red cell ─────────────────────────────────────────
 // Flags blanks in the identity/tracking fields only (keeps noise down).
 const REQUIRED_COL_IDX = [
-  {i:1,  label:'Status'},
-  {i:4,  label:'Agent'},
-  {i:5,  label:'Address'},
-  {i:6,  label:'Client(s)'},
-  {i:10, label:'Source'}
+  {i:0,  label:'Status'},
+  {i:3,  label:'Agent'},
+  {i:4,  label:'Address'},
+  {i:5,  label:'Client(s)'},
+  {i:9,  label:'Source'}
 ];
 function flagMissing() {
   document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
     if (row.classList.contains('row-dead')) return;  // don't nag dead deals
+    const status = (row.dataset.status || '').trim();
+    const txtype = (row.dataset.txtype || '').trim();
+    const isActiveBuyer = (txtype === 'Buyer' && status === 'Active');
     const cells = row.querySelectorAll('td');
     REQUIRED_COL_IDX.forEach(({i,label}) => {
       const td = cells[i]; if (!td) return;
       if (td.classList.contains('ro')) return;  // greyed-out N/A cells never flagged
+      // Address (col 4) is not required for Active Buyers — show grey instead
+      if (i === 4 && isActiveBuyer) {
+        td.classList.remove('cell-missing');
+        const v = (td.dataset.val || '').trim();
+        if (!v || v === '—') {
+          td.classList.add('cell-no-address');
+          td.title = 'No address yet — buyer is still searching';
+        } else {
+          td.classList.remove('cell-no-address');
+        }
+        return;
+      }
+      td.classList.remove('cell-no-address');
       const v = (td.dataset.val || '').trim();
       if (!v || v === '—') {
         td.classList.add('cell-missing');
@@ -1160,59 +1186,61 @@ restoreState();
 // ── Column header full-name tooltips ─────────────────────────────────────
 (function() {
   const COL_NAMES = {
-    0:  'Division (Residential or Commercial)',
-    1:  'Status',
-    2:  'Transaction Type',
-    3:  'Sub Status (Commercial/Lease detail)',
-    4:  'Agent Name',
-    5:  'Property Address',
-    6:  'Client Name(s)',
-    7:  'Previous List Price',
-    8:  'Current List Price',
-    9:  'List Date',
-    10: 'Lead Source',
-    11: 'Signed Date',
-    12: 'MLS Live Date',
-    13: 'Days on Market (today − MLS Live date)',
-    14: 'Expiration Date',
-    15: 'Days Until Listing Expires',
-    16: 'Under Contract Date',
-    17: 'Projected Close Date',
-    18: 'Close Date',
-    19: 'Sale Price',
-    20: 'Commission %',
-    21: 'Gross Commission Income (GCI)',
-    22: 'Transaction Fee',
-    23: 'Broker Split',
-    24: 'Franchise Fee',
-    25: 'Referral Fee',
-    26: 'Primary Agent',
-    27: 'Primary Agent Split %',
-    28: 'Primary Agent GCI',
-    29: '2nd Agent',
-    30: '2nd Agent Split %',
-    31: '2nd Agent GCI',
-    32: 'Member 3',
-    33: 'Member 3 Split %',
-    34: 'Member 3 GCI',
-    35: 'Member 4',
-    36: 'Member 4 Split %',
-    37: 'Member 4 GCI',
-    38: 'E&O Insurance',
-    39: 'Donation',
-    40: 'Other Fee',
-    41: 'Inspection Date',
-    42: 'Appraisal Date',
-    43: 'Mortgage Company',
-    44: 'Title Company',
-    45: 'Lead Type (Team or Agent)',
-    46: 'Infinity File Link',
-    47: 'Location',
-    48: 'Paid?',
-    49: 'Company Dollar (GCI + Fees − Agent GCIs)',
-    50: '1099 Income',
-    51: 'Admin',
-    52: 'Notes',
+    0:  'Status',
+    1:  'Transaction Type',
+    2:  'Sub Status (Commercial/Lease detail)',
+    3:  'Agent Name',
+    4:  'Property Address',
+    5:  'Client Name(s)',
+    6:  'Previous List Price',
+    7:  'Current List Price',
+    8:  'List Date',
+    9:  'Lead Source',
+    10: 'Signed Date',
+    11: 'MLS Live Date',
+    12: 'Days on Market (today − MLS Live date)',
+    13: 'Expiration Date',
+    14: 'Days Until Listing Expires',
+    15: 'Under Contract Date',
+    16: 'Projected Close Date',
+    17: 'Close Date',
+    18: 'Sale Price',
+    19: 'Commission %',
+    20: 'Gross Commission Income (GCI)',
+    21: 'Transaction Fee',
+    22: 'Broker Split',
+    23: 'Franchise Fee',
+    24: 'Referral Fee',
+    25: 'Primary Agent',
+    26: 'Primary Agent Split %',
+    27: 'Primary Agent GCI',
+    28: '2nd Agent',
+    29: '2nd Agent Split %',
+    30: '2nd Agent GCI',
+    31: 'Member 3',
+    32: 'Member 3 Split %',
+    33: 'Member 3 GCI',
+    34: 'Member 4',
+    35: 'Member 4 Split %',
+    36: 'Member 4 GCI',
+    37: 'E&O Insurance',
+    38: 'Donation',
+    39: 'Other Fee',
+    40: 'Inspection Date',
+    41: 'Appraisal Date',
+    42: 'Mortgage Company',
+    43: 'Title Company',
+    44: 'Lead Type (Team or Agent)',
+    45: 'Infinity File Link',
+    46: 'Location',
+    47: 'Paid?',
+    48: 'Company Dollar (GCI + Fees − Agent GCIs)',
+    49: '1099 Income',
+    50: 'Net Income',
+    51: 'Taxes',
+    52: 'Net After Tax',
+    53: 'Admin',
+    54: 'Notes',
   };
   document.querySelectorAll('.col-hdr[data-col]').forEach(th => {
     const col = parseInt(th.dataset.col);
