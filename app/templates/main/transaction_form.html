@@ -22,7 +22,7 @@
     <div class="col-md-2">
       <label class="form-label">Type *</label>
       <select name="transaction_type" class="form-select" required>
-        {% for tp in ['Listing','Buyer','Referral','Lease','CRE Listing','CRE Buyer','CRE Landlord Rep','CRE Tenant Rep','CRE Business Only','Other'] %}
+        {% for tp in ['Listing','Buyer','Referral','Lease','LOI','CRE Listing','CRE Buyer','CRE Landlord Rep','CRE Tenant Rep','CRE Business Only','Other'] %}
         <option {% if t and t.transaction_type==tp %}selected{% endif %}>{{ tp }}</option>{% endfor %}
       </select>
     </div>
