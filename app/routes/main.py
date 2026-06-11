@@ -614,7 +614,11 @@ def add_transaction():
             notes=f.get('notes', ''),
         )
         db.session.add(t)
-        apply_formulas(t)
+        # Only auto-calc GCI if TC left it blank or it matches the formula
+        submitted_gci = float(f.get('gci') or 0)
+        formula_gci   = round((t.sale_price or t.list_price or 0) * (t.commission_pct or 0), 2)
+        recalc = (submitted_gci == 0 or submitted_gci == formula_gci)
+        apply_formulas(t, recalc_gci=recalc)
         db.session.commit()
         return redirect(url_for('main.my_business'))
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
@@ -671,7 +675,11 @@ def edit_transaction(tid):
         t.month = int(f.get('month') or current_month())
         t.notes = f.get('notes', '')
         t.updated_at = datetime.utcnow()
-        apply_formulas(t)
+        # Only auto-calc GCI if TC left it blank or it still matches the formula
+        submitted_gci = float(f.get('gci') or 0)
+        formula_gci   = round((t.sale_price or t.list_price or 0) * (t.commission_pct or 0), 2)
+        recalc = (submitted_gci == 0 or submitted_gci == formula_gci)
+        apply_formulas(t, recalc_gci=recalc)
         db.session.commit()
         flash('Transaction updated.', 'success')
         return redirect(url_for('main.my_business'))
@@ -749,8 +757,10 @@ def patch_transaction(tid):
             'bonus','transaction_fee','broker_split','franchise_split',
             'eo_fee','donation','other_fee','taxes',
         }
+        # Only recalc GCI when price/rate fields change — not when GCI itself is edited
+        GCI_TRIGGERS = {'sale_price', 'list_price', 'commission_pct'}
         if field in FORMULA_TRIGGERS:
-            apply_formulas(t)
+            apply_formulas(t, recalc_gci=(field in GCI_TRIGGERS))
 
         t.updated_at = datetime.utcnow()
         # Write audit log entry (committed together)
@@ -1804,14 +1814,17 @@ def _parse_date(val):
     return None
 
 
-def apply_formulas(t):
+def apply_formulas(t, recalc_gci=True):
     """Auto-calculate GCI, agent GCIs, net_after_taxes — matches CTE formulas exactly.
     Call after setting any financial field in add, edit, or inline patch.
+    recalc_gci=False: skip GCI recalc (e.g. TC entered a flat fee manually).
     """
     # GCI = sale_price × comm_pct  (fallback to list_price if no sale_price yet)
-    price = t.sale_price or t.list_price or 0
-    if price and t.commission_pct:
-        t.gci = round(price * t.commission_pct, 2)
+    # Only recalculate if triggered by a price/rate change, not a manual GCI entry
+    if recalc_gci:
+        price = t.sale_price or t.list_price or 0
+        if price and t.commission_pct:
+            t.gci = round(price * t.commission_pct, 2)
 
     # Agent GCIs = (GCI − referral) × pct  (CTE: referral comes off GCI first)
     gci_base = (t.gci or 0) - (t.referral_fee or 0)

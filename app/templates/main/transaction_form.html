@@ -119,7 +119,7 @@
       <input type="number" name="commission_pct" id="commission_pct" class="form-control" step="0.01" value="{{ (t.commission_pct*100)|round(2) if t and t.commission_pct else '' }}" placeholder="e.g. 3">
     </div>
     <div class="col-md-2">
-      <label class="form-label">GCI ($) <small class="text-muted">auto-calc</small></label>
+      <label class="form-label">GCI ($) <small class="text-muted">auto-calc</small> <span id="gci-manual-badge" style="display:none;font-size:.7rem;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:3px;padding:1px 5px">manual</span></label>
       <input type="number" name="gci" id="gci" class="form-control" step="0.01" value="{{ t.gci if t else '' }}" placeholder="Sale Price × Comm%">
     </div>
     <div class="col-md-2">
@@ -289,8 +289,13 @@ function calcAll() {
   document.getElementById('preview_income_1099').value    = income1099 > 0 ? fmtMoney(income1099) : '';
 }
 
-// Track manual GCI override
-document.getElementById('gci').addEventListener('input', function() { this._manuallyEdited = true; calcAll(); });
+// Track manual GCI override — show/hide the "manual" badge
+document.getElementById('gci').addEventListener('input', function() {
+  this._manuallyEdited = true;
+  var badge = document.getElementById('gci-manual-badge');
+  if (badge) badge.style.display = this.value ? 'inline' : 'none';
+  calcAll();
+});
 document.getElementById('referral_fee').addEventListener('input', function() { this._manuallyEdited = true; calcAll(); });
 
 // Wire all inputs to recalculate
@@ -305,5 +310,20 @@ document.getElementById('referral_fee').addEventListener('input', function() { t
 
 // Run on load if editing existing transaction
 calcAll();
+// Show manual badge if existing GCI doesn't match formula
+(function() {
+  var gciField = document.getElementById('gci');
+  var badge = document.getElementById('gci-manual-badge');
+  if (!gciField || !badge || !gciField.value) return;
+  var sp = g('sale_price') || g('list_price');
+  var cp = g('commission_pct');
+  if (sp > 0 && cp > 0) {
+    var formulaGci = (sp * cp / 100).toFixed(2);
+    if (Math.abs(parseFloat(gciField.value) - parseFloat(formulaGci)) > 0.01) {
+      gciField._manuallyEdited = true;
+      badge.style.display = 'inline';
+    }
+  }
+})();
 </script>
 {% endblock %}
