@@ -71,6 +71,7 @@ class Transaction(db.Model):
 
     # Financials
     list_price = db.Column(db.Float)
+    adj_list_price = db.Column(db.Float)     # adjusted/reduced list price
     sale_price = db.Column(db.Float)
     commission_pct = db.Column(db.Float)
     gci = db.Column(db.Float, default=0.0)

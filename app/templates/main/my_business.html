@@ -91,8 +91,8 @@ function monthChanged() {
         <col style="width:120px"><!-- 3 Agent -->
         <col style="width:150px"><!-- 4 Address -->
         <col style="width:120px"><!-- 5 Client(s) -->
-        <col style="width:90px"> <!-- 6 Old List $ -->
-        <col style="width:100px"><!-- 7 List Price -->
+        <col style="width:100px"><!-- 6 Orig List Price -->
+        <col style="width:100px"><!-- 7 Adj List Price -->
         <col style="width:110px"><!-- 8 Source -->
         <col style="width:88px"> <!-- 10 Signed Date -->
         <col style="width:88px"> <!-- 11 MLS Live -->
@@ -146,8 +146,8 @@ function monthChanged() {
           <th class="col-hdr sticky-col" data-col="3" style="left:280px;width:120px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Agent</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr sticky-col" data-col="4" style="left:400px;width:150px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner"><span class="hdr-label">Address</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="6"  style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Client(s)</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="7"  style="width:90px"><div class="col-hdr-inner"><span class="hdr-label">Old List $</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="8"  style="width:100px"><div class="col-hdr-inner"><span class="hdr-label">List Price</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="7"  style="width:100px"><div class="col-hdr-inner"><span class="hdr-label">Orig List Price</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="8"  style="width:100px"><div class="col-hdr-inner"><span class="hdr-label">Adj List Price</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="9"  style="width:110px"><div class="col-hdr-inner"><span class="hdr-label">Source</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="10" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Signed Date</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="12" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">MLS Live</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
@@ -237,10 +237,10 @@ function monthChanged() {
           </td>
           {# Client(s) col 5 #}
           <td data-val="{{ t.client_name or '' }}"><span class="ec" data-field="client_name" data-tid="{{ t.id }}">{{ t.client_name or '' }}</span></td>
-          {# Old List $ col 6 #}
-          <td data-val="{{ t.old_list_price or '' }}"><span class="ec num" data-field="old_list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.old_list_price) if t.old_list_price else '' }}</span></td>
-          {# List Price col 7 #}
+          {# Orig List Price col 6 #}
           <td data-val="{{ t.list_price or '' }}"><span class="ec num" data-field="list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.list_price) if t.list_price else '' }}</span></td>
+          {# Adj List Price col 7 #}
+          <td data-val="{{ t.adj_list_price or '' }}"><span class="ec num" data-field="adj_list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.adj_list_price) if t.adj_list_price else '' }}</span></td>
           {# Source col 8 #}
           <td data-val="{{ t.lead_source or '' }}"><span class="ec" data-field="lead_source" data-tid="{{ t.id }}" data-list="dl-sources">{{ t.lead_source or '' }}</span></td>
           {# Signed Date col 9 #}
@@ -1065,7 +1065,7 @@ updateTotals(getAllRows());
 
 // Dollar-value fields → show a leading $ (NOT units, NOT percentages)
 const MONEY_FIELDS = new Set([
-  'old_list_price','list_price','sale_price','gci','bonus','transaction_fee',
+  'old_list_price','list_price','adj_list_price','sale_price','gci','bonus','transaction_fee',
   'broker_split','franchise_split','referral_fee','primary_agent_gci',
   'secondary_agent_gci','member3_gci','member4_gci','eo_fee','donation',
   'other_fee'
@@ -1183,8 +1183,8 @@ restoreState();
     3:  'Agent Name',
     4:  'Property Address',
     5:  'Client Name(s)',
-    6:  'Previous List Price',
-    7:  'Current List Price',
+    6:  'Original List Price',
+    7:  'Adjusted List Price',
     8:  'Lead Source',
     9:  'Signed Date',
     10: 'MLS Live Date',
