@@ -135,11 +135,8 @@ function monthChanged() {
         <col style="width:58px"> <!-- 47 Paid? -->
         <col style="width:108px"><!-- 48 Co. Dollar -->
         <col style="width:88px"> <!-- 49 1099 -->
-        <col style="width:88px"> <!-- 50 Net Income -->
-        <col style="width:78px"> <!-- 51 Taxes -->
-        <col style="width:98px"> <!-- 52 Net After Tax -->
-        <col style="width:108px"><!-- 53 Admin -->
-        <col style="width:145px"><!-- 54 Notes -->
+        <col style="width:108px"><!-- 50 Admin -->
+        <col style="width:145px"><!-- 51 Notes -->
         <col style="width:108px"><!-- Actions -->
       </colgroup>
       <thead style="position:sticky;top:0;z-index:20;background:#f8f9fa;">
@@ -194,11 +191,8 @@ function monthChanged() {
           <th class="col-hdr" data-col="47" style="width:58px"><div class="col-hdr-inner"><span class="hdr-label">Paid?</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="48" style="width:108px;background:#f0fdf4"><div class="col-hdr-inner"><span class="hdr-label">Co. Dollar</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="49" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">1099</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="50" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">Net Income</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="51" style="width:78px"><div class="col-hdr-inner"><span class="hdr-label">Taxes</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="52" style="width:98px"><div class="col-hdr-inner"><span class="hdr-label">Net After Tax</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="53" style="width:108px"><div class="col-hdr-inner"><span class="hdr-label">Admin</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="54" style="width:145px"><div class="col-hdr-inner"><span class="hdr-label">Notes</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="50" style="width:108px"><div class="col-hdr-inner"><span class="hdr-label">Admin</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
+          <th class="col-hdr" data-col="51" style="width:145px"><div class="col-hdr-inner"><span class="hdr-label">Notes</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" style="position:sticky;right:0;width:108px;z-index:25;background:#f8f9fa"><div class="col-hdr-inner">Actions</div></th>
         </tr>
       </thead>
@@ -352,20 +346,14 @@ function monthChanged() {
           <td class="fw-semibold ro" style="background:#f0fdf4;color:#166534" data-val="{{ t.company_dollar or '' }}">{{ "{:,.0f}".format(t.company_dollar) if t.company_dollar else '' }}</td>
           {# 1099 Income col 49 — computed: Co. Dollar minus broker/franchise/E&O/donation/other #}
           <td class="ro text-muted" data-val="{{ t.income_1099 or '' }}">{{ "{:,.0f}".format(t.income_1099) if t.income_1099 else '' }}</td>
-          {# Net Income col 50 #}
-          <td data-val="{{ t.net_income or '' }}"><span class="ec num" data-field="net_income" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.net_income) if t.net_income else '' }}</span></td>
-          {# Taxes col 51 #}
-          <td data-val="{{ t.taxes or '' }}"><span class="ec num" data-field="taxes" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.taxes) if t.taxes else '' }}</span></td>
-          {# Net After Tax col 52 #}
-          <td data-val="{{ t.net_after_taxes or '' }}"><span class="ec num" data-field="net_after_taxes" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.net_after_taxes) if t.net_after_taxes else '' }}</span></td>
-          {# Admin col 53 #}
+          {# Admin col 50 #}
           <td data-val="{{ t.admin_name or '' }}">
             <select class="es" data-field="admin_name" data-tid="{{ t.id }}">
               <option value="">— assign —</option>
               {% for a in admin_names %}<option {% if t.admin_name==a %}selected{% endif %} value="{{ a }}">{{ a }}</option>{% endfor %}
             </select>
           </td>
-          {# Notes col 54 #}
+          {# Notes col 51 #}
           <td data-val="{{ t.notes or '' }}"><span class="ec" data-field="notes" data-tid="{{ t.id }}">{{ t.notes or '' }}</span></td>
           {# Actions — sticky right #}
           <td style="position:sticky;right:0;background:#fff;white-space:nowrap;z-index:10">
@@ -1070,10 +1058,10 @@ const MONEY_FIELDS = new Set([
   'old_list_price','list_price','sale_price','gci','bonus','transaction_fee',
   'broker_split','franchise_split','referral_fee','primary_agent_gci',
   'secondary_agent_gci','member3_gci','member4_gci','eo_fee','donation',
-  'other_fee','net_income','taxes','net_after_taxes'
+  'other_fee'
 ]);
 // Computed read-only money columns (by td index): Co. Dollar, 1099
-const MONEY_COL_IDX = new Set([52, 53]);
+const MONEY_COL_IDX = new Set([48, 49]);
 
 function money$(span) {
   const t = span.textContent.trim();
@@ -1217,11 +1205,8 @@ restoreState();
     47: 'Paid?',
     48: 'Company Dollar (GCI + Fees − Agent GCIs)',
     49: '1099 Income',
-    50: 'Net Income',
-    51: 'Taxes',
-    52: 'Net After Tax',
-    53: 'Admin',
-    54: 'Notes',
+    50: 'Admin',
+    51: 'Notes',
   };
   document.querySelectorAll('.col-hdr[data-col]').forEach(th => {
     const col = parseInt(th.dataset.col);
