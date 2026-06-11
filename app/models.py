@@ -133,6 +133,11 @@ class Transaction(db.Model):
     # ── Computed Properties (CTE formula parity) ─────────────────────────────
 
     @property
+    def division(self):
+        """Commercial if transaction_type is Commercial, otherwise Residential."""
+        return 'Commercial' if self.transaction_type == 'Commercial' else 'Residential'
+
+    @property
     def dom(self):
         """Days on Market: today - mls_live_date only.
         No MLS live date = not yet on market, so no DOM."""
