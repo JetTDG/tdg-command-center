@@ -434,32 +434,53 @@ tr.row-lease      td.sticky-col { background-color:#ededed !important; }
 tr.row-referral   td.sticky-col { background-color:#fff2cc !important; }
 tr.row-other      td.sticky-col { background-color:#f9f9f9 !important; }
 
-/* ── Row background colors by status ─── */
+/* ── Row background colors by status (uses data-status attr, always present) ── */
 /* Closed = soft green */
-tr.row-closed td                       { background:#dcfce7 !important; }
-tr.row-closed td.sticky-col            { background:#dcfce7 !important; }
-tr.row-closed td.ro                    { background:#d1fae5 !important; }
+tr[data-status="Closed"] td                     { background:#dcfce7 !important; }
+tr[data-status="Closed"] td.sticky-col          { background:#dcfce7 !important; }
+tr[data-status="Closed"] td.ro                  { background:#d1fae5 !important; }
+tr[data-status="Closed"] td:first-child         { border-left:4px solid #22c55e !important; }
 /* Pending = soft blue */
-tr.row-pending td                      { background:#dbeafe !important; color:#1e3a5f !important; font-weight:500; }
-tr.row-pending td.sticky-col           { background:#dbeafe !important; color:#1e3a5f !important; }
-tr.row-pending td.ro                   { background:#bfdbfe !important; }
+tr[data-status="Pending"] td,
+tr[data-status="Pre-Signed"] td,
+tr[data-status="Signed"] td                     { background:#dbeafe !important; color:#1e3a5f !important; font-weight:500; }
+tr[data-status="Pending"] td.sticky-col,
+tr[data-status="Pre-Signed"] td.sticky-col,
+tr[data-status="Signed"] td.sticky-col          { background:#dbeafe !important; color:#1e3a5f !important; }
+tr[data-status="Pending"] td.ro,
+tr[data-status="Pre-Signed"] td.ro,
+tr[data-status="Signed"] td.ro                  { background:#bfdbfe !important; }
+tr[data-status="Pending"] td:first-child,
+tr[data-status="Pre-Signed"] td:first-child,
+tr[data-status="Signed"] td:first-child         { border-left:4px solid #3b82f6 !important; }
+/* Active = white/default — explicit so nothing bleeds in */
+tr[data-status="Active"] td                     { background:#ffffff !important; color:#1a1a1a !important; }
+tr[data-status="Active"] td.sticky-col          { background:#ffffff !important; }
+tr[data-status="Active"] td:first-child         { border-left:4px solid #e5e7eb !important; }
+/* Sale Failed + Cancelled + Expired = soft red, strikethrough */
+tr[data-status="x-Cancelled"] td,
+tr[data-status="y-Sale Failed"] td,
+tr[data-status="z-Expired"] td                  { background:#fee2e2 !important; color:#7f1d1d !important; }
+tr[data-status="x-Cancelled"] td.sticky-col,
+tr[data-status="y-Sale Failed"] td.sticky-col,
+tr[data-status="z-Expired"] td.sticky-col       { background:#fee2e2 !important; color:#7f1d1d !important; }
+tr[data-status="x-Cancelled"] td.ro,
+tr[data-status="y-Sale Failed"] td.ro,
+tr[data-status="z-Expired"] td.ro               { background:#fecaca !important; }
+tr[data-status="x-Cancelled"] td:first-child,
+tr[data-status="y-Sale Failed"] td:first-child,
+tr[data-status="z-Expired"] td:first-child      { border-left:4px solid #ef4444 !important; }
+tr.row-dead td span, tr.row-dead td .ec         { text-decoration:line-through; }
+tr.row-dead td select                           { color:#7f1d1d !important; }
 /* Temp Off Market = medium grey */
-tr.row-temp td                         { background:#e5e7eb !important; color:#374151 !important; }
-tr.row-temp td.sticky-col              { background:#e5e7eb !important; color:#374151 !important; }
-tr.row-temp td.ro                      { background:#d1d5db !important; }
-tr.row-temp td:first-child             { border-left:4px solid #9ca3af !important; }
-/* Active = no background (white/default) */
-tr[class*="row-"] td                   { color:#1a1a1a; }
-/* Sale Failed + Cancelled = soft red, strikethrough */
-tr.row-dead td                         { background:#fee2e2 !important; color:#7f1d1d !important; }
-tr.row-dead td.sticky-col              { background:#fee2e2 !important; color:#7f1d1d !important; }
-tr.row-dead td.ro                      { background:#fecaca !important; }
-tr.row-dead td span, tr.row-dead td .ec { text-decoration:line-through; }
-tr.row-dead td select                  { color:#7f1d1d !important; }
-/* Pending accent border */
-tr.row-pending td:first-child          { border-left:4px solid #3b82f6 !important; }
-tr.row-dead td:first-child             { border-left:4px solid #ef4444 !important; }
-tr.row-closed td:first-child           { border-left:4px solid #22c55e !important; }
+tr[data-status="Temp Off Market"] td,
+tr[data-status="Temp off Mark"] td              { background:#e5e7eb !important; color:#374151 !important; }
+tr[data-status="Temp Off Market"] td.sticky-col,
+tr[data-status="Temp off Mark"] td.sticky-col   { background:#e5e7eb !important; color:#374151 !important; }
+tr[data-status="Temp Off Market"] td.ro,
+tr[data-status="Temp off Mark"] td.ro           { background:#d1d5db !important; }
+tr[data-status="Temp Off Market"] td:first-child,
+tr[data-status="Temp off Mark"] td:first-child  { border-left:4px solid #9ca3af !important; }
 
 /* ── Urgent computed numbers ─────────────────────────── */
 .num-col { font-weight:500; }
