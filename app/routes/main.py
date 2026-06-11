@@ -765,6 +765,15 @@ def patch_transaction(tid):
         # Capture old value for audit log BEFORE setting new value
         old_val = getattr(t, field, None)
 
+        # ── Address guard: Active Buyers have no property yet ──────────────
+        # Address only makes sense for Buyers once they go Pending (property found).
+        # Block inline address edits on Active Buyer rows to prevent accidental entry.
+        if field == 'address' and value.strip():
+            is_buyer = (t.transaction_type or '').lower() in ('buyer',)
+            is_active = (t.status or '').lower() == 'active'
+            if is_buyer and is_active:
+                return jsonify({'error': 'Active Buyers have no property address yet. Address is populated when status moves to Pending.'}), 400
+
         if field in TEXT_FIELDS:
             setattr(t, field, value.strip() or None)
         elif field in FLOAT_FIELDS:
