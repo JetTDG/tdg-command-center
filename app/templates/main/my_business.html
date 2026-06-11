@@ -561,7 +561,7 @@ function updateRowClass(row, newStatus) {
   } else if (PENDING_STATUSES.has(newStatus)) {
     row.classList.add('row-pending');
   } else {
-    const typeSel = row.querySelectorAll('td')[4] && row.querySelectorAll('td')[4].querySelector('select');
+    const typeSel = getCellByField(row, 'transaction_type') && getCellByField(row, 'transaction_type').querySelector('select');
     row.classList.add(ROW_TYPE_MAP[typeSel ? typeSel.value : ''] || 'row-other');
   }
 }
@@ -667,7 +667,7 @@ document.querySelectorAll('.es').forEach(sel => {
         sel.style.background='#d1fae5';
         setTimeout(()=>sel.style.background='transparent',1200);
         if (field==='transaction_type') {
-          const statusTd = sel.closest('tr').querySelectorAll('td')[10];
+          const statusTd = getCellByField(sel.closest('tr'), 'status');
           updateRowClass(sel.closest('tr'), statusTd ? statusTd.dataset.val : '');
         }
       } else { sel.style.background='#fee2e2'; setTimeout(()=>sel.style.background='transparent',2000); }

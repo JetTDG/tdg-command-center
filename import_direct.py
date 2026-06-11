@@ -67,6 +67,42 @@ print(f"Agents in DB: {len(agents)}")
 wb = openpyxl.load_workbook(XLS, read_only=True, data_only=True)
 
 # ── MY BUSINESS ───────────────────────────────────────────────────────
+# ── MY BUSINESS column index map (CTE 2026 Year.xlsx, row 22+) ───────────
+# Update these if the spreadsheet columns ever change — all row[N] refs below use these constants
+C_LIST_FLAG   = 2   # Listing indicator
+C_BUYER_FLAG  = 3   # Buyer indicator
+C_STATUS      = 23  # Status
+C_SUB_STATUS  = 24  # Sub Status
+C_ADDRESS     = 25  # Property Address
+C_CLIENT      = 26  # Client Name
+C_SOURCE      = 27  # Lead Source
+C_SALE_PRICE  = 28  # Sale Price
+C_COMM_PCT    = 29  # Commission %
+C_GCI         = 30  # GCI
+C_SIGNED      = 31  # Signed Date
+C_MLS_LIVE    = 32  # MLS Live Date
+C_CLOSE_DATE  = 33  # Close Date
+C_PROJ_CLOSE  = 34  # Projected Close
+C_EXP_DATE    = 35  # Expiry Date
+C_LIST_PRICE  = 36  # List Price
+C_BONUS       = 37  # Bonus
+C_TX_FEE      = 38  # Transaction Fee
+C_BROKER_SPLIT= 39  # Broker Split
+C_FRANCHISE   = 40  # Franchise Split
+C_REFERRAL    = 41  # Referral Fee
+C_PRIMARY_GCI = 47  # Primary Agent GCI (col 48 in 1-indexed)
+C_PRI_AGENT   = 45  # Primary Agent Name
+C_PRI_PCT     = 46  # Primary Agent %
+C_SEC_AGENT   = 48  # Secondary Agent Name
+C_SEC_PCT     = 49  # Secondary Agent %
+C_SEC_GCI     = 50  # Secondary Agent GCI
+C_UNDER_CONTR = 51  # Under Contract Date
+C_EO_FEE      = 57  # E&O Fee
+C_LEAD_TYPE   = 70  # Lead Type
+C_CO_DOLLAR   = 70  # Company Dollar (CTE col 71)
+C_1099        = 71  # 1099
+# ─────────────────────────────────────────────────────────────────────────────
+
 print('\n📋 Importing My Business...')
 ws = wb['My Business']
 rows = list(ws.iter_rows(min_row=22, values_only=True))
@@ -74,8 +110,8 @@ rows = list(ws.iter_rows(min_row=22, values_only=True))
 imported = skipped = 0
 for i, row in enumerate(rows):
     if not row or len(row) < 26: skipped += 1; continue
-    address    = cs(row[25], 300)
-    status_raw = cs(row[23])
+    address    = cs(row[C_ADDRESS], 300)
+    status_raw = cs(row[C_STATUS])
     status     = ns(status_raw)
     if not address or not status or status not in VALID: skipped += 1; continue
 
@@ -83,9 +119,9 @@ for i, row in enumerate(rows):
     cur.execute("SELECT id FROM transactions WHERE address=%s AND status=%s LIMIT 1", (address, status))
     if cur.fetchone(): skipped += 1; continue
 
-    sub_status = cs(row[24])
-    list_flag  = str(row[2]).strip().lower() if row[2] is not None else ''
-    buyer_flag = str(row[3]).strip().lower() if row[3] is not None else ''
+    sub_status = cs(row[C_SUB_STATUS])
+    list_flag  = str(row[C_LIST_FLAG]).strip().lower() if row[C_LIST_FLAG] is not None else ''
+    buyer_flag = str(row[C_BUYER_FLAG]).strip().lower() if row[C_BUYER_FLAG] is not None else ''
     if sub_status and 'cre' in sub_status.lower(): tx_type = 'Commercial'
     elif buyer_flag == 'false' and list_flag != 'false': tx_type = 'Listing'
     elif list_flag == 'false' and buyer_flag != 'false': tx_type = 'Buyer'
@@ -93,9 +129,9 @@ for i, row in enumerate(rows):
     elif sub_status and 'listing' in sub_status.lower(): tx_type = 'Listing'
     else: tx_type = 'Other'
 
-    pri_name = cs(row[45], 100)
+    pri_name = cs(row[C_PRI_AGENT], 100)
     pri_id   = agents.get(pri_name.strip().lower()) if pri_name else None
-    close_dt = cd(row[33])
+    close_dt = cd(row[C_CLOSE_DATE])
     year     = close_dt.year  if close_dt else 2026
     month    = close_dt.month if close_dt else None
 
@@ -117,13 +153,13 @@ for i, row in enumerate(rows):
                 %s,%s,%s,%s,%s, %s,%s,NOW(),NOW()
             )
         """, (
-            status, sub_status, tx_type, address, cs(row[26],200), cs(row[27],100),
-            cd(row[28]), cd(row[29]), cd(row[30]), cd(row[31]),
-            cd(row[32]), close_dt, cm(row[34]), cm(row[35]),
-            cp(row[37]), cm(row[39]) or 0.0, cm(row[40]), cm(row[41]), cm(row[42]),
-            cm(row[43]), cm(row[44]), pri_id, pri_name,
-            cp(row[46]), cm(row[47]), cs(row[48],100),
-            cp(row[49]), cm(row[50]), cs(row[64],100),
+            status, sub_status, tx_type, address, cs(row[C_CLIENT],200), cs(row[C_SOURCE],100),
+            cd(row[C_SIGNED]), cd(row[C_MLS_LIVE]), cd(row[C_EXP_DATE]), cd(row[C_UNDER_CONTR]),
+            cd(row[C_PROJ_CLOSE]), close_dt, cm(row[C_LIST_PRICE]), cm(row[C_SALE_PRICE]),
+            cp(row[C_COMM_PCT]), cm(row[C_GCI]) or 0.0, cm(row[C_BONUS]), cm(row[C_TX_FEE]), cm(row[C_BROKER_SPLIT]),
+            cm(row[C_FRANCHISE]), cm(row[C_REFERRAL]), pri_id, pri_name,
+            cp(row[C_PRI_PCT]), cm(row[C_PRIMARY_GCI]), cs(row[C_SEC_AGENT],100),
+            cp(row[C_SEC_PCT]), cm(row[C_SEC_GCI]), cs(row[64],100),
             cs(row[65],100), cs(row[68],100), cm(row[72]), cm(row[73]), cm(row[74]),
             year, month
         ))

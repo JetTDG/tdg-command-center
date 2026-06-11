@@ -75,6 +75,19 @@ def norm_status(raw):
     return STATUS_MAP.get(k, str(raw).strip())
 
 # ── My Business Import ───────────────────────────────────────────────
+# Column index map — update here if CTE spreadsheet columns change
+C_LIST_FLAG    = 2;  C_BUYER_FLAG   = 3
+C_STATUS       = 23; C_SUB_STATUS   = 24; C_ADDRESS      = 25
+C_CLIENT       = 26; C_SOURCE       = 27; C_SIGNED       = 28
+C_MLS_LIVE     = 29; C_EXP_DATE     = 30; C_UNDER_CONTR  = 31
+C_PROJ_CLOSE   = 32; C_CLOSE_DATE   = 33; C_LIST_PRICE   = 34
+C_SALE_PRICE   = 35; C_COMM_PCT     = 37; C_GCI          = 39
+C_BONUS        = 40; C_TX_FEE       = 41; C_BROKER_SPLIT = 42
+C_FRANCHISE    = 43; C_REFERRAL     = 44; C_PRI_AGENT    = 45
+C_PRI_PCT      = 46; C_PRIMARY_GCI  = 47; C_SEC_AGENT    = 48
+C_SEC_PCT      = 49; C_SEC_GCI      = 50; C_MORTGAGE     = 64
+C_TITLE        = 65; C_LOCATION     = 68; C_NET_INCOME   = 72
+C_TAXES        = 73; C_NET_AFTER_TX = 74
 
 def import_my_business(wb, agents_by_name):
     ws = wb['My Business']
@@ -86,8 +99,8 @@ def import_my_business(wb, agents_by_name):
     for i, row in enumerate(rows):
         if not row or len(row) < 26: skipped += 1; continue
 
-        address = cs(row[25], 300)
-        status_raw = cs(row[23])
+        address = cs(row[C_ADDRESS], 300)
+        status_raw = cs(row[C_STATUS])
         status = norm_status(status_raw)
 
         if not address or not status or status not in VALID_STATUSES:
@@ -98,9 +111,9 @@ def import_my_business(wb, agents_by_name):
             skipped += 1; continue
 
         # Type — use sub_status col and list/buyer flag cols
-        sub_status = cs(row[24])
-        list_flag  = str(row[2]).strip().lower() if row[2] is not None else ''
-        buyer_flag = str(row[3]).strip().lower() if row[3] is not None else ''
+        sub_status = cs(row[C_SUB_STATUS])
+        list_flag  = str(row[C_LIST_FLAG]).strip().lower() if row[C_LIST_FLAG] is not None else ''
+        buyer_flag = str(row[C_BUYER_FLAG]).strip().lower() if row[C_BUYER_FLAG] is not None else ''
         if sub_status and 'cre' in sub_status.lower():
             tx_type = 'Commercial'
         elif buyer_flag == 'false' and list_flag != 'false':
@@ -114,11 +127,11 @@ def import_my_business(wb, agents_by_name):
         else:
             tx_type = 'Other'
 
-        pri_name = cs(row[45], 100)
+        pri_name = cs(row[C_PRI_AGENT], 100)
         pri_id   = agents_by_name.get(pri_name.strip().lower()) if pri_name else None
-        sec_name = cs(row[48], 100)
+        sec_name = cs(row[C_SEC_AGENT], 100)
 
-        close_dt = cd(row[33])
+        close_dt = cd(row[C_CLOSE_DATE])
         year  = close_dt.year  if close_dt else 2026
         month = close_dt.month if close_dt else None
 
@@ -128,36 +141,36 @@ def import_my_business(wb, agents_by_name):
                 sub_status           = sub_status,
                 transaction_type     = tx_type,
                 address              = address,
-                client_name          = cs(row[26], 200),
-                lead_source          = cs(row[27], 100),
-                signed_date          = cd(row[28]),
-                mls_live_date        = cd(row[29]),
-                expiry_date          = cd(row[30]),
-                under_contract_date  = cd(row[31]),
-                projected_close_date = cd(row[32]),
+                client_name          = cs(row[C_CLIENT], 200),
+                lead_source          = cs(row[C_SOURCE], 100),
+                signed_date          = cd(row[C_SIGNED]),
+                mls_live_date        = cd(row[C_MLS_LIVE]),
+                expiry_date          = cd(row[C_EXP_DATE]),
+                under_contract_date  = cd(row[C_UNDER_CONTR]),
+                projected_close_date = cd(row[C_PROJ_CLOSE]),
                 close_date           = close_dt,
-                list_price           = cm(row[34]),
-                sale_price           = cm(row[35]),
-                commission_pct       = cp(row[37]),
-                gci                  = cm(row[39]) or 0.0,
-                bonus                = cm(row[40]),
-                transaction_fee      = cm(row[41]),
-                broker_split         = cm(row[42]),
-                franchise_split      = cm(row[43]),
-                referral_fee         = cm(row[44]),
+                list_price           = cm(row[C_LIST_PRICE]),
+                sale_price           = cm(row[C_SALE_PRICE]),
+                commission_pct       = cp(row[C_COMM_PCT]),
+                gci                  = cm(row[C_GCI]) or 0.0,
+                bonus                = cm(row[C_BONUS]),
+                transaction_fee      = cm(row[C_TX_FEE]),
+                broker_split         = cm(row[C_BROKER_SPLIT]),
+                franchise_split      = cm(row[C_FRANCHISE]),
+                referral_fee         = cm(row[C_REFERRAL]),
                 primary_agent_id     = pri_id,
                 primary_agent_name   = pri_name,
-                primary_agent_pct    = cp(row[46]),
-                primary_agent_gci    = cm(row[47]),
+                primary_agent_pct    = cp(row[C_PRI_PCT]),
+                primary_agent_gci    = cm(row[C_PRIMARY_GCI]),
                 secondary_agent_name = sec_name,
-                secondary_agent_pct  = cp(row[49]),
-                secondary_agent_gci  = cm(row[50]),
-                mortgage_company     = cs(row[64], 100),
-                title_company        = cs(row[65], 100),
-                location             = cs(row[68], 100),
-                net_income           = cm(row[72]),
-                taxes                = cm(row[73]),
-                net_after_taxes      = cm(row[74]),
+                secondary_agent_pct  = cp(row[C_SEC_PCT]),
+                secondary_agent_gci  = cm(row[C_SEC_GCI]),
+                mortgage_company     = cs(row[C_MORTGAGE], 100),
+                title_company        = cs(row[C_TITLE], 100),
+                location             = cs(row[C_LOCATION], 100),
+                net_income           = cm(row[C_NET_INCOME]),
+                taxes                = cm(row[C_TAXES]),
+                net_after_taxes      = cm(row[C_NET_AFTER_TX]),
                 year                 = year,
                 month                = month,
             )
