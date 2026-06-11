@@ -200,7 +200,8 @@ function monthChanged() {
           }.get(t.transaction_type, 'row-other') %}
         {% set is_pending = t.status in ('Pending','`Pending','Pre-Signed','Signed') %}
         {% set is_dead = t.status in ('x-Cancelled','y-Sale Failed','z-Expired') %}
-        {% set row_class = 'row-pending' if is_pending else ('row-dead' if is_dead else typ_class) %}
+        {% set is_temp = t.status in ('Temp Off Market','Temp off Mark') %}
+        {% set row_class = 'row-pending' if is_pending else ('row-dead' if is_dead else ('row-temp' if is_temp else typ_class)) %}
         <tr data-tid="{{ t.id }}" data-row data-status="{{ t.status or '' }}" data-txtype="{{ t.transaction_type or '' }}" class="{{ row_class }}">
           {# Division col 0 — sticky, computed from Type #}
           <td class="sticky-col" style="left:0;width:90px;background:inherit" data-val="{{ t.division }}"><span style="font-size:0.7rem;color:#666">{{ t.division }}</span></td>
@@ -442,6 +443,11 @@ tr.row-closed td.ro                    { background:#d1fae5 !important; }
 tr.row-pending td                      { background:#dbeafe !important; color:#1e3a5f !important; font-weight:500; }
 tr.row-pending td.sticky-col           { background:#dbeafe !important; color:#1e3a5f !important; }
 tr.row-pending td.ro                   { background:#bfdbfe !important; }
+/* Temp Off Market = medium grey */
+tr.row-temp td                         { background:#e5e7eb !important; color:#374151 !important; }
+tr.row-temp td.sticky-col              { background:#e5e7eb !important; color:#374151 !important; }
+tr.row-temp td.ro                      { background:#d1d5db !important; }
+tr.row-temp td:first-child             { border-left:4px solid #9ca3af !important; }
 /* Active = no background (white/default) */
 tr[class*="row-"] td                   { color:#1a1a1a; }
 /* Sale Failed + Cancelled = soft red, strikethrough */
