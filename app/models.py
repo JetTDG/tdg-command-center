@@ -134,13 +134,13 @@ class Transaction(db.Model):
 
     @property
     def dom(self):
-        """Days on Market: list_date → close_date (or today if active)."""
+        """Days on Market: today - mls_live_date only.
+        No MLS live date = not yet on market, so no DOM."""
         from datetime import date
-        start = self.list_date or self.mls_live_date or self.signed_date
-        if not start:
+        if not self.mls_live_date:
             return None
         end = self.close_date or date.today()
-        return (end - start).days
+        return (end - self.mls_live_date).days
 
     @property
     def dsc(self):
