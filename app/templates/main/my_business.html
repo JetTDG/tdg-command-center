@@ -121,7 +121,6 @@ function monthChanged() {
         <col style="width:120px"><!-- 34 Member 4 -->
         <col style="width:52px"> <!-- 35 M4% -->
         <col style="width:88px"> <!-- 36 M4 GCI -->
-        <col style="width:68px"> <!-- 37 E&O -->
         <col style="width:78px"> <!-- 38 Donation -->
         <col style="width:78px"> <!-- 39 Other Fee -->
         <col style="width:92px"> <!-- 40 Inspection -->
@@ -176,7 +175,6 @@ function monthChanged() {
           <th class="col-hdr" data-col="35" style="width:120px"><div class="col-hdr-inner"><span class="hdr-label">Member 4</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="36" style="width:52px"><div class="col-hdr-inner"><span class="hdr-label">M4%</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="37" style="width:88px"><div class="col-hdr-inner"><span class="hdr-label">M4 GCI</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
-          <th class="col-hdr" data-col="38" style="width:68px"><div class="col-hdr-inner"><span class="hdr-label">E&amp;O</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="39" style="width:78px"><div class="col-hdr-inner"><span class="hdr-label">Donation</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="40" style="width:78px"><div class="col-hdr-inner"><span class="hdr-label">Other Fee</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
           <th class="col-hdr" data-col="41" style="width:92px"><div class="col-hdr-inner"><span class="hdr-label">Inspection</span><span class="hdr-btns"><span class="fbtn">▾</span><span class="sbtn">⇅</span></span></div></th>
@@ -280,29 +278,27 @@ function monthChanged() {
           {# Primary Agent col 25 #}
           <td data-val="{{ t.primary_agent_name or '' }}"><span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.primary_agent_name or '' }}</span></td>
           {# Pri% col 26 #}
-          <td data-val="{{ t.primary_agent_pct or '' }}"><span class="ec num" data-field="primary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.primary_agent_pct*100) if t.primary_agent_pct else '' }}</span></td>
+          <td data-val="{{ t.primary_agent_pct or '' }}"><span class="ec num" data-field="primary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.primary_agent_pct*100) + '%' if t.primary_agent_pct else '' }}</span></td>
           {# Primary GCI col 27 #}
           <td data-val="{{ t.primary_agent_gci or '' }}"><span class="ec num" data-field="primary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.primary_agent_gci) if t.primary_agent_gci else '' }}</span></td>
           {# 2nd Agent col 28 #}
           <td data-val="{{ t.secondary_agent_name or '' }}"><span class="ec" data-field="secondary_agent_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.secondary_agent_name or '' }}</span></td>
           {# 2nd% col 29 #}
-          <td data-val="{{ t.secondary_agent_pct or '' }}"><span class="ec num" data-field="secondary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.secondary_agent_pct*100) if t.secondary_agent_pct else '' }}</span></td>
+          <td data-val="{{ t.secondary_agent_pct or '' }}"><span class="ec num" data-field="secondary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.secondary_agent_pct*100) + '%' if t.secondary_agent_pct else '' }}</span></td>
           {# 2nd GCI col 30 #}
           <td data-val="{{ t.secondary_agent_gci or '' }}"><span class="ec num" data-field="secondary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.secondary_agent_gci) if t.secondary_agent_gci else '' }}</span></td>
           {# Member 3 col 31 #}
           <td data-val="{{ t.member3_name or '' }}"><span class="ec" data-field="member3_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.member3_name or '' }}</span></td>
           {# M3% col 32 #}
-          <td data-val="{{ t.member3_pct or '' }}"><span class="ec num" data-field="member3_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member3_pct*100) if t.member3_pct else '' }}</span></td>
+          <td data-val="{{ t.member3_pct or '' }}"><span class="ec num" data-field="member3_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member3_pct*100) + '%' if t.member3_pct else '' }}</span></td>
           {# M3 GCI col 33 #}
           <td data-val="{{ t.member3_gci or '' }}"><span class="ec num" data-field="member3_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.member3_gci) if t.member3_gci else '' }}</span></td>
           {# Member 4 col 34 #}
           <td data-val="{{ t.member4_name or '' }}"><span class="ec" data-field="member4_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.member4_name or '' }}</span></td>
           {# M4% col 35 #}
-          <td data-val="{{ t.member4_pct or '' }}"><span class="ec num" data-field="member4_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member4_pct*100) if t.member4_pct else '' }}</span></td>
+          <td data-val="{{ t.member4_pct or '' }}"><span class="ec num" data-field="member4_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member4_pct*100) + '%' if t.member4_pct else '' }}</span></td>
           {# M4 GCI col 36 #}
           <td data-val="{{ t.member4_gci or '' }}"><span class="ec num" data-field="member4_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.member4_gci) if t.member4_gci else '' }}</span></td>
-          {# E&O col 37 #}
-          <td data-val="{{ t.eo_fee or '' }}"><span class="ec num" data-field="eo_fee" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.eo_fee) if t.eo_fee else '' }}</span></td>
           {# Donation col 38 #}
           <td data-val="{{ t.donation or '' }}"><span class="ec num" data-field="donation" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.donation) if t.donation else '' }}</span></td>
           {# Other Fee col 39 #}
@@ -437,22 +433,27 @@ tr.row-lease      td.sticky-col { background-color:#ededed !important; }
 tr.row-referral   td.sticky-col { background-color:#fff2cc !important; }
 tr.row-other      td.sticky-col { background-color:#f9f9f9 !important; }
 
-/* ── Text color by status (applied on top of row bg) ─── */
-/* Active = dark charcoal (default readable) */
-tr[class*="row-"] td { color:#1a1a1a; }
-/* Pending / Under Contract = deep blue */
-tr.row-pending td { color:#1f3864 !important; font-weight:500; }
-tr.row-pending td.sticky-col { color:#1f3864 !important; }
-/* Cancelled / Failed / Expired = muted grey + strikethrough */
-tr.row-dead td { color:#999 !important; }
-tr.row-dead td.sticky-col { color:#999 !important; }
+/* ── Row background colors by status ─── */
+/* Closed = soft green */
+tr.row-closed td                       { background:#dcfce7 !important; }
+tr.row-closed td.sticky-col            { background:#dcfce7 !important; }
+tr.row-closed td.ro                    { background:#d1fae5 !important; }
+/* Pending = soft blue */
+tr.row-pending td                      { background:#dbeafe !important; color:#1e3a5f !important; font-weight:500; }
+tr.row-pending td.sticky-col           { background:#dbeafe !important; color:#1e3a5f !important; }
+tr.row-pending td.ro                   { background:#bfdbfe !important; }
+/* Active = no background (white/default) */
+tr[class*="row-"] td                   { color:#1a1a1a; }
+/* Sale Failed + Cancelled = soft red, strikethrough */
+tr.row-dead td                         { background:#fee2e2 !important; color:#7f1d1d !important; }
+tr.row-dead td.sticky-col              { background:#fee2e2 !important; color:#7f1d1d !important; }
+tr.row-dead td.ro                      { background:#fecaca !important; }
 tr.row-dead td span, tr.row-dead td .ec { text-decoration:line-through; }
-tr.row-dead td select { color:#999 !important; }
-
-/* ── Row bg for pending (no bg override — keep type color, just text changes) ── */
-/* Pending rows get a subtle left border accent instead */
-tr.row-pending td:first-child { border-left:4px solid #1f3864 !important; }
-tr.row-dead td:first-child    { border-left:4px solid #bbb !important; }
+tr.row-dead td select                  { color:#7f1d1d !important; }
+/* Pending accent border */
+tr.row-pending td:first-child          { border-left:4px solid #3b82f6 !important; }
+tr.row-dead td:first-child             { border-left:4px solid #ef4444 !important; }
+tr.row-closed td:first-child           { border-left:4px solid #22c55e !important; }
 
 /* ── Urgent computed numbers ─────────────────────────── */
 .num-col { font-weight:500; }
@@ -1067,7 +1068,7 @@ updateTotals(getAllRows());
 const MONEY_FIELDS = new Set([
   'old_list_price','list_price','adj_list_price','sale_price','gci','bonus','transaction_fee',
   'broker_split','franchise_split','referral_fee','primary_agent_gci',
-  'secondary_agent_gci','member3_gci','member4_gci','eo_fee','donation',
+  'secondary_agent_gci','member3_gci','member4_gci','donation',
   'other_fee'
 ]);
 // Computed read-only money columns — use data-field now, no index needed
@@ -1122,6 +1123,7 @@ const REQUIRED_FIELDS = [
   {f:'address',            label:'Address'},
   {f:'client_name',        label:'Client(s)'},
   {f:'lead_source',        label:'Source'},
+  {f:'expiration_date',    label:'Expiration Date'},
 ];
 function flagMissing() {
   document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
@@ -1213,21 +1215,20 @@ restoreState();
     35: 'Member 4',
     36: 'Member 4 Split %',
     37: 'Member 4 GCI',
-    38: 'E&O Insurance',
-    39: 'Donation',
-    40: 'Other Fee',
-    41: 'Inspection Date',
-    42: 'Appraisal Date',
-    43: 'Mortgage Company',
-    44: 'Title Company',
-    45: 'Lead Type (Team or Agent)',
-    46: 'Infinity File Link',
-    47: 'Location',
-    48: 'Paid?',
-    49: 'Company Dollar (GCI + Fees − Agent GCIs)',
-    50: '1099 Income',
-    51: 'Admin',
-    52: 'Notes',
+    38: 'Donation',
+    39: 'Other Fee',
+    40: 'Inspection Date',
+    41: 'Appraisal Date',
+    42: 'Mortgage Company',
+    43: 'Title Company',
+    44: 'Lead Type (Team or Agent)',
+    45: 'Infinity File Link',
+    46: 'Location',
+    47: 'Paid?',
+    48: 'Company Dollar (GCI + Fees − Agent GCIs)',
+    49: '1099 Income',
+    50: 'Admin',
+    51: 'Notes',
   };
   document.querySelectorAll('.col-hdr[data-col]').forEach(th => {
     const col = parseInt(th.dataset.col);
