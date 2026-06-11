@@ -235,7 +235,10 @@ function monthChanged() {
           </td>
           {# Agent col 3 — sticky #}
           <td class="sticky-col" style="left:320px;width:120px;background:#fff" data-val="{{ t.primary_agent_name or (t.agent.name if t.agent else '') }}">
-            <span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</span>
+            <select class="es" data-field="primary_agent_name" data-tid="{{ t.id }}">
+              <option value="">— select —</option>
+              {% for a in agents %}<option {% if (t.primary_agent_name or (t.agent.name if t.agent else ''))==a.name %}selected{% endif %} value="{{ a.name }}">{{ a.name }}</option>{% endfor %}
+            </select>
           </td>
           {# Address col 4 — sticky #}
           <td class="sticky-col" style="left:440px;width:150px;background:#fff" data-val="{{ t.address or '' }}">
@@ -248,7 +251,12 @@ function monthChanged() {
           {# Adj List Price col 7 #}
           <td data-val="{{ t.adj_list_price or '' }}"><span class="ec num" data-field="adj_list_price" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.adj_list_price) if t.adj_list_price else '' }}</span></td>
           {# Source col 8 #}
-          <td data-val="{{ t.lead_source or '' }}"><span class="ec" data-field="lead_source" data-tid="{{ t.id }}" data-list="dl-sources">{{ t.lead_source or '' }}</span></td>
+          <td data-val="{{ t.lead_source or '' }}">
+            <select class="es" data-field="lead_source" data-tid="{{ t.id }}">
+              <option value="">— select —</option>
+              {% for ls in lead_sources %}<option {% if t.lead_source==ls %}selected{% endif %} value="{{ ls }}">{{ ls }}</option>{% endfor %}
+            </select>
+          </td>
           {# Signed Date col 9 #}
           <td data-val="{{ t.signed_date.isoformat() if t.signed_date else '' }}"><span class="ec" data-field="signed_date" data-tid="{{ t.id }}" data-type="date">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '' }}</span></td>
           {# MLS Live col 11 — Listings/Commercial only, blank for Buyers/Referrals #}
