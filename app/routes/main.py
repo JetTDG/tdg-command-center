@@ -745,13 +745,13 @@ def patch_transaction(tid):
     TEXT_FIELDS = {'transaction_type','status','sub_status','lead_source','address',
                    'client_name','location','primary_agent_name','secondary_agent_name',
                    'mortgage_company','title_company','lead_type','notes','admin_name',
-                   'member3_name','member4_name','link_to_file'}
-    FLOAT_FIELDS = {'sale_price','list_price','old_list_price','commission_pct','gci','bonus',
+                   'member3_name','member4_name','link_to_file','division'}
+    FLOAT_FIELDS = {'sale_price','list_price','old_list_price','adj_list_price','commission_pct','gci','bonus',
                     'transaction_fee','broker_split','franchise_split','referral_fee',
                     'taxes','net_after_taxes','primary_agent_pct','primary_agent_gci',
                     'secondary_agent_pct','secondary_agent_gci',
                     'member3_pct','member3_gci','member4_pct','member4_gci',
-                    'units','eo_fee','donation','other_fee'}
+                    'units','eo_fee','donation','other_fee','amt_paid'}
     DATE_FIELDS  = {'signed_date','mls_live_date','expiry_date','under_contract_date',
                     'projected_close_date','close_date','inspection_date','appraisal_date',
                     'list_date'}

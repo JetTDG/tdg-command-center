@@ -205,8 +205,13 @@ function monthChanged() {
         {% set is_temp = t.status in ('Temp Off Market','Temp off Mark') %}
         {% set row_class = 'row-pending' if is_pending else ('row-dead' if is_dead else ('row-temp' if is_temp else typ_class)) %}
         <tr data-tid="{{ t.id }}" data-row data-status="{{ t.status or '' }}" data-txtype="{{ t.transaction_type or '' }}" class="{{ row_class }}">
-          {# Division col 0 — sticky, computed from Type #}
-          <td class="sticky-col" style="left:0;width:90px;background:inherit" data-val="{{ t.division }}"><span style="font-size:0.7rem;color:#666">{{ t.division }}</span></td>
+          {# Division col 0 — sticky, select #}
+          <td class="sticky-col" style="left:0;width:90px;background:inherit" data-val="{{ t.division or '' }}">
+            <select class="es" data-field="division" data-tid="{{ t.id }}" style="font-size:0.7rem;">
+              {% for opt in ['Residential','Commercial'] %}
+              <option {% if t.division==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+            </select>
+          </td>
           {# Status col 1 — sticky, badge + inline select #}
           {% set s = t.status or '' %}
           {% set badge_cls = {
@@ -1164,7 +1169,7 @@ const REQUIRED_FIELDS = [
   {f:'address',            label:'Address'},
   {f:'client_name',        label:'Client(s)'},
   {f:'lead_source',        label:'Source'},
-  {f:'expiration_date',    label:'Expiration Date'},
+  {f:'expiry_date',        label:'Expiration Date'},
 ];
 function flagMissing() {
   document.querySelectorAll('#mb-tbody tr[data-row]').forEach(row => {
