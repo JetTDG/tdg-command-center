@@ -81,8 +81,8 @@ function monthChanged() {
 </datalist>
 
 <!-- Table -->
-<div class="card mt-1 p-0" style="overflow:hidden;">
-  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:74vh;position:relative;">
+<div class="card mt-1 p-0" style="overflow:clip;">
+  <div id="mb-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:74vh;position:relative;touch-action:pan-x pan-y;">
     <table class="table table-hover table-bordered mb-0" id="mb-table" style="min-width:5200px;table-layout:fixed;font-size:0.74rem;">
       <colgroup>
         <col style="width:100px"><!-- 0 Status -->
@@ -534,7 +534,7 @@ tr.row-hidden { display:none; }
 /* Single scroll container (no -webkit-overflow-scrolling momentum layer —
    it desyncs sticky header/columns on iOS). Sticky cols stay locked. */
 @media (max-width: 1024px) {
-  #mb-table-wrap { max-height: 70vh; }
+  #mb-table-wrap { max-height: 70vh; overflow-x: scroll; overflow-y: scroll; touch-action: pan-x pan-y; }
   #mb-table { font-size: 0.7rem; }
   #mb-table td, #mb-table th { padding: 2px 4px !important; }
 }
