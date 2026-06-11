@@ -212,18 +212,11 @@ function monthChanged() {
               <option {% if t.division==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
             </select>
           </td>
-          {# Status col 1 — sticky, badge + inline select #}
-          {% set s = t.status or '' %}
-          {% set badge_cls = {
-            'Active':'badge-active','Pending':'badge-pending','Signed':'badge-signed',
-            'Pre-Signed':'badge-presigned','Closed':'badge-closed',
-            'x-Cancelled':'badge-cancelled','y-Sale Failed':'badge-failed','z-Expired':'badge-expired'
-          }.get(s, 'badge-other') %}
-          <td class="sticky-col" style="left:90px;width:100px;background:#fff" data-val="{{ s }}">
-            <span class="badge-status {{ badge_cls }} ec-status-badge" data-tid="{{ t.id }}" title="Click to change">{{ s }}</span>
-            <select class="es es-status" data-field="status" data-tid="{{ t.id }}" style="display:none;font-size:0.74rem;border:1px solid #d4a017;border-radius:3px;background:#fffbf0;width:100%">
+          {# Status col 1 — sticky #}
+          <td class="sticky-col" style="left:90px;width:100px;background:#fff" data-val="{{ t.status or '' }}">
+            <select class="es es-status" data-field="status" data-tid="{{ t.id }}">
               {% for opt in ['Active','Pending','Closed','Pre-Signed','Signed','LOI','Coming Soon','Pipeline','Temp Off Market','Temp off Mark','x-Cancelled','y-Sale Failed','z-Expired'] %}
-              <option {% if s==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+              <option {% if (t.status or '')==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
             </select>
           </td>
           {# Type col 2 — sticky #}
@@ -597,34 +590,6 @@ function updateRowClass(row, newStatus) {
   }
 }
 
-// ── Status badge click → inline select ───────────────────────────────────
-document.querySelectorAll('.ec-status-badge').forEach(badge => {
-  badge.addEventListener('click', function(e) {
-    e.stopPropagation();
-    const sel = badge.nextElementSibling;
-    badge.style.display = 'none';
-    sel.style.display = 'block';
-    sel.focus();
-    function hide() { badge.style.display=''; sel.style.display='none'; }
-    sel.addEventListener('change', function() {
-      const nv = sel.value;
-      fetch('/api/transaction/'+badge.dataset.tid+'/patch', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({field:'status', value:nv})
-      }).then(r=>r.json()).then(d=>{
-        if (d.ok) {
-          badge.closest('td').dataset.val = nv;
-          badge.textContent = nv;
-          badge.className = 'badge-status '+(BADGE_MAP[nv]||'badge-other')+' ec-status-badge';
-          updateRowClass(badge.closest('tr'), nv);
-        }
-        hide();
-      }).catch(hide);
-    }, {once:true});
-    sel.addEventListener('blur', hide, {once:true});
-  });
-});
-
 // ── Inline text/date cell editing ────────────────────────────────────────
 document.querySelectorAll('.ec').forEach(function(span) {
   span.addEventListener('click', function(e) {
@@ -697,9 +662,11 @@ document.querySelectorAll('.es').forEach(sel => {
         sel.closest('td').dataset.val = sel.value;
         sel.style.background='#d1fae5';
         setTimeout(()=>sel.style.background='transparent',1200);
-        if (field==='transaction_type') {
+        if (field==='transaction_type' || field==='status') {
           const statusTd = getCellByField(sel.closest('tr'), 'status');
-          updateRowClass(sel.closest('tr'), statusTd ? statusTd.dataset.val : '');
+          const newStatus = field==='status' ? sel.value : (statusTd ? statusTd.dataset.val : '');
+          sel.closest('tr').dataset.status = field==='status' ? sel.value : (sel.closest('tr').dataset.status || '');
+          updateRowClass(sel.closest('tr'), newStatus);
         }
       } else { sel.style.background='#fee2e2'; setTimeout(()=>sel.style.background='transparent',2000); }
     });
