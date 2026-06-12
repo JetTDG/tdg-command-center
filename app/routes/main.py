@@ -137,11 +137,11 @@ def home():
     pending_gci   = projected_gci  # alias used in template
 
     # Pre-Signed pipeline:
-    # Residential = status 'Pre-Signed', no division filter
-    # Commercial  = status 'Coming Soon', division='Commercial'
-    # Combined    = Residential Pre-Signed + Commercial Coming Soon
-    presigned_count_res  = Transaction.query.filter_by(status='Pre-Signed', archived=False, division='Residential').count()
-    presigned_gci_res    = float(db.session.query(func.sum(Transaction.gci)).filter_by(status='Pre-Signed', archived=False, division='Residential').scalar() or 0)
+    # Residential = status Pre-Signed, Signed, or Coming Soon (division='Residential')
+    # Commercial  = status 'Coming Soon' (division='Commercial')
+    # Combined    = both
+    presigned_count_res  = Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.status.in_(['Pre-Signed','Signed','Coming Soon'])).count()
+    presigned_gci_res    = float(db.session.query(func.sum(Transaction.gci)).filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.status.in_(['Pre-Signed','Signed','Coming Soon'])).scalar() or 0)
     presigned_count_comm = Transaction.query.filter_by(status='Coming Soon', archived=False, division='Commercial').count()
     presigned_gci_comm   = float(db.session.query(func.sum(Transaction.gci)).filter_by(status='Coming Soon', archived=False, division='Commercial').scalar() or 0)
     presigned_count = presigned_count_res + presigned_count_comm
