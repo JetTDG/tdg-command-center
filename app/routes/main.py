@@ -241,7 +241,7 @@ def home():
             'goal_pct':             round(goal_pct, 1),
             'team_goal':            team_goal,
             'listings_signed':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
-            'listings_signed_mtd':  0,
+            'listings_signed_mtd':  Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.signed_date>=mtd_start, Transaction.signed_date<=mtd_end).count(),
             'buyers_signed':        0,
             'buyers_signed_mtd':    0,
             'active_listings':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.status=='Active').count(),
