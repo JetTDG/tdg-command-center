@@ -136,8 +136,16 @@ def home():
     projected_gci = pending_gci_q()
     pending_gci   = projected_gci  # alias used in template
 
-    presigned_count = Transaction.query.filter_by(status='Pre-Signed', archived=False).count()
-    presigned_gci   = float(db.session.query(func.sum(Transaction.gci)).filter_by(status='Pre-Signed', archived=False).scalar() or 0)
+    # Pre-Signed pipeline:
+    # Residential = status 'Pre-Signed', no division filter
+    # Commercial  = status 'Coming Soon', division='Commercial'
+    # Combined    = Residential Pre-Signed + Commercial Coming Soon
+    presigned_count_res  = Transaction.query.filter_by(status='Pre-Signed', archived=False, division='Residential').count()
+    presigned_gci_res    = float(db.session.query(func.sum(Transaction.gci)).filter_by(status='Pre-Signed', archived=False, division='Residential').scalar() or 0)
+    presigned_count_comm = Transaction.query.filter_by(status='Coming Soon', archived=False, division='Commercial').count()
+    presigned_gci_comm   = float(db.session.query(func.sum(Transaction.gci)).filter_by(status='Coming Soon', archived=False, division='Commercial').scalar() or 0)
+    presigned_count = presigned_count_res + presigned_count_comm
+    presigned_gci   = presigned_gci_res + presigned_gci_comm
 
     # ── Active pipeline: no year filter (only current-year records are Active now) ─
     active_listings = Transaction.query.filter_by(transaction_type='Listing', status='Active', archived=False).count()
@@ -208,6 +216,8 @@ def home():
             'acceptance_rate_mtd':  acceptance_rate_mtd,
             'offers_ytd':           offers_ytd,
             'acceptance_rate_ytd':  acceptance_rate_ytd,
+            'presigned_count':      presigned_count,
+            'presigned_gci':        presigned_gci,
         },
         'res': {
             'ytd_closed':           closed_q_base(division_filter='Residential').count(),
@@ -229,6 +239,8 @@ def home():
             'acceptance_rate_mtd':  acceptance_rate_mtd,
             'offers_ytd':           offers_ytd,
             'acceptance_rate_ytd':  acceptance_rate_ytd,
+            'presigned_count':      presigned_count_res,
+            'presigned_gci':        presigned_gci_res,
         },
         'comm': {
             'ytd_closed':           closed_q_base(division_filter='Commercial').count(),
@@ -250,6 +262,8 @@ def home():
             'acceptance_rate_mtd':  0.0,
             'offers_ytd':           0,
             'acceptance_rate_ytd':  0.0,
+            'presigned_count':      presigned_count_comm,
+            'presigned_gci':        presigned_gci_comm,
         },
     }
 

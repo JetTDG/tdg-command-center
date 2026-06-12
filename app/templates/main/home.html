@@ -107,7 +107,7 @@
     <div class="stat-card">
       <div class="stat-label">Pre-Signed Pipeline</div>
       <div class="stat-value" id="k-presigned">{{ presigned_count }}</div>
-      <div class="stat-sub">${{ "{:,.0f}".format(presigned_gci) }} projected GCI</div>
+      <div class="stat-sub">$<span id="k-presigned-gci">{{ "{:,.0f}".format(presigned_gci) }}</span> projected GCI</div>
     </div>
   </div>
 </div>
@@ -276,6 +276,8 @@ function refreshKPI() {
   document.getElementById('k-offers-ytd').textContent   = fmtInt(k.offers_ytd);
   document.getElementById('k-accept-mtd').textContent   = k.acceptance_rate_mtd + '%';
   document.getElementById('k-accept-ytd').textContent   = k.acceptance_rate_ytd + '%';
+  document.getElementById('k-presigned').textContent    = fmtInt(k.presigned_count);
+  document.getElementById('k-presigned-gci').textContent = Number(k.presigned_gci).toLocaleString('en-US', {maximumFractionDigits:0});
 }
 
 function refreshRecent() {
