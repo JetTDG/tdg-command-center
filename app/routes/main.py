@@ -1348,21 +1348,18 @@ DB: PostgreSQL. Tables:
 Key values:
 - status: Active, Pending, Closed, Pre-Signed, x-Cancelled, y-Sale Failed, z-Expired
 - transaction_type: Listing, Buyer, Commercial, Referral, Lease
-- archived: boolean — ALWAYS include AND archived = FALSE in every query (archived records are historical imports with incomplete data)
+- archived: UI display flag only — archived=TRUE means prior-year CTE imports (2016–2025), archived=FALSE means current working records. Both have valid, complete data. DO NOT filter by archived for any analytical questions. Only filter archived=FALSE for "current pipeline" questions (Active/Pending/Pre-Signed counts).
 - year: 2016–2026 (historical data loaded; year column = EXTRACT(YEAR FROM close_date))
   IMPORTANT: always use EXTRACT(YEAR FROM close_date) to count closings per calendar year,
   NOT the year column. Example: WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2022
   NOTE: 2021 has only 9 closed records — no complete 2021 CTE file exists in Drive.
 
 CRITICAL QUERY RULES:
-1. ALWAYS add AND archived = FALSE to every query — no exceptions.
-2. NEVER filter by year for status-based questions (Active, Pending, Pre-Signed counts).
-   Active listings/buyers span multiple years. DO NOT add year=2026 to these queries.
-3. For YTD GCI, closed volume, closed units: use WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2026 AND archived=FALSE.
-4. For "how many active listings/buyers": WHERE transaction_type=X AND status='Active' AND archived=FALSE only.
-5. For year-comparison questions ("which year had more closes"), query ALL years with GROUP BY EXTRACT(YEAR FROM close_date).
-6. For "ever", "all-time", "largest", "most", "best", "record" questions: DO NOT filter by year. Search all years.
-7. NEVER say you lack data — always run the query and return actual results.
+1. For "ever", "all-time", "largest", "most", "best", "record" questions: DO NOT filter by year OR archived. Query the entire table.
+2. For YTD GCI, closed volume, closed units: use WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2026. No archived filter needed.
+3. For "how many active listings/buyers" (current pipeline): WHERE transaction_type=X AND status='Active' AND archived=FALSE.
+4. For year-comparison questions ("which year had more closes"), query ALL years with GROUP BY EXTRACT(YEAR FROM close_date). No archived filter.
+5. NEVER say you lack data — always run the query and return actual results.
 Agent name matching: use ILIKE '%name%'
 """
 
@@ -1406,8 +1403,10 @@ Question: {question}"""
 
     if q_type in ('DATABASE', 'BOTH'):
         sql_prompt = f"""Generate a single safe read-only PostgreSQL SELECT query.
-Rules: SELECT only. Use ILIKE for names. ALWAYS include archived = FALSE.
-Only filter by year when the question is explicitly year-specific — for "ever", "all-time", "largest", "record" questions, search ALL years with no year filter.
+Rules: SELECT only. Use ILIKE for names.
+Only filter by year when the question is explicitly year-specific.
+For "ever", "all-time", "largest", "record", "most" questions: search ALL rows with NO year filter and NO archived filter.
+For current pipeline (Active/Pending/Pre-Signed): add archived=FALSE.
 Return ONLY the SQL, no markdown, no explanation.
 
 Schema:{schema}
