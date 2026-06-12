@@ -592,6 +592,9 @@ def add_transaction():
             franchise_split=float(f.get('franchise_split') or 0) or None,
             referral_fee=float(f.get('referral_fee') or 0) or None,
             referral_pct=float(f.get('referral_pct') or 0) / 100 or None,
+            eo_fee=float(f.get('eo_fee') or 0) or None,
+            donation=float(f.get('donation') or 0) or None,
+            other_fee=float(f.get('other_fee') or 0) or None,
             primary_agent_name=f.get('primary_agent_name', '') or None,
             primary_agent_pct=float(f.get('primary_agent_pct') or 0) / 100 or None,
             primary_agent_gci=float(f.get('primary_agent_gci') or 0) or None,
@@ -669,6 +672,9 @@ def edit_transaction(tid):
         t.franchise_split = float(f.get('franchise_split') or 0) or None
         t.referral_fee = float(f.get('referral_fee') or 0) or None
         t.referral_pct = float(f.get('referral_pct') or 0) / 100 or None
+        t.eo_fee = float(f.get('eo_fee') or 0) or None
+        t.donation = float(f.get('donation') or 0) or None
+        t.other_fee = float(f.get('other_fee') or 0) or None
         t.primary_agent_name = f.get('primary_agent_name', '') or None
         t.primary_agent_pct = float(f.get('primary_agent_pct') or 0) / 100 or None
         t.primary_agent_gci = float(f.get('primary_agent_gci') or 0) or None
