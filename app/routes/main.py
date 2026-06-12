@@ -44,19 +44,23 @@ def home():
     month = current_month()
 
     # YTD stats
-    COMMERCIAL_TYPES = ('Commercial', 'Lease', 'CRE Listing', 'CRE Buyer', 'CRE Landlord Rep', 'CRE Tenant Rep', 'CRE Business Only')
+    # Division-based filtering — robust against transaction_type name changes
+    # 'Commercial' division = all CRE deals regardless of specific type
+    # 'Residential' division = all residential deals
+    def _div_filter(q, division_filter=None):
+        if division_filter == 'Commercial':
+            q = q.filter(Transaction.division == 'Commercial')
+        elif division_filter == 'Residential':
+            q = q.filter(Transaction.division == 'Residential')
+        return q
 
-    def seg_count(status, type_filter=None, exclude_types=None):
+    def seg_count(status, division_filter=None):
         q = Transaction.query.filter(Transaction.archived == False, Transaction.year == year, Transaction.status == status)
-        if type_filter:    q = q.filter(Transaction.transaction_type.in_(type_filter))
-        if exclude_types:  q = q.filter(~Transaction.transaction_type.in_(exclude_types))
-        return q.count()
+        return _div_filter(q, division_filter).count()
 
-    def seg_sum(col, status_list, type_filter=None, exclude_types=None):
+    def seg_sum(col, status_list, division_filter=None):
         q = db.session.query(func.sum(col)).filter(Transaction.archived == False, Transaction.year == year, Transaction.status.in_(status_list))
-        if type_filter:    q = q.filter(Transaction.transaction_type.in_(type_filter))
-        if exclude_types:  q = q.filter(~Transaction.transaction_type.in_(exclude_types))
-        return float(q.scalar() or 0)
+        return float(_div_filter(q, division_filter).scalar() or 0)
 
     # ── YTD closed: filter by actual close_date calendar year ──────────────────
     from sqlalchemy import cast, Date as SADate
@@ -68,49 +72,41 @@ def home():
     import calendar as _cal
     mtd_end   = dt_date(year, month, _cal.monthrange(year, month)[1])
 
-    def closed_q_base(type_filter=None, exclude_types=None):
+    def closed_q_base(division_filter=None):
         q = Transaction.query.filter(
             Transaction.archived == False,
             Transaction.status == 'Closed',
             Transaction.close_date >= ytd_start,
             Transaction.close_date <= ytd_end
         )
-        if type_filter:    q = q.filter(Transaction.transaction_type.in_(type_filter))
-        if exclude_types:  q = q.filter(~Transaction.transaction_type.in_(exclude_types))
-        return q
+        return _div_filter(q, division_filter)
 
-    def closed_sum_base(col, type_filter=None, exclude_types=None):
+    def closed_sum_base(col, division_filter=None):
         q = db.session.query(func.sum(col)).filter(
             Transaction.archived == False,
             Transaction.status == 'Closed',
             Transaction.close_date >= ytd_start,
             Transaction.close_date <= ytd_end
         )
-        if type_filter:    q = q.filter(Transaction.transaction_type.in_(type_filter))
-        if exclude_types:  q = q.filter(~Transaction.transaction_type.in_(exclude_types))
-        return float(q.scalar() or 0)
+        return float(_div_filter(q, division_filter).scalar() or 0)
 
-    def mtd_closed_count(type_filter=None, exclude_types=None):
+    def mtd_closed_count(division_filter=None):
         q = Transaction.query.filter(
             Transaction.archived == False,
             Transaction.status == 'Closed',
             Transaction.close_date >= mtd_start,
             Transaction.close_date <= mtd_end
         )
-        if type_filter:    q = q.filter(Transaction.transaction_type.in_(type_filter))
-        if exclude_types:  q = q.filter(~Transaction.transaction_type.in_(exclude_types))
-        return q.count()
+        return _div_filter(q, division_filter).count()
 
-    def mtd_closed_gci(type_filter=None, exclude_types=None):
+    def mtd_closed_gci(division_filter=None):
         q = db.session.query(func.sum(Transaction.gci)).filter(
             Transaction.archived == False,
             Transaction.status == 'Closed',
             Transaction.close_date >= mtd_start,
             Transaction.close_date <= mtd_end
         )
-        if type_filter:    q = q.filter(Transaction.transaction_type.in_(type_filter))
-        if exclude_types:  q = q.filter(~Transaction.transaction_type.in_(exclude_types))
-        return float(q.scalar() or 0)
+        return float(_div_filter(q, division_filter).scalar() or 0)
 
     ytd_closed = closed_q_base().count()
     ytd_gci    = closed_sum_base(Transaction.gci)
@@ -128,17 +124,13 @@ def home():
                  extract('year', Transaction.signed_date) == year)
         )
 
-    def pending_count_q(type_filter=None, exclude_types=None):
+    def pending_count_q(division_filter=None):
         q = Transaction.query.filter(Transaction.archived == False, Transaction.status == 'Pending', mb_year_filter())
-        if type_filter:    q = q.filter(Transaction.transaction_type.in_(type_filter))
-        if exclude_types:  q = q.filter(~Transaction.transaction_type.in_(exclude_types))
-        return q.count()
+        return _div_filter(q, division_filter).count()
 
-    def pending_gci_q(type_filter=None, exclude_types=None):
+    def pending_gci_q(division_filter=None):
         q = db.session.query(func.sum(Transaction.gci)).filter(Transaction.archived == False, Transaction.status == 'Pending', mb_year_filter())
-        if type_filter:    q = q.filter(Transaction.transaction_type.in_(type_filter))
-        if exclude_types:  q = q.filter(~Transaction.transaction_type.in_(exclude_types))
-        return float(q.scalar() or 0)
+        return float(_div_filter(q, division_filter).scalar() or 0)
 
     pending_count = pending_count_q()
     projected_gci = pending_gci_q()
@@ -218,42 +210,42 @@ def home():
             'acceptance_rate_ytd':  acceptance_rate_ytd,
         },
         'res': {
-            'ytd_closed':           closed_q_base(exclude_types=COMMERCIAL_TYPES).count(),
-            'ytd_gci':              closed_sum_base(Transaction.gci, exclude_types=COMMERCIAL_TYPES),
-            'month_gci':            mtd_closed_gci(exclude_types=COMMERCIAL_TYPES),
-            'month_closed':         mtd_closed_count(exclude_types=COMMERCIAL_TYPES),
-            'pending_count':        pending_count_q(exclude_types=COMMERCIAL_TYPES),
-            'projected_gci':        pending_gci_q(exclude_types=COMMERCIAL_TYPES),
-            'pending_gci':          pending_gci_q(exclude_types=COMMERCIAL_TYPES),
+            'ytd_closed':           closed_q_base(division_filter='Residential').count(),
+            'ytd_gci':              closed_sum_base(Transaction.gci, division_filter='Residential'),
+            'month_gci':            mtd_closed_gci(division_filter='Residential'),
+            'month_closed':         mtd_closed_count(division_filter='Residential'),
+            'pending_count':        pending_count_q(division_filter='Residential'),
+            'projected_gci':        pending_gci_q(division_filter='Residential'),
+            'pending_gci':          pending_gci_q(division_filter='Residential'),
             'goal_pct':             round(goal_pct, 1),
             'team_goal':            team_goal,
-            'listings_signed':      Transaction.query.filter(Transaction.archived==False, Transaction.transaction_type=='Listing', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
+            'listings_signed':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.transaction_type=='Listing', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
             'listings_signed_mtd':  listings_signed_mtd,
-            'buyers_signed':        Transaction.query.filter(Transaction.archived==False, Transaction.transaction_type=='Buyer', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
+            'buyers_signed':        Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.transaction_type=='Buyer', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
             'buyers_signed_mtd':    buyers_signed_mtd,
-            'active_listings':      Transaction.query.filter(Transaction.archived==False, Transaction.transaction_type=='Listing', Transaction.status=='Active').count(),
-            'active_buyers':        Transaction.query.filter(Transaction.archived==False, Transaction.transaction_type=='Buyer',   Transaction.status=='Active').count(),
+            'active_listings':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.transaction_type=='Listing', Transaction.status=='Active').count(),
+            'active_buyers':        Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.transaction_type=='Buyer',   Transaction.status=='Active').count(),
             'offers_mtd':           offers_mtd,
             'acceptance_rate_mtd':  acceptance_rate_mtd,
             'offers_ytd':           offers_ytd,
             'acceptance_rate_ytd':  acceptance_rate_ytd,
         },
         'comm': {
-            'ytd_closed':           closed_q_base(type_filter=COMMERCIAL_TYPES).count(),
-            'ytd_gci':              closed_sum_base(Transaction.gci, type_filter=COMMERCIAL_TYPES),
-            'month_gci':            mtd_closed_gci(type_filter=COMMERCIAL_TYPES),
-            'month_closed':         mtd_closed_count(type_filter=COMMERCIAL_TYPES),
-            'pending_count':        pending_count_q(type_filter=COMMERCIAL_TYPES),
-            'projected_gci':        pending_gci_q(type_filter=COMMERCIAL_TYPES),
-            'pending_gci':          pending_gci_q(type_filter=COMMERCIAL_TYPES),
+            'ytd_closed':           closed_q_base(division_filter='Commercial').count(),
+            'ytd_gci':              closed_sum_base(Transaction.gci, division_filter='Commercial'),
+            'month_gci':            mtd_closed_gci(division_filter='Commercial'),
+            'month_closed':         mtd_closed_count(division_filter='Commercial'),
+            'pending_count':        pending_count_q(division_filter='Commercial'),
+            'projected_gci':        pending_gci_q(division_filter='Commercial'),
+            'pending_gci':          pending_gci_q(division_filter='Commercial'),
             'goal_pct':             round(goal_pct, 1),
             'team_goal':            team_goal,
-            'listings_signed':      Transaction.query.filter(Transaction.archived==False, Transaction.transaction_type.in_(COMMERCIAL_TYPES), Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
+            'listings_signed':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
             'listings_signed_mtd':  0,
             'buyers_signed':        0,
             'buyers_signed_mtd':    0,
-            'active_listings':      Transaction.query.filter(Transaction.archived==False, Transaction.transaction_type.in_(COMMERCIAL_TYPES), Transaction.status=='Active').count(),
-            'active_buyers':        0,
+            'active_listings':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.status=='Active').count(),
+            'active_buyers':        Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.status=='Active', Transaction.transaction_type.in_(['CRE Buyer', 'CRE Tenant Rep'])).count(),
             'offers_mtd':           0,
             'acceptance_rate_mtd':  0.0,
             'offers_ytd':           0,
@@ -263,8 +255,8 @@ def home():
 
     # Recent transactions — all, sorted by updated_at
     recent_all  = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(Transaction.archived == False).order_by(Transaction.updated_at.desc()).limit(20).all()
-    recent_res  = [t for t in recent_all if t.transaction_type not in COMMERCIAL_TYPES][:10]
-    recent_comm = [t for t in recent_all if t.transaction_type in COMMERCIAL_TYPES][:10]
+    recent_res  = [t for t in recent_all if t.division == 'Residential'][:10]
+    recent_comm = [t for t in recent_all if t.division == 'Commercial'][:10]
 
     def t_to_dict(t):
         return {
@@ -284,11 +276,11 @@ def home():
     # Monthly trend — full year, all 12 months, Closed + Pending, Residential + Commercial
     # Closed: derived from EXTRACT(month FROM close_date) — same source of truth as MyBusiness
     # Pending: derived from EXTRACT(month FROM projected_close_date)
-    # Never uses the `month` column — that field has dirty data on many rows
+    # Filters by division column — robust against transaction_type name changes
     monthly_trend = []
     for m in range(1, 13):
-        def msum(status_list, type_filter=None, exclude_types=None):
-            # Closed: use close_date month, matching MyBusiness exactly
+        def msum(status_list, division_filter=None):
+            # Closed: use close_date month
             closed_q = db.session.query(func.sum(Transaction.gci)).filter(
                 Transaction.archived == False,
                 Transaction.status == 'Closed',
@@ -296,8 +288,7 @@ def home():
                 mb_year_filter(),
                 extract('month', Transaction.close_date) == m,
             )
-            if type_filter:   closed_q = closed_q.filter(Transaction.transaction_type.in_(type_filter))
-            if exclude_types: closed_q = closed_q.filter(~Transaction.transaction_type.in_(exclude_types))
+            closed_q = _div_filter(closed_q, division_filter)
             closed_sum = float(closed_q.scalar() or 0)
 
             # Pending: use projected_close_date month
@@ -308,8 +299,7 @@ def home():
                 mb_year_filter(),
                 extract('month', Transaction.projected_close_date) == m,
             )
-            if type_filter:   pending_q = pending_q.filter(Transaction.transaction_type.in_(type_filter))
-            if exclude_types: pending_q = pending_q.filter(~Transaction.transaction_type.in_(exclude_types))
+            pending_q = _div_filter(pending_q, division_filter)
             pending_sum = float(pending_q.scalar() or 0)
 
             if 'Closed' in status_list and 'Pending' in status_list:
@@ -320,8 +310,7 @@ def home():
                 return pending_sum
             return 0.0
 
-        def mvolume(status_list, type_filter=None, exclude_types=None):
-            # Same logic as msum but for sale_price
+        def mvolume(status_list, division_filter=None):
             closed_q = db.session.query(func.sum(Transaction.sale_price)).filter(
                 Transaction.archived == False,
                 Transaction.status == 'Closed',
@@ -329,8 +318,7 @@ def home():
                 mb_year_filter(),
                 extract('month', Transaction.close_date) == m,
             )
-            if type_filter:   closed_q = closed_q.filter(Transaction.transaction_type.in_(type_filter))
-            if exclude_types: closed_q = closed_q.filter(~Transaction.transaction_type.in_(exclude_types))
+            closed_q = _div_filter(closed_q, division_filter)
             closed_sum = float(closed_q.scalar() or 0)
 
             pending_q = db.session.query(func.sum(Transaction.sale_price)).filter(
@@ -340,8 +328,7 @@ def home():
                 mb_year_filter(),
                 extract('month', Transaction.projected_close_date) == m,
             )
-            if type_filter:   pending_q = pending_q.filter(Transaction.transaction_type.in_(type_filter))
-            if exclude_types: pending_q = pending_q.filter(~Transaction.transaction_type.in_(exclude_types))
+            pending_q = _div_filter(pending_q, division_filter)
             pending_sum = float(pending_q.scalar() or 0)
 
             if 'Closed' in status_list and 'Pending' in status_list:
@@ -354,14 +341,14 @@ def home():
 
         monthly_trend.append({
             'month': calendar.month_abbr[m],
-            'gci_closed_res':   msum(['Closed'], exclude_types=COMMERCIAL_TYPES),
-            'gci_closed_comm':  msum(['Closed'], type_filter=COMMERCIAL_TYPES),
-            'gci_pending_res':  msum(['Pending'], exclude_types=COMMERCIAL_TYPES),
-            'gci_pending_comm': msum(['Pending'], type_filter=COMMERCIAL_TYPES),
-            'vol_closed_res':   mvolume(['Closed'], exclude_types=COMMERCIAL_TYPES),
-            'vol_closed_comm':  mvolume(['Closed'], type_filter=COMMERCIAL_TYPES),
-            'vol_pending_res':  mvolume(['Pending'], exclude_types=COMMERCIAL_TYPES),
-            'vol_pending_comm': mvolume(['Pending'], type_filter=COMMERCIAL_TYPES),
+            'gci_closed_res':   msum(['Closed'], division_filter='Residential'),
+            'gci_closed_comm':  msum(['Closed'], division_filter='Commercial'),
+            'gci_pending_res':  msum(['Pending'], division_filter='Residential'),
+            'gci_pending_comm': msum(['Pending'], division_filter='Commercial'),
+            'vol_closed_res':   mvolume(['Closed'], division_filter='Residential'),
+            'vol_closed_comm':  mvolume(['Closed'], division_filter='Commercial'),
+            'vol_pending_res':  mvolume(['Pending'], division_filter='Residential'),
+            'vol_pending_comm': mvolume(['Pending'], division_filter='Commercial'),
         })
 
     return render_template('main/home.html',
@@ -1483,7 +1470,7 @@ def ceo_summary():
     all_closed  = Transaction.query.filter_by(year=year, status='Closed', archived=False).all()
     all_pending = Transaction.query.filter_by(year=year, status='Pending', archived=False).all()
 
-    def is_comm(t): return (t.transaction_type or '') in COMMERCIAL_TYPES
+    def is_comm(t): return (t.division or '') == 'Commercial'
 
     def seg_filter(rows, seg):
         if seg == 'res':  return [t for t in rows if not is_comm(t)]
