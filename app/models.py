@@ -80,6 +80,7 @@ class Transaction(db.Model):
     broker_split = db.Column(db.Float)
     franchise_split = db.Column(db.Float)
     referral_fee = db.Column(db.Float)
+    referral_pct = db.Column(db.Float)  # stored as decimal e.g. 0.25 for 25%
     net_income = db.Column(db.Float)
     taxes = db.Column(db.Float)
     net_after_taxes = db.Column(db.Float)

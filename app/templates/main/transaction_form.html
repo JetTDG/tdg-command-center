@@ -140,7 +140,7 @@
     </div>
     <div class="col-md-2">
       <label class="form-label">Referral %</label>
-      <input type="number" name="referral_pct" id="referral_pct" class="form-control" step="0.01" value="{% if t and t.referral_fee and t.sale_price %}{{ (t.referral_fee / t.sale_price * 100)|round(2) }}{% endif %}" placeholder="e.g. 25">
+      <input type="number" name="referral_pct" id="referral_pct" class="form-control" step="0.01" value="{% if t and t.referral_pct %}{{ (t.referral_pct * 100)|round(2) }}{% elif t and t.referral_fee and t.gci %}{{ (t.referral_fee / t.gci * 100)|round(2) }}{% endif %}" placeholder="e.g. 25">
     </div>
     <div class="col-md-2">
       <label class="form-label">Referral ($) <small class="text-muted">auto-calc</small></label>
@@ -254,11 +254,11 @@ function calcAll() {
     gciField.value = (sp * cp / 100).toFixed(2);
   }
 
-  // Referral $ = sale_price × referral_pct
+  // Referral $ = GCI × referral_pct  (referral comes off GCI, not sale price)
   var rp = g('referral_pct');
   var refField = document.getElementById('referral_fee');
-  if (sp > 0 && rp > 0 && !refField._manuallyEdited) {
-    refField.value = (sp * rp / 100).toFixed(2);
+  if (gci > 0 && rp > 0 && !refField._manuallyEdited) {
+    refField.value = (gci * rp / 100).toFixed(2);
   }
 
   // Agent GCIs = (GCI − referral) × pct

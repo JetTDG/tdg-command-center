@@ -591,6 +591,7 @@ def add_transaction():
             broker_split=float(f.get('broker_split') or 0) or None,
             franchise_split=float(f.get('franchise_split') or 0) or None,
             referral_fee=float(f.get('referral_fee') or 0) or None,
+            referral_pct=float(f.get('referral_pct') or 0) / 100 or None,
             taxes=float(f.get('taxes') or 0) or None,
             net_after_taxes=float(f.get('net_after_taxes') or 0) or None,
             primary_agent_name=f.get('primary_agent_name', '') or None,
@@ -669,6 +670,7 @@ def edit_transaction(tid):
         t.broker_split = float(f.get('broker_split') or 0) or None
         t.franchise_split = float(f.get('franchise_split') or 0) or None
         t.referral_fee = float(f.get('referral_fee') or 0) or None
+        t.referral_pct = float(f.get('referral_pct') or 0) / 100 or None
         t.taxes = float(f.get('taxes') or 0) or None
         t.net_after_taxes = float(f.get('net_after_taxes') or 0) or None
         t.primary_agent_name = f.get('primary_agent_name', '') or None
@@ -747,7 +749,7 @@ def patch_transaction(tid):
                    'mortgage_company','title_company','lead_type','notes','admin_name',
                    'member3_name','member4_name','link_to_file','division'}
     FLOAT_FIELDS = {'sale_price','list_price','old_list_price','adj_list_price','commission_pct','gci','bonus',
-                    'transaction_fee','broker_split','franchise_split','referral_fee',
+                    'transaction_fee','broker_split','franchise_split','referral_fee','referral_pct',
                     'taxes','net_after_taxes','primary_agent_pct','primary_agent_gci',
                     'secondary_agent_pct','secondary_agent_gci',
                     'member3_pct','member3_gci','member4_pct','member4_gci',
@@ -793,7 +795,7 @@ def patch_transaction(tid):
 
         # Auto-recalculate all formula fields whenever any financial input changes
         FORMULA_TRIGGERS = {
-            'sale_price','list_price','commission_pct','gci','referral_fee',
+            'sale_price','list_price','commission_pct','gci','referral_fee','referral_pct',
             'primary_agent_pct','secondary_agent_pct','member3_pct','member4_pct',
             'primary_agent_gci','secondary_agent_gci','member3_gci','member4_gci',
             'bonus','transaction_fee','broker_split','franchise_split',
@@ -852,6 +854,7 @@ def transaction_computed(tid):
         'company_dollar': t.company_dollar,
         'income_1099': t.income_1099,
         'gci': t.gci,
+        'referral_fee': t.referral_fee,
         'primary_agent_gci': t.primary_agent_gci,
         'secondary_agent_gci': t.secondary_agent_gci,
         'member3_gci': t.member3_gci,
@@ -1889,6 +1892,11 @@ def apply_formulas(t, recalc_gci=True,
         price = t.sale_price or t.list_price or 0
         if price and t.commission_pct:
             t.gci = round(price * t.commission_pct, 2)
+
+    # ── Referral fee = GCI × referral_pct ────────────────────────────────────
+    # Only auto-calc if referral_pct is stored; never overwrite a manually entered fee.
+    if t.referral_pct and t.gci:
+        t.referral_fee = round((t.gci or 0) * t.referral_pct, 2)
 
     # ── Agent GCIs = (GCI − referral) × pct ─────────────────────────────────
     # CTE: referral comes off GCI first, then agent % applies to remainder.
