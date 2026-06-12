@@ -592,8 +592,6 @@ def add_transaction():
             franchise_split=float(f.get('franchise_split') or 0) or None,
             referral_fee=float(f.get('referral_fee') or 0) or None,
             referral_pct=float(f.get('referral_pct') or 0) / 100 or None,
-            taxes=float(f.get('taxes') or 0) or None,
-            net_after_taxes=float(f.get('net_after_taxes') or 0) or None,
             primary_agent_name=f.get('primary_agent_name', '') or None,
             primary_agent_pct=float(f.get('primary_agent_pct') or 0) / 100 or None,
             primary_agent_gci=float(f.get('primary_agent_gci') or 0) or None,
@@ -671,8 +669,6 @@ def edit_transaction(tid):
         t.franchise_split = float(f.get('franchise_split') or 0) or None
         t.referral_fee = float(f.get('referral_fee') or 0) or None
         t.referral_pct = float(f.get('referral_pct') or 0) / 100 or None
-        t.taxes = float(f.get('taxes') or 0) or None
-        t.net_after_taxes = float(f.get('net_after_taxes') or 0) or None
         t.primary_agent_name = f.get('primary_agent_name', '') or None
         t.primary_agent_pct = float(f.get('primary_agent_pct') or 0) / 100 or None
         t.primary_agent_gci = float(f.get('primary_agent_gci') or 0) or None
@@ -750,7 +746,7 @@ def patch_transaction(tid):
                    'member3_name','member4_name','link_to_file','division'}
     FLOAT_FIELDS = {'sale_price','list_price','old_list_price','adj_list_price','commission_pct','gci','bonus',
                     'transaction_fee','broker_split','franchise_split','referral_fee','referral_pct',
-                    'taxes','net_after_taxes','primary_agent_pct','primary_agent_gci',
+                    'primary_agent_pct','primary_agent_gci',
                     'secondary_agent_pct','secondary_agent_gci',
                     'member3_pct','member3_gci','member4_pct','member4_gci',
                     'units','eo_fee','donation','other_fee','amt_paid'}
@@ -799,7 +795,7 @@ def patch_transaction(tid):
             'primary_agent_pct','secondary_agent_pct','member3_pct','member4_pct',
             'primary_agent_gci','secondary_agent_gci','member3_gci','member4_gci',
             'bonus','transaction_fee','broker_split','franchise_split',
-            'eo_fee','donation','other_fee','taxes',
+            'eo_fee','donation','other_fee',
         }
         if field in FORMULA_TRIGGERS:
             # GCI recalcs only when a price/rate field changes (not when GCI itself is inline-edited)
@@ -859,7 +855,6 @@ def transaction_computed(tid):
         'secondary_agent_gci': t.secondary_agent_gci,
         'member3_gci': t.member3_gci,
         'member4_gci': t.member4_gci,
-        'net_after_taxes': t.net_after_taxes,
     })
 
 
