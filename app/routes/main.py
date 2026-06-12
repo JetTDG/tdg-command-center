@@ -44,7 +44,7 @@ def home():
     month = current_month()
 
     # YTD stats
-    COMMERCIAL_TYPES = ('Commercial', 'Lease')
+    COMMERCIAL_TYPES = ('Commercial', 'Lease', 'CRE Listing', 'CRE Buyer', 'CRE Landlord Rep', 'CRE Tenant Rep', 'CRE Business Only')
 
     def seg_count(status, type_filter=None, exclude_types=None):
         q = Transaction.query.filter(Transaction.archived == False, Transaction.year == year, Transaction.status == status)
@@ -1468,7 +1468,7 @@ Answer in 1-3 sentences:"""
 def ceo_summary():
     year = int(request.args.get('year', current_year()))
 
-    COMMERCIAL_TYPES = ('Commercial', 'Lease')
+    COMMERCIAL_TYPES = ('Commercial', 'Lease', 'CRE Listing', 'CRE Buyer', 'CRE Landlord Rep', 'CRE Tenant Rep', 'CRE Business Only')
 
     def company_dollar(t):
         return (
