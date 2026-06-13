@@ -136,6 +136,19 @@ def home():
     projected_gci = pending_gci_q()
     pending_gci   = projected_gci  # alias used in template
 
+    # ── Pending: under-contract this month (for Pending card sub-line) ────────
+    def pending_uc_mtd_q(division_filter=None):
+        """Count Pending transactions whose under_contract_date falls in current month."""
+        q = Transaction.query.filter(
+            Transaction.archived == False,
+            Transaction.status == 'Pending',
+            Transaction.under_contract_date >= mtd_start,
+            Transaction.under_contract_date <= mtd_end,
+        )
+        return _div_filter(q, division_filter).count()
+
+    pending_uc_mtd = pending_uc_mtd_q()
+
     # Pre-Signed pipeline:
     # Residential = status Pre-Signed, Signed, or Coming Soon (division='Residential')
     # Commercial  = status 'Coming Soon' (division='Commercial')
@@ -204,6 +217,7 @@ def home():
             'pending_count':        pending_count,
             'projected_gci':        projected_gci,
             'pending_gci':          pending_gci,
+            'pending_uc_mtd':       pending_uc_mtd,
             'goal_pct':             round(goal_pct, 1),
             'team_goal':            team_goal,
             'listings_signed':      listings_signed,
@@ -227,6 +241,7 @@ def home():
             'pending_count':        pending_count_q(division_filter='Residential'),
             'projected_gci':        pending_gci_q(division_filter='Residential'),
             'pending_gci':          pending_gci_q(division_filter='Residential'),
+            'pending_uc_mtd':       pending_uc_mtd_q(division_filter='Residential'),
             'goal_pct':             round(goal_pct, 1),
             'team_goal':            team_goal,
             'listings_signed':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.transaction_type=='Listing', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
@@ -250,6 +265,7 @@ def home():
             'pending_count':        pending_count_q(division_filter='Commercial'),
             'projected_gci':        pending_gci_q(division_filter='Commercial'),
             'pending_gci':          pending_gci_q(division_filter='Commercial'),
+            'pending_uc_mtd':       pending_uc_mtd_q(division_filter='Commercial'),
             'goal_pct':             round(goal_pct, 1),
             'team_goal':            team_goal,
             'listings_signed':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.transaction_type.in_(['CRE Listing','CRE Landlord Rep']), Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
@@ -376,6 +392,7 @@ def home():
         pending_count=pending_count,
         projected_gci=projected_gci,
         pending_gci=pending_gci,
+        pending_uc_mtd=pending_uc_mtd,
         active_buyers=active_buyers,
         active_listings=active_listings,
         month_closed=month_closed,
@@ -577,6 +594,7 @@ def add_transaction():
             agent_id=int(f['agent_id']),
             transaction_type=f['transaction_type'],
             status=f['status'],
+            division=f.get('division') or None,
             sub_status=f.get('sub_status') or None,
             lead_type=f.get('lead_type', 'Team'),
             lead_source=f.get('lead_source') or None,
@@ -657,6 +675,7 @@ def edit_transaction(tid):
         t.agent_id = int(f['agent_id'])
         t.transaction_type = f['transaction_type']
         t.status = f['status']
+        t.division = f.get('division') or None
         t.sub_status = f.get('sub_status') or None
         t.lead_type = f.get('lead_type', 'Team')
         t.lead_source = f.get('lead_source') or None

@@ -35,7 +35,7 @@
     <div class="stat-card">
       <div class="stat-label">Pending (Projected)</div>
       <div class="stat-value" id="k-pending-count">{{ pending_count }}</div>
-      <div class="stat-sub">$<span id="k-proj-gci">{{ "{:,.0f}".format(projected_gci) }}</span> GCI</div>
+      <div class="stat-sub">This month: <span id="k-pending-uc-mtd">{{ pending_uc_mtd }}</span></div>
     </div>
   </div>
   <div class="col-6 col-md-3">
@@ -260,7 +260,7 @@ function refreshKPI() {
   document.getElementById('k-ytd-gci').textContent     = fmtDollar(k.ytd_gci);
   document.getElementById('k-month-gci').textContent   = Number(k.month_gci).toLocaleString('en-US', {maximumFractionDigits:0});
   document.getElementById('k-pending-count').textContent = fmtInt(k.pending_count);
-  document.getElementById('k-proj-gci').textContent    = Number(k.projected_gci).toLocaleString('en-US', {maximumFractionDigits:0});
+  document.getElementById('k-pending-uc-mtd').textContent = fmtInt(k.pending_uc_mtd);
   document.getElementById('k-goal-pct').textContent    = k.goal_pct + '%';
   document.getElementById('k-goal-bar').style.width    = Math.min(k.goal_pct,100) + '%';
   document.getElementById('k-team-goal').textContent   = Number(k.team_goal).toLocaleString('en-US', {maximumFractionDigits:0});

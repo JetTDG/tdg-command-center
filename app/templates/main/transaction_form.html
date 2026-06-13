@@ -33,6 +33,14 @@
       </select>
     </div>
     <div class="col-md-2">
+      <label class="form-label">Division *</label>
+      <select name="division" class="form-select" required>
+        <option value="" {% if not t or not t.division %}selected{% endif %}>— Select —</option>
+        <option value="Residential" {% if t and t.division=='Residential' %}selected{% endif %}>Residential</option>
+        <option value="Commercial" {% if t and t.division=='Commercial' %}selected{% endif %}>Commercial</option>
+      </select>
+    </div>
+    <div class="col-md-2">
       <label class="form-label">Sub Status</label>
       <select name="sub_status" class="form-select">
         <option value="">— none —</option>
