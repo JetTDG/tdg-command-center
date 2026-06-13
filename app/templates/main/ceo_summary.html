@@ -84,12 +84,20 @@
     <div class="stat-card">
       <div class="stat-label">Listings Signed</div>
       <div class="stat-value" id="c-listings">{{ listings_signed }}</div>
+      <div class="stat-sub">vs {{ prior_ls }} same day {{ year - 1 }} &nbsp;
+        {% if ls_yoy_pct >= 0 %}<span class="text-success" id="c-ls-yoy">▲ {{ ls_yoy_pct }}%</span>
+        {% else %}<span class="text-danger" id="c-ls-yoy">▼ {{ ls_yoy_pct|abs }}%</span>{% endif %}
+      </div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="stat-card">
       <div class="stat-label">Buyers Signed</div>
       <div class="stat-value" id="c-buyers">{{ buyers_signed }}</div>
+      <div class="stat-sub">vs {{ prior_bs }} same day {{ year - 1 }} &nbsp;
+        {% if bs_yoy_pct >= 0 %}<span class="text-success" id="c-bs-yoy">▲ {{ bs_yoy_pct }}%</span>
+        {% else %}<span class="text-danger" id="c-bs-yoy">▼ {{ bs_yoy_pct|abs }}%</span>{% endif %}
+      </div>
     </div>
   </div>
 </div>
@@ -262,6 +270,16 @@ function setSegment(s, btn) {
   if (coYoy) coYoy.outerHTML = `<span id="c-co-yoy" class="${d.co_yoy_pct>=0?'text-success':'text-danger'}">${d.co_yoy_pct>=0?'▲':'▼'} ${Math.abs(d.co_yoy_pct)}%</span>`;
   const unitsYoy = document.getElementById('c-units-yoy');
   if (unitsYoy) unitsYoy.outerHTML = `<span id="c-units-yoy" class="${d.units_yoy_pct>=0?'text-success':'text-danger'}">${d.units_yoy_pct>=0?'▲':'▼'} ${Math.abs(d.units_yoy_pct)}%</span>`;
+  const lsYoy = document.getElementById('c-ls-yoy');
+  if (lsYoy) lsYoy.outerHTML = `<span id="c-ls-yoy" class="${d.ls_yoy_pct>=0?'text-success':'text-danger'}">${d.ls_yoy_pct>=0?'▲':'▼'} ${Math.abs(d.ls_yoy_pct)}%</span>`;
+  const bsYoy = document.getElementById('c-bs-yoy');
+  if (bsYoy) bsYoy.outerHTML = `<span id="c-bs-yoy" class="${d.bs_yoy_pct>=0?'text-success':'text-danger'}">${d.bs_yoy_pct>=0?'▲':'▼'} ${Math.abs(d.bs_yoy_pct)}%</span>`;
+
+  // update "vs X same day" text nodes
+  const lsSub = document.getElementById('c-ls-yoy')?.closest('.stat-sub');
+  if (lsSub) lsSub.firstChild.textContent = `vs ${d.prior_ls} same day ${new Date().getFullYear()-1} \u00a0`;
+  const bsSub = document.getElementById('c-bs-yoy')?.closest('.stat-sub');
+  if (bsSub) bsSub.firstChild.textContent = `vs ${d.prior_bs} same day ${new Date().getFullYear()-1} \u00a0`;
 
   // update "vs X same day 2025" text nodes — find the stat-sub divs and update just the text
   // GCI card

@@ -1538,8 +1538,10 @@ def ceo_summary():
             })
         # signed counts — use signed_date within the year (same source as home dashboard)
         from datetime import date as _d2
-        ytd_start_tx = _d2(year, 1, 1)
-        ytd_end_tx   = _d2(year, 12, 31)
+        ytd_start_tx  = _d2(year, 1, 1)
+        ytd_end_tx    = _d2(year, 12, 31)
+        prior_start_tx = _d2(year-1, 1, 1)
+        prior_end_tx   = _d2(year-1, prior_cutoff_month, prior_cutoff_day)
         ls = sum(1 for t in seg_filter(
             Transaction.query.filter(
                 Transaction.archived == False,
@@ -1553,6 +1555,19 @@ def ceo_summary():
                 Transaction.transaction_type == 'Buyer',
                 Transaction.signed_date >= ytd_start_tx,
                 Transaction.signed_date <= ytd_end_tx,
+            ).all(), 'combined' if seg=='combined' else seg))
+        # prior-year same-day for listings/buyers signed
+        prior_ls = sum(1 for t in seg_filter(
+            Transaction.query.filter(
+                Transaction.transaction_type == 'Listing',
+                Transaction.signed_date >= prior_start_tx,
+                Transaction.signed_date <= prior_end_tx,
+            ).all(), 'combined' if seg=='combined' else seg))
+        prior_bs = sum(1 for t in seg_filter(
+            Transaction.query.filter(
+                Transaction.transaction_type == 'Buyer',
+                Transaction.signed_date >= prior_start_tx,
+                Transaction.signed_date <= prior_end_tx,
             ).all(), 'combined' if seg=='combined' else seg))
         # prior-year same-day YTD — only closed by the same calendar day in prior year
         # Includes archived rows so YoY history is complete
@@ -1581,8 +1596,12 @@ def ceo_summary():
             'proj_volume':    round(sum((t.sale_price or 0) for t in pending), 2),
             'proj_co_dollar': round(sum(company_dollar(t) for t in pending), 2),
             'proj_units':     len(pending),
-            'listings_signed': ls,
-            'buyers_signed':   bs,
+            'listings_signed':    ls,
+            'buyers_signed':      bs,
+            'prior_ls':           prior_ls,
+            'prior_bs':           prior_bs,
+            'ls_yoy_pct':         round((ls - prior_ls) / prior_ls * 100, 1) if prior_ls else 0,
+            'bs_yoy_pct':         round((bs - prior_bs) / prior_bs * 100, 1) if prior_bs else 0,
             'prior_gci':       round(prior_gci, 2),
             'prior_volume':    round(prior_volume, 2),
             'prior_co_dollar': round(prior_co_dollar, 2),
@@ -1632,6 +1651,10 @@ def ceo_summary():
         proj_units=c['proj_units'],
         listings_signed=c['listings_signed'],
         buyers_signed=c['buyers_signed'],
+        prior_ls=c['prior_ls'],
+        prior_bs=c['prior_bs'],
+        ls_yoy_pct=c['ls_yoy_pct'],
+        bs_yoy_pct=c['bs_yoy_pct'],
         team_gci_goal=team_gci_goal,
         team_unit_goal=int(team_unit_goal or 0),
         goal_pct=round(c['ytd_gci'] / team_gci_goal * 100, 1) if team_gci_goal else 0,
