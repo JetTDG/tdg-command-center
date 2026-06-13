@@ -1503,6 +1503,13 @@ def ceo_summary():
     all_closed  = Transaction.query.filter_by(year=year, status='Closed', archived=False).all()
     all_pending = Transaction.query.filter_by(year=year, status='Pending', archived=False).all()
 
+    # Same-day cutoff for prior-year comparison
+    # e.g. if today is Jun 12 2026, compare vs Jan 1 – Jun 12 2025
+    from datetime import date as _date
+    today       = _date.today()
+    prior_cutoff_month = today.month
+    prior_cutoff_day   = today.day
+
     def is_comm(t): return (t.division or '') == 'Commercial'
 
     def seg_filter(rows, seg):
@@ -1544,16 +1551,28 @@ def ceo_summary():
                 Transaction.transaction_type == 'Buyer',
                 Transaction.status.notin_(['x-Cancelled','y-Sale Failed','z-Expired'])
             ).all(), 'combined' if seg=='combined' else seg))
-        # prior-year (same segment) — INTENTIONALLY includes archived rows so YoY history is complete
-        prior = seg_filter(Transaction.query.filter_by(year=year-1, status='Closed').all(), seg)
-        prior_gci   = sum((t.gci or 0) for t in prior)
-        prior_units = len(prior)
-        ytd_gci = sum((t.gci or 0) for t in closed)
+        # prior-year same-day YTD — only closed by the same calendar day in prior year
+        # Includes archived rows so YoY history is complete
+        prior_all = seg_filter(Transaction.query.filter_by(year=year-1, status='Closed').all(), seg)
+        prior = [
+            t for t in prior_all
+            if t.close_date and (
+                t.close_date.month < prior_cutoff_month or
+                (t.close_date.month == prior_cutoff_month and t.close_date.day <= prior_cutoff_day)
+            )
+        ]
+        prior_gci       = sum((t.gci or 0)        for t in prior)
+        prior_volume    = sum((t.sale_price or 0)  for t in prior)
+        prior_co_dollar = sum(company_dollar(t)    for t in prior)
+        prior_units     = len(prior)
+        ytd_gci   = sum((t.gci or 0)        for t in closed)
         ytd_units = len(closed)
+        ytd_volume    = round(sum((t.sale_price or 0) for t in closed), 2)
+        ytd_co_dollar = round(sum(company_dollar(t)   for t in closed), 2)
         return {
             'ytd_gci':        round(ytd_gci, 2),
-            'ytd_volume':     round(sum((t.sale_price or 0) for t in closed), 2),
-            'ytd_co_dollar':  round(sum(company_dollar(t) for t in closed), 2),
+            'ytd_volume':     ytd_volume,
+            'ytd_co_dollar':  ytd_co_dollar,
             'ytd_units':      ytd_units,
             'proj_gci':       round(sum((t.gci or 0) for t in pending), 2),
             'proj_volume':    round(sum((t.sale_price or 0) for t in pending), 2),
@@ -1562,9 +1581,13 @@ def ceo_summary():
             'listings_signed': ls,
             'buyers_signed':   bs,
             'prior_gci':       round(prior_gci, 2),
+            'prior_volume':    round(prior_volume, 2),
+            'prior_co_dollar': round(prior_co_dollar, 2),
             'prior_units':     prior_units,
-            'gci_yoy_pct':     round((ytd_gci - prior_gci) / prior_gci * 100, 1) if prior_gci else 0,
-            'units_yoy_pct':   round((ytd_units - prior_units) / prior_units * 100, 1) if prior_units else 0,
+            'gci_yoy_pct':     round((ytd_gci       - prior_gci)       / prior_gci       * 100, 1) if prior_gci       else 0,
+            'volume_yoy_pct':  round((ytd_volume    - prior_volume)    / prior_volume    * 100, 1) if prior_volume    else 0,
+            'co_yoy_pct':      round((ytd_co_dollar - prior_co_dollar) / prior_co_dollar * 100, 1) if prior_co_dollar else 0,
+            'units_yoy_pct':   round((ytd_units     - prior_units)     / prior_units     * 100, 1) if prior_units     else 0,
             'monthly':         monthly,
         }
 
@@ -1611,8 +1634,12 @@ def ceo_summary():
         goal_pct=round(c['ytd_gci'] / team_gci_goal * 100, 1) if team_gci_goal else 0,
         monthly=c['monthly'],
         prior_gci=c['prior_gci'],
+        prior_volume=c['prior_volume'],
+        prior_co_dollar=c['prior_co_dollar'],
         prior_units=c['prior_units'],
         gci_yoy_pct=c['gci_yoy_pct'],
+        volume_yoy_pct=c['volume_yoy_pct'],
+        co_yoy_pct=c['co_yoy_pct'],
         units_yoy_pct=c['units_yoy_pct'],
         lg_contacts=lg[0] or 0,
         lg_listing_set=lg[1] or 0,

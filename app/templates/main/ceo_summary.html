@@ -29,6 +29,10 @@
       <div class="stat-sub">+ <span id="c-proj-gci">{{ "${:,.0f}".format(proj_gci) }}</span> pending</div>
       <div class="stat-sub mt-1">Goal: {{ "${:,.0f}".format(team_gci_goal) }} &nbsp;·&nbsp; <strong id="c-goal-pct">{{ goal_pct }}%</strong></div>
       <div class="progress mt-2"><div class="progress-bar" id="c-goal-bar" style="width:{{ [goal_pct,100]|min }}%"></div></div>
+      <div class="stat-sub mt-2">vs {{ "${:,.0f}".format(prior_gci) }} same day 2025 &nbsp;
+        {% if gci_yoy_pct >= 0 %}<span class="text-success" id="c-gci-yoy">▲ {{ gci_yoy_pct }}%</span>
+        {% else %}<span class="text-danger" id="c-gci-yoy">▼ {{ gci_yoy_pct|abs }}%</span>{% endif %}
+      </div>
     </div>
   </div>
   <div class="col-md-4">
@@ -37,6 +41,10 @@
       <div class="stat-value" id="c-ytd-volume">{{ "${:,.0f}".format(ytd_volume) }}</div>
       <div class="stat-sub">+ <span id="c-proj-volume">{{ "${:,.0f}".format(proj_volume) }}</span> pending</div>
       <div class="stat-sub mt-1"><span id="c-ytd-units">{{ ytd_units }}</span> closed &nbsp;·&nbsp; <span id="c-proj-units">{{ proj_units }}</span> pending</div>
+      <div class="stat-sub mt-2">vs {{ "${:,.0f}".format(prior_volume) }} same day 2025 &nbsp;
+        {% if volume_yoy_pct >= 0 %}<span class="text-success" id="c-volume-yoy">▲ {{ volume_yoy_pct }}%</span>
+        {% else %}<span class="text-danger" id="c-volume-yoy">▼ {{ volume_yoy_pct|abs }}%</span>{% endif %}
+      </div>
     </div>
   </div>
   <div class="col-md-4">
@@ -45,6 +53,10 @@
       <div class="stat-value" id="c-ytd-co">{{ "${:,.0f}".format(ytd_co_dollar) }}</div>
       <div class="stat-sub">+ <span id="c-proj-co">{{ "${:,.0f}".format(proj_co_dollar) }}</span> pending</div>
       <div class="stat-sub mt-1">GCI minus agent splits, fees &amp; referrals</div>
+      <div class="stat-sub mt-2">vs {{ "${:,.0f}".format(prior_co_dollar) }} same day 2025 &nbsp;
+        {% if co_yoy_pct >= 0 %}<span class="text-success" id="c-co-yoy">▲ {{ co_yoy_pct }}%</span>
+        {% else %}<span class="text-danger" id="c-co-yoy">▼ {{ co_yoy_pct|abs }}%</span>{% endif %}
+      </div>
     </div>
   </div>
 </div>
@@ -55,9 +67,9 @@
     <div class="stat-card">
       <div class="stat-label">Closed Units</div>
       <div class="stat-value" id="c-units2">{{ ytd_units }}</div>
-      <div class="stat-sub">vs {{ prior_units }} prior year
-        {% if units_yoy_pct >= 0 %}<span class="text-success">▲ {{ units_yoy_pct }}%</span>
-        {% else %}<span class="text-danger">▼ {{ units_yoy_pct|abs }}%</span>{% endif %}
+      <div class="stat-sub">vs {{ prior_units }} same day 2025 &nbsp;
+        {% if units_yoy_pct >= 0 %}<span class="text-success" id="c-units-yoy">▲ {{ units_yoy_pct }}%</span>
+        {% else %}<span class="text-danger" id="c-units-yoy">▼ {{ units_yoy_pct|abs }}%</span>{% endif %}
       </div>
     </div>
   </div>
@@ -235,6 +247,33 @@ function setSegment(s, btn) {
   document.getElementById('c-proj-gci2').textContent  = usd(d.proj_gci);
   document.getElementById('c-listings').textContent   = d.listings_signed;
   document.getElementById('c-buyers').textContent     = d.buyers_signed;
+
+  // YoY comparison lines
+  function yoySpan(pct) {
+    const arrow = pct >= 0 ? '▲' : '▼';
+    const cls   = pct >= 0 ? 'text-success' : 'text-danger';
+    return `<span class="${cls}">${arrow} ${Math.abs(pct)}%</span>`;
+  }
+  const gciYoy = document.getElementById('c-gci-yoy');
+  if (gciYoy) gciYoy.outerHTML = `<span id="c-gci-yoy" class="${d.gci_yoy_pct>=0?'text-success':'text-danger'}">${d.gci_yoy_pct>=0?'▲':'▼'} ${Math.abs(d.gci_yoy_pct)}%</span>`;
+  const volYoy = document.getElementById('c-volume-yoy');
+  if (volYoy) volYoy.outerHTML = `<span id="c-volume-yoy" class="${d.volume_yoy_pct>=0?'text-success':'text-danger'}">${d.volume_yoy_pct>=0?'▲':'▼'} ${Math.abs(d.volume_yoy_pct)}%</span>`;
+  const coYoy = document.getElementById('c-co-yoy');
+  if (coYoy) coYoy.outerHTML = `<span id="c-co-yoy" class="${d.co_yoy_pct>=0?'text-success':'text-danger'}">${d.co_yoy_pct>=0?'▲':'▼'} ${Math.abs(d.co_yoy_pct)}%</span>`;
+  const unitsYoy = document.getElementById('c-units-yoy');
+  if (unitsYoy) unitsYoy.outerHTML = `<span id="c-units-yoy" class="${d.units_yoy_pct>=0?'text-success':'text-danger'}">${d.units_yoy_pct>=0?'▲':'▼'} ${Math.abs(d.units_yoy_pct)}%</span>`;
+
+  // update "vs X same day 2025" text nodes — find the stat-sub divs and update just the text
+  // GCI card
+  const gciSub = document.getElementById('c-gci-yoy')?.closest('.stat-sub');
+  if (gciSub) gciSub.firstChild.textContent = `vs ${usd(d.prior_gci)} same day ${new Date().getFullYear()-1} \u00a0`;
+  const volSub = document.getElementById('c-volume-yoy')?.closest('.stat-sub');
+  if (volSub) volSub.firstChild.textContent = `vs ${usd(d.prior_volume)} same day ${new Date().getFullYear()-1} \u00a0`;
+  const coSub = document.getElementById('c-co-yoy')?.closest('.stat-sub');
+  if (coSub) coSub.firstChild.textContent = `vs ${usd(d.prior_co_dollar)} same day ${new Date().getFullYear()-1} \u00a0`;
+  const unitsSub = document.getElementById('c-units-yoy')?.closest('.stat-sub');
+  if (unitsSub) unitsSub.firstChild.textContent = `vs ${d.prior_units} same day ${new Date().getFullYear()-1} \u00a0`;
+
   // goal % only meaningful on combined (team goal is company-wide); show for combined
   const gp = document.getElementById('c-goal-pct');
   if (gp) { gp.textContent = (s==='combined') ? gp.textContent : '—'; }
