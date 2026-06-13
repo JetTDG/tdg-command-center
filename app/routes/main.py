@@ -1536,20 +1536,23 @@ def ceo_summary():
                 'closed_units':   len(mc),
                 'pending_units':  len(mp),
             })
-        # signed counts within segment
+        # signed counts — use signed_date within the year (same source as home dashboard)
+        from datetime import date as _d2
+        ytd_start_tx = _d2(year, 1, 1)
+        ytd_end_tx   = _d2(year, 12, 31)
         ls = sum(1 for t in seg_filter(
             Transaction.query.filter(
                 Transaction.archived == False,
-                Transaction.year == year,
                 Transaction.transaction_type == 'Listing',
-                Transaction.status.notin_(['x-Cancelled','y-Sale Failed','z-Expired'])
+                Transaction.signed_date >= ytd_start_tx,
+                Transaction.signed_date <= ytd_end_tx,
             ).all(), 'combined' if seg=='combined' else seg))
         bs = sum(1 for t in seg_filter(
             Transaction.query.filter(
                 Transaction.archived == False,
-                Transaction.year == year,
                 Transaction.transaction_type == 'Buyer',
-                Transaction.status.notin_(['x-Cancelled','y-Sale Failed','z-Expired'])
+                Transaction.signed_date >= ytd_start_tx,
+                Transaction.signed_date <= ytd_end_tx,
             ).all(), 'combined' if seg=='combined' else seg))
         # prior-year same-day YTD — only closed by the same calendar day in prior year
         # Includes archived rows so YoY history is complete
