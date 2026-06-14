@@ -604,6 +604,10 @@
            href="{{ url_for('main.ask') }}">
           <i class="bi bi-chat-dots"></i> Ask TDG
         </a>
+        <a class="nav-link {% if 'gl_analytics' in request.endpoint %}active{% endif %}"
+           href="{{ url_for('gl.gl_analytics') }}">
+          <i class="bi bi-qr-code-scan"></i> GL Analytics
+        </a>
       </nav>
 
       <hr class="divider my-2">

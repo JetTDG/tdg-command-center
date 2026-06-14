@@ -718,3 +718,119 @@ def webhook_fub():
         # Always return 200 to prevent FUB retries
         return jsonify({"status": "ok", "error": str(exc)}), 200
 
+
+
+# ── GL Analytics Dashboard ────────────────────────────────────────────────────
+
+@bp.route("/gl/analytics")
+def gl_analytics():
+    """GL Analytics dashboard — scans by city/vertical with KPI cards + chart data."""
+    from flask_login import current_user
+    from sqlalchemy import func, text
+    from app.models import GLScan
+
+    # ── Query: totals per slug per event_type ─────────────────────────────────
+    rows = db.session.query(
+        GLScan.slug,
+        GLScan.city,
+        GLScan.vertical,
+        GLScan.event_type,
+        func.count(GLScan.id).label("cnt")
+    ).group_by(GLScan.slug, GLScan.city, GLScan.vertical, GLScan.event_type).all()
+
+    # ── Letter counts per slug (from gl_scans meta — we store them at merge time)
+    # Build slug → event → count map
+    from collections import defaultdict
+    slug_events = defaultdict(lambda: defaultdict(int))
+    slugs_meta  = {}
+    for row in rows:
+        slug_events[row.slug][row.event_type] += row.cnt
+        slugs_meta[row.slug] = {"city": row.city, "vertical": row.vertical}
+
+    # ── Letter counts per slug from GL Tracker (stored in gl_letter_counts table if exists,
+    #    otherwise fall back to hardcoded map built at merge time)
+    # We'll store letter counts in a simple JSON in the DB via a config key
+    LETTER_COUNTS = {
+        "fraser-industrial":            184,
+        "roseville-industrial":         223,
+        "highland-industrial":           23,
+        "white-lake-industrial":         12,
+        "waterford-industrial":         101,
+        "commerce-township-industrial": 100,
+        "oak-park-industrial":          140,
+        "hazel-park-industrial":        105,
+        "taylor-industrial":            190,
+        "wyandotte-industrial":          61,
+        "chesterfield-industrial":      142,
+    }
+
+    # ── Build per-slug stats ──────────────────────────────────────────────────
+    city_stats = []
+    for slug, meta in sorted(slugs_meta.items(), key=lambda x: x[0]):
+        events = slug_events[slug]
+        letters = LETTER_COUNTS.get(slug, 0)
+        scans   = events.get("scan", 0)
+        forms   = events.get("form_submit", 0)
+        sms     = events.get("sms_tap", 0)
+        city_stats.append({
+            "slug":     slug,
+            "city":     meta["city"],
+            "vertical": meta["vertical"],
+            "letters":  letters,
+            "scans":    scans,
+            "forms":    forms,
+            "sms":      sms,
+            "scan_pct":  round(scans / letters * 100, 1) if letters else 0,
+            "form_pct":  round(forms / letters * 100, 1) if letters else 0,
+            "sms_pct":   round(sms   / letters * 100, 1) if letters else 0,
+            "response_pct": round((forms + sms) / letters * 100, 1) if letters else 0,
+        })
+
+    # ── Totals ────────────────────────────────────────────────────────────────
+    total_letters = sum(s["letters"] for s in city_stats)
+    total_scans   = sum(s["scans"]   for s in city_stats)
+    total_forms   = sum(s["forms"]   for s in city_stats)
+    total_sms     = sum(s["sms"]     for s in city_stats)
+    total_responses = total_forms + total_sms
+
+    # ── Weekly trend (last 8 weeks) ───────────────────────────────────────────
+    weekly = db.session.execute(text("""
+        SELECT DATE_TRUNC('week', created_at)::date AS week,
+               event_type, COUNT(*) AS cnt
+        FROM   gl_scans
+        WHERE  created_at >= NOW() - INTERVAL '8 weeks'
+        GROUP  BY 1, 2
+        ORDER  BY 1
+    """)).fetchall()
+
+    weeks = sorted(set(str(r[0]) for r in weekly))
+    weekly_scans = {w: 0 for w in weeks}
+    weekly_forms = {w: 0 for w in weeks}
+    weekly_sms   = {w: 0 for w in weeks}
+    for r in weekly:
+        w = str(r[0])
+        if r[1] == "scan":        weekly_scans[w] += r[2]
+        elif r[1] == "form_submit": weekly_forms[w] += r[2]
+        elif r[1] == "sms_tap":   weekly_sms[w]   += r[2]
+
+    chart_labels  = weeks
+    chart_scans   = [weekly_scans[w] for w in weeks]
+    chart_forms   = [weekly_forms[w] for w in weeks]
+    chart_sms     = [weekly_sms[w]   for w in weeks]
+
+    return render_template("gl_analytics.html",
+        city_stats=city_stats,
+        total_letters=total_letters,
+        total_scans=total_scans,
+        total_forms=total_forms,
+        total_sms=total_sms,
+        total_responses=total_responses,
+        scan_pct  =round(total_scans/total_letters*100,1) if total_letters else 0,
+        form_pct  =round(total_forms/total_letters*100,1) if total_letters else 0,
+        sms_pct   =round(total_sms/total_letters*100,1)   if total_letters else 0,
+        resp_pct  =round(total_responses/total_letters*100,1) if total_letters else 0,
+        chart_labels=chart_labels,
+        chart_scans=chart_scans,
+        chart_forms=chart_forms,
+        chart_sms=chart_sms,
+    )
