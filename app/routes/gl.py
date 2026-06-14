@@ -21,23 +21,41 @@ BASE_URL = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "web-production-1adf7.up.rail
 
 # ── Phone map: slug → (display, e164) ─────────────────────────────────────────
 PHONE_MAP = {
-    "fraser-industrial":      ("(586) 300-2597", "15863002597"),
-    "fraser-retail":          ("(586) 301-6201", "15863016201"),
-    "macomb-industrial":      ("(586) 300-2597", "15863002597"),
-    "macomb-retail":          ("(586) 301-6201", "15863016201"),
-    "highland-industrial":    ("(248) 629-2036", "12486292036"),
-    "highland-retail":        ("(248) 629-2036", "12486292036"),
-    "oakland-industrial":     ("(248) 970-9231", "12489702319"),
-    "oakland-retail":         ("(248) 629-2036", "12486292036"),
-    "flint-industrial":       ("(810) 207-6329", "18102076329"),
-    "flint-retail":           ("(810) 339-8306", "18103398306"),
-    "genesee-industrial":     ("(810) 207-6329", "18102076329"),
-    "genesee-retail":         ("(810) 339-8306", "18103398306"),
-    "wayne-industrial":       ("(313) 474-5937", "13134745937"),
-    "washtenaw-industrial":   ("(734) 821-3877", "17348213877"),
-    "livingston-industrial":  ("(517) 618-9157", "15176189157"),
+    # Macomb County Industrial
+    "fraser-industrial":          ("(586) 300-2597", "15863002597"),
+    "macomb-industrial":          ("(586) 300-2597", "15863002597"),
+    "roseville-industrial":       ("(586) 300-2597", "15863002597"),
+    "chesterfield-industrial":    ("(586) 300-2597", "15863002597"),
+    # Macomb County Retail
+    "fraser-retail":              ("(586) 301-6201", "15863016201"),
+    "macomb-retail":              ("(586) 301-6201", "15863016201"),
+    # Oakland County Industrial
+    "oakland-industrial":         ("(248) 970-9231", "12489702319"),
+    "highland-industrial":        ("(248) 970-9231", "12489702319"),
+    "white-lake-industrial":      ("(248) 970-9231", "12489702319"),
+    "waterford-industrial":       ("(248) 970-9231", "12489702319"),
+    "commerce-township-industrial": ("(248) 970-9231", "12489702319"),
+    "hazel-park-industrial":      ("(248) 970-9231", "12489702319"),
+    "oak-park-industrial":        ("(248) 970-9231", "12489702319"),
+    # Oakland County Retail
+    "oakland-retail":             ("(248) 629-2036", "12486292036"),
+    "highland-retail":            ("(248) 629-2036", "12486292036"),
+    # Wayne County Industrial
+    "wayne-industrial":           ("(313) 474-5937", "13134745937"),
+    "taylor-industrial":          ("(313) 474-5937", "13134745937"),
+    "wyandotte-industrial":       ("(313) 474-5937", "13134745937"),
+    # Genesee County Industrial
+    "flint-industrial":           ("(810) 207-6329", "18102076329"),
+    "genesee-industrial":         ("(810) 207-6329", "18102076329"),
+    # Genesee County Retail
+    "flint-retail":               ("(810) 339-8306", "18103398306"),
+    "genesee-retail":             ("(810) 339-8306", "18103398306"),
+    # Washtenaw County
+    "washtenaw-industrial":       ("(734) 821-3877", "17348213877"),
+    # Livingston County
+    "livingston-industrial":      ("(517) 618-9157", "15176189157"),
 }
-DEFAULT_PHONE = ("(248) 955-2693", "12489552693")
+# NO DEFAULT — missing slug = hard failure + alert. Never silently use wrong number.
 
 # Reverse map: e164 digits → slug (for webhook routing)
 PHONE_TO_SLUG = {v[1]: k for k, v in PHONE_MAP.items()}
@@ -86,10 +104,20 @@ CRE_GL_AP_ID = 259
 
 
 def _lookup(slug: str):
-    phone_display, phone_raw = PHONE_MAP.get(slug, DEFAULT_PHONE)
-    parts = slug.split("-", 1)
-    city     = parts[0].replace("-", " ").title() if parts else "Your Area"
-    vertical = parts[1].replace("-", " ").title() if len(parts) > 1 else "Commercial"
+    if slug not in PHONE_MAP:
+        # Hard failure — never silently default to wrong number
+        import os, requests as _req
+        msg = f"🚨 CRE GL MISSING SLUG: '{slug}' has no phone mapping. Landing page will be broken until this is added to PHONE_MAP in gl.py."
+        log.error(msg)
+        try:
+            _req.post("https://discord.com/api/webhooks/placeholder", json={"content": msg}, timeout=5)
+        except Exception:
+            pass
+        raise ValueError(msg)
+    phone_display, phone_raw = PHONE_MAP[slug]
+    parts = slug.split("-")
+    city     = " ".join(p.title() for p in parts[:-1]) if len(parts) > 1 else slug.title()
+    vertical = parts[-1].title() if parts else "Commercial"
     return phone_display, phone_raw, city, vertical
 
 
