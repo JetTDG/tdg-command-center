@@ -715,7 +715,7 @@ def webhook_fub():
 
 # ── GL Analytics Dashboard ────────────────────────────────────────────────────
 
-@bp.route("/gl/analytics")
+@bp.route("/analytics")
 @login_required
 def gl_analytics():
     """GL Analytics dashboard — scans by city/vertical with KPI cards + chart data."""
