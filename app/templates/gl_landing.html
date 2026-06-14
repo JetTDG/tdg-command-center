@@ -242,8 +242,8 @@
 
       <div class="success-msg" id="successMsg">
         <div class="check">✅</div>
-        <h3>We'll Be in Touch!</h3>
-        <p>Thank you. A member of our team will reach out within one business day.</p>
+        <h3>Your Request Has Been Submitted!</h3>
+        <p>Thank you — you will receive your free property evaluation shortly. A member of our team will be in touch with you soon.</p>
       </div>
 
       <p class="privacy">Your information is never shared or sold.</p>
@@ -264,7 +264,9 @@
     // Show success if redirected back after form submit
     if (window.location.search.includes('submitted=1')) {
       document.getElementById('evalForm').style.display = 'none';
-      document.getElementById('successMsg').style.display = 'block';
+      var msg = document.getElementById('successMsg');
+      msg.style.display = 'block';
+      msg.scrollIntoView({behavior: 'smooth', block: 'center'});
     }
     // Beacon SMS tap event for tracking
     document.querySelector('.cta-sms').addEventListener('click', function() {
