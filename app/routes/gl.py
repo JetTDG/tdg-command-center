@@ -147,24 +147,35 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
         note_parts = [f"Commercial Golden Letter lead via {contact_method}"]
         note_parts.append(f"City/Vertical: {city} {vertical}")
         if address: note_parts.append(f"Property Address: {address}")
-        payload["note"] = " | ".join(note_parts)
+        note_text = " | ".join(note_parts)
 
         # ── Create or Update ──────────────────────────────────────────────────
         if existing_id:
-            # UPDATE — add new info to existing record
+            # UPDATE — strip fields FUB rejects on PUT (sharedInboxId, note)
+            update_payload = {k: v for k, v in payload.items()
+                              if k not in ("sharedInboxId", "note", "source", "sourceUrl")}
             r = http.put(
                 f"{FUB_BASE}/people/{existing_id}",
-                json=payload, headers=headers, timeout=15
+                json=update_payload, headers=headers, timeout=15
             )
             if r.status_code in (200, 201):
+                # Post note separately
+                http.post(f"{FUB_BASE}/notes",
+                          json={"personId": existing_id, "body": note_text},
+                          headers=headers, timeout=15)
                 return str(existing_id), "updated"
             log.warning(f"GL: FUB update failed {r.status_code}: {r.text[:200]}")
             return str(existing_id), "update_failed"
         else:
-            # CREATE
-            r = http.post(f"{FUB_BASE}/people", json=payload, headers=headers, timeout=15)
+            # CREATE — remove note from payload, post separately after creation
+            create_payload = {k: v for k, v in payload.items() if k != "note"}
+            r = http.post(f"{FUB_BASE}/people", json=create_payload, headers=headers, timeout=15)
             if r.status_code in (200, 201):
                 fub_id = r.json().get("id") or r.json().get("person", {}).get("id")
+                if fub_id:
+                    http.post(f"{FUB_BASE}/notes",
+                              json={"personId": fub_id, "body": note_text},
+                              headers=headers, timeout=15)
                 return str(fub_id) if fub_id else None, "created"
             elif r.status_code == 409:
                 # FUB detected duplicate itself
