@@ -42,25 +42,44 @@ DEFAULT_PHONE = ("(248) 955-2693", "12489552693")
 FUB_TAG       = "Commercial Golden Letters"
 FUB_BASE      = "https://api.followupboss.com/v1"
 
-# Slug → FUB Shared Inbox ID (from FUB URL /inbox-new/<id>)
-# Missing: Oakland Industrial (no inbox created yet — will alert)
+# Slug → FUB Shared Inbox ID (SMS routing — first responder wins)
 SLUG_INBOX = {
-    "fraser-industrial":     45,   # Macomb Co Industrial GL
+    "fraser-industrial":     45,
     "macomb-industrial":     45,
-    "fraser-retail":         48,   # Macomb Co Retail GL
+    "fraser-retail":         48,
     "macomb-retail":         48,
-    "flint-industrial":      46,   # Genesee Industrial GL
+    "flint-industrial":      46,
     "genesee-industrial":    46,
-    "flint-retail":          49,   # Genesee Retail GL
+    "flint-retail":          49,
     "genesee-retail":        49,
-    "oakland-industrial":    43,   # Oakland Industrial GL
+    "oakland-industrial":    43,
     "highland-industrial":   43,
-    "oakland-retail":        50,   # Oakland Retail GL
+    "oakland-retail":        50,
     "highland-retail":       50,
-    "washtenaw-industrial":  51,   # Washtenaw Industrial GL
-    "wayne-industrial":      53,   # Wayne Co Industrial GL
-    "livingston-industrial": 54,   # Livingston Co Industrial GL
+    "washtenaw-industrial":  51,
+    "wayne-industrial":      53,
+    "livingston-industrial": 54,
 }
+
+# Slug → FUB CRE Group ID (form submission — round-robin across live members)
+SLUG_GROUP = {
+    "fraser-industrial":     23,
+    "macomb-industrial":     23,
+    "oakland-industrial":    22,
+    "highland-industrial":   22,
+    "flint-industrial":      27,
+    "genesee-industrial":    27,
+    "lapeer-industrial":     28,
+    "livingston-industrial": 25,
+    "washtenaw-industrial":  24,
+    "wayne-industrial":      26,
+}
+
+# Non-agent pond IDs — eligible for reassignment (VA Support etc.)
+NON_AGENT_ASSIGNED_IDS = {6}
+
+# AP ID applied on create or reassignment
+CRE_GL_AP_ID = 259
 
 
 def _lookup(slug: str):
@@ -71,18 +90,71 @@ def _lookup(slug: str):
     return phone_display, phone_raw, city, vertical
 
 
+def _get_group_members(group_id: int, headers: dict) -> list:
+    """Fetch current member IDs from a FUB group (live, no hardcoding)."""
+    try:
+        r = http.get(f"{FUB_BASE}/groups/{group_id}", headers=headers, timeout=15)
+        if r.status_code == 200:
+            members = r.json().get("members", r.json().get("users", []))
+            return [m["id"] for m in members if m.get("id")]
+    except Exception as e:
+        log.warning(f"GL: Could not fetch group {group_id} members: {e}")
+    return []
+
+
+def _get_rr_index(group_id: int, member_count: int) -> tuple:
+    """Get and advance round-robin index for a group. Stored in gl_rr_state table."""
+    try:
+        from app.models import GLRoundRobin
+        state = GLRoundRobin.query.filter_by(group_id=group_id).first()
+        if not state:
+            state = GLRoundRobin(group_id=group_id, next_index=0)
+            db.session.add(state)
+        idx = state.next_index % member_count
+        state.next_index = (idx + 1) % member_count
+        db.session.commit()
+        return idx
+    except Exception as e:
+        log.warning(f"GL: RR index error for group {group_id}: {e}")
+        return 0
+
+
+def _is_real_agent(assigned_id, assigned_to: str) -> bool:
+    """Returns True if the current assignee is a real agent (not a pond/VA)."""
+    if not assigned_id:
+        return False
+    if assigned_id in NON_AGENT_ASSIGNED_IDS:
+        return False
+    # FUB pond assignments show as None or a system user — check by name patterns
+    pond_keywords = ["pond", "va support", "support", "unassigned", "joseph delia", "joe delia"]
+    name_lower = (assigned_to or "").lower()
+    if any(k in name_lower for k in pond_keywords):
+        return False
+    return True
+
+
+def _apply_ap(person_id, headers: dict):
+    """Apply the CRE GL Action Plan to a FUB contact."""
+    try:
+        r = http.post(f"{FUB_BASE}/actionPlansPeople",
+                      json={"actionPlanId": CRE_GL_AP_ID, "personId": person_id},
+                      headers=headers, timeout=15)
+        if r.status_code not in (200, 201):
+            log.warning(f"GL: AP apply failed {r.status_code}: {r.text[:100]}")
+    except Exception as e:
+        log.warning(f"GL: AP apply exception: {e}")
+
+
 def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertical: str):
     """
-    Push a GL lead to FUB. Works with partial data (address only is enough).
-    - Deduplicates by phone (if provided) — updates existing record rather than creating duplicate
-    - Routes to the correct Shared Inbox for the county/vertical
-    - Always tags 'Commercial Golden Letters' + city/vertical tag
-    - Alerts via log if inbox not mapped for this slug
-    Returns (fub_id, status) where status = 'created' | 'updated' | 'error' | 'no_key'
+    Push a CRE GL form lead to FUB with full routing logic:
+    - New contact → round-robin assign from CRE group → apply AP 259
+    - Existing in non-agent pond → reassign via round-robin → apply AP 259
+    - Existing with real agent → tag only, NO reassignment, NO AP (agent owns it)
+    Returns (fub_id, status)
     """
     try:
         import sys, base64
-        # Read FUB key from Railway env var first, fall back to Mac vault cache
         fub_key = os.environ.get("FUB_API_KEY", "")
         if not fub_key:
             try:
@@ -92,7 +164,7 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
             except Exception:
                 pass
         if not fub_key:
-            log.warning("GL: FUB key not found in env or vault cache")
+            log.warning("GL: FUB key not found")
             return None, "no_key"
 
         auth_header = base64.b64encode(f"{fub_key}:".encode()).decode()
@@ -103,33 +175,95 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
             "X-System-Key": fub_key,
         }
 
-        inbox_id = SLUG_INBOX.get(slug)
-        if inbox_id is None:
-            log.warning(f"GL: No FUB inbox mapped for slug '{slug}' — lead will be created without inbox routing. Create an inbox for this county/vertical and add it to SLUG_INBOX.")
-
         city_vertical_tag = f"CGL - {city} {vertical}"
+        note_parts = ["Commercial Golden Letter lead via form submission",
+                      f"City/Vertical: {city} {vertical}"]
+        if address:
+            note_parts.append(f"Property Address: {address}")
+        note_text = " | ".join(note_parts)
 
-        # ── Check for existing record by phone ───────────────────────────────
+        # ── Get group members for round-robin ────────────────────────────────
+        group_id = SLUG_GROUP.get(slug)
+        group_members = _get_group_members(group_id, headers) if group_id else []
+        if not group_members:
+            log.warning(f"GL: No group members found for slug '{slug}' group {group_id}")
+
+        def pick_next_agent():
+            if not group_members:
+                return None
+            idx = _get_rr_index(group_id, len(group_members))
+            return group_members[idx]
+
+        # ── Check for existing FUB record by phone ───────────────────────────
         existing_id = None
+        existing_assigned_id = None
+        existing_assigned_to = None
         if phone:
             clean_phone = ''.join(c for c in phone if c.isdigit())
-            r_check = http.get(
-                f"{FUB_BASE}/people",
-                params={"phone": clean_phone, "limit": 1},
-                headers=headers, timeout=15
-            )
+            r_check = http.get(f"{FUB_BASE}/people",
+                               params={"phone": clean_phone, "limit": 1},
+                               headers=headers, timeout=15)
             if r_check.status_code == 200:
                 people = r_check.json().get("people", [])
                 if people:
-                    existing_id = people[0].get("id")
-                    log.info(f"GL: Found existing FUB record {existing_id} for phone {clean_phone}")
+                    p = people[0]
+                    existing_id = p.get("id")
+                    existing_assigned_id = p.get("assignedUserId") or p.get("assignedTo", {}).get("id") if isinstance(p.get("assignedTo"), dict) else None
+                    existing_assigned_to = p.get("assignedTo") if isinstance(p.get("assignedTo"), str) else (p.get("assignedTo") or {}).get("name", "")
+                    log.info(f"GL: Found existing FUB {existing_id} assigned to '{existing_assigned_to}' (id={existing_assigned_id})")
 
-        # ── Build payload ─────────────────────────────────────────────────────
+        # ── EXISTING CONTACT ─────────────────────────────────────────────────
+        if existing_id:
+            has_real_agent = _is_real_agent(existing_assigned_id, existing_assigned_to)
+
+            if has_real_agent:
+                # Real agent owns this — tag only, no reassign, no AP
+                http.put(f"{FUB_BASE}/people/{existing_id}",
+                         json={"tags": [FUB_TAG, city_vertical_tag]},
+                         headers=headers, timeout=15)
+                http.post(f"{FUB_BASE}/notes",
+                          json={"personId": existing_id, "body": note_text},
+                          headers=headers, timeout=15)
+                log.info(f"GL: Existing real-agent contact {existing_id} — tagged only, no reassign")
+                return str(existing_id), "tagged_existing_agent"
+            else:
+                # Pond/VA/unassigned — reassign via round-robin + AP
+                next_agent = pick_next_agent()
+                update = {"tags": [FUB_TAG, city_vertical_tag]}
+                if next_agent:
+                    update["assignedUserId"] = next_agent
+                if phone:
+                    update["phones"] = [{"value": phone, "type": "mobile"}]
+                if address:
+                    update["addresses"] = [{"street": address, "type": "property"}]
+                if name:
+                    parts = name.strip().split(None, 1)
+                    update["firstName"] = parts[0]
+                    if len(parts) > 1:
+                        update["lastName"] = parts[1]
+                r = http.put(f"{FUB_BASE}/people/{existing_id}",
+                             json=update, headers=headers, timeout=15)
+                if r.status_code in (200, 201):
+                    _apply_ap(existing_id, headers)
+                    http.post(f"{FUB_BASE}/notes",
+                              json={"personId": existing_id, "body": note_text},
+                              headers=headers, timeout=15)
+                    log.info(f"GL: Pond contact {existing_id} reassigned to agent {next_agent} + AP applied")
+                    return str(existing_id), "reassigned"
+                log.warning(f"GL: Reassign failed {r.status_code}: {r.text[:200]}")
+                return str(existing_id), "update_failed"
+
+        # ── NEW CONTACT ──────────────────────────────────────────────────────
+        next_agent = pick_next_agent()
+        inbox_id = SLUG_INBOX.get(slug)
+
         payload = {
             "tags": [FUB_TAG, city_vertical_tag],
             "source": "Commercial Golden Letter",
-            "sourceUrl": f"https://gl.tdgcommercialre.com/{slug}",
+            "sourceUrl": f"https://gl.tdgcommercialre.com/gl/{slug}",
         }
+        if next_agent:
+            payload["assignedUserId"] = next_agent
         if inbox_id:
             payload["sharedInboxId"] = inbox_id
         if phone:
@@ -142,51 +276,25 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
             if len(parts) > 1:
                 payload["lastName"] = parts[1]
 
-        # Add a note so team knows how they came in
-        contact_method = "form submission"
-        note_parts = [f"Commercial Golden Letter lead via {contact_method}"]
-        note_parts.append(f"City/Vertical: {city} {vertical}")
-        if address: note_parts.append(f"Property Address: {address}")
-        note_text = " | ".join(note_parts)
-
-        # ── Create or Update ──────────────────────────────────────────────────
-        if existing_id:
-            # UPDATE — strip fields FUB rejects on PUT (sharedInboxId, note)
-            update_payload = {k: v for k, v in payload.items()
-                              if k not in ("sharedInboxId", "note", "source", "sourceUrl")}
-            r = http.put(
-                f"{FUB_BASE}/people/{existing_id}",
-                json=update_payload, headers=headers, timeout=15
-            )
-            if r.status_code in (200, 201):
-                # Post note separately
+        r = http.post(f"{FUB_BASE}/people", json=payload, headers=headers, timeout=15)
+        if r.status_code in (200, 201):
+            fub_id = r.json().get("id") or r.json().get("person", {}).get("id")
+            if fub_id:
+                _apply_ap(fub_id, headers)
                 http.post(f"{FUB_BASE}/notes",
-                          json={"personId": existing_id, "body": note_text},
+                          json={"personId": fub_id, "body": note_text},
                           headers=headers, timeout=15)
-                return str(existing_id), "updated"
-            log.warning(f"GL: FUB update failed {r.status_code}: {r.text[:200]}")
-            return str(existing_id), "update_failed"
-        else:
-            # CREATE — remove note from payload, post separately after creation
-            create_payload = {k: v for k, v in payload.items() if k != "note"}
-            r = http.post(f"{FUB_BASE}/people", json=create_payload, headers=headers, timeout=15)
-            if r.status_code in (200, 201):
-                fub_id = r.json().get("id") or r.json().get("person", {}).get("id")
-                if fub_id:
-                    http.post(f"{FUB_BASE}/notes",
-                              json={"personId": fub_id, "body": note_text},
-                              headers=headers, timeout=15)
-                return str(fub_id) if fub_id else None, "created"
-            elif r.status_code == 409:
-                # FUB detected duplicate itself
-                existing_id = r.json().get("id")
-                if existing_id:
-                    http.put(f"{FUB_BASE}/people/{existing_id}",
-                             json={"tags": [FUB_TAG, city_vertical_tag]},
-                             headers=headers, timeout=15)
-                    return str(existing_id), "updated"
-            log.warning(f"GL: FUB create failed {r.status_code}: {r.text[:200]}")
-            return None, "error"
+            log.info(f"GL: Created FUB {fub_id} assigned to agent {next_agent} + AP applied")
+            return str(fub_id) if fub_id else None, "created"
+        elif r.status_code == 409:
+            dup_id = r.json().get("id")
+            if dup_id:
+                http.put(f"{FUB_BASE}/people/{dup_id}",
+                         json={"tags": [FUB_TAG, city_vertical_tag]},
+                         headers=headers, timeout=15)
+                return str(dup_id), "updated"
+        log.warning(f"GL: FUB create failed {r.status_code}: {r.text[:200]}")
+        return None, "error"
 
     except Exception as e:
         log.error(f"GL: FUB push exception: {e}")

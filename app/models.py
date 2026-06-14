@@ -317,4 +317,15 @@ class Pipeline(db.Model):
     appt_set_date = db.Column(db.Date)
     fub_id = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class GLRoundRobin(db.Model):
+    """Tracks round-robin assignment index per FUB CRE group for GL form submissions."""
+    __tablename__ = 'gl_round_robin'
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, unique=True, nullable=False)
+    next_index = db.Column(db.Integer, default=0, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<GLRoundRobin group={self.group_id} next={self.next_index}>'
