@@ -264,6 +264,8 @@
     // Show success if redirected back after form submit
     if (window.location.search.includes('submitted=1')) {
       document.getElementById('evalForm').style.display = 'none';
+      document.querySelector('.cta-sms').style.display = 'none';
+      document.querySelector('.or-row').style.display = 'none';
       var msg = document.getElementById('successMsg');
       msg.style.display = 'block';
       msg.scrollIntoView({behavior: 'smooth', block: 'center'});
