@@ -7,6 +7,7 @@ Routes:
   GET  /gl/qr/<slug>.png   — alternate path used in merge script
 """
 from flask import Blueprint, render_template, request, redirect, send_file, abort, jsonify
+from flask_login import login_required
 from datetime import datetime
 from app import db
 from app.models import GLScan
@@ -723,9 +724,9 @@ def webhook_fub():
 # ── GL Analytics Dashboard ────────────────────────────────────────────────────
 
 @bp.route("/gl/analytics")
+@login_required
 def gl_analytics():
     """GL Analytics dashboard — scans by city/vertical with KPI cards + chart data."""
-    from flask_login import current_user
     from sqlalchemy import func, text
     from app.models import GLScan
 
