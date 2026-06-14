@@ -217,14 +217,15 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
             has_real_agent = _is_real_agent(existing_assigned_id, existing_assigned_to)
 
             if has_real_agent:
-                # Real agent owns this — tag only, no reassign, no AP
+                # Real agent owns this — tag only, no reassign, but ALWAYS apply AP
                 http.put(f"{FUB_BASE}/people/{existing_id}",
                          json={"tags": [FUB_TAG, city_vertical_tag]},
                          headers=headers, timeout=15)
+                _apply_ap(existing_id, headers)
                 http.post(f"{FUB_BASE}/notes",
                           json={"personId": existing_id, "body": note_text},
                           headers=headers, timeout=15)
-                log.info(f"GL: Existing real-agent contact {existing_id} — tagged only, no reassign")
+                log.info(f"GL: Existing real-agent contact {existing_id} — tagged + AP applied, no reassign")
                 return str(existing_id), "tagged_existing_agent"
             else:
                 # Pond/VA/unassigned — reassign via round-robin + AP
