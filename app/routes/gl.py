@@ -82,11 +82,17 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
     """
     try:
         import sys, base64
-        sys.path.insert(0, "/Users/edentdg/.hermes/scripts")
-        from vault_cache_reader import read_credential
-        fub_key = read_credential("Jet-Automations", "Jet FUb Key 6.3.26", "API Key")
+        # Read FUB key from Railway env var first, fall back to Mac vault cache
+        fub_key = os.environ.get("FUB_API_KEY", "")
         if not fub_key:
-            log.warning("GL: FUB key not found in vault cache")
+            try:
+                sys.path.insert(0, "/Users/edentdg/.hermes/scripts")
+                from vault_cache_reader import read_credential
+                fub_key = read_credential("Jet-Automations", "Jet FUb Key 6.3.26", "API Key")
+            except Exception:
+                pass
+        if not fub_key:
+            log.warning("GL: FUB key not found in env or vault cache")
             return None, "no_key"
 
         auth_header = base64.b64encode(f"{fub_key}:".encode()).decode()
