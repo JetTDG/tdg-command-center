@@ -39,6 +39,9 @@ PHONE_MAP = {
 }
 DEFAULT_PHONE = ("(248) 955-2693", "12489552693")
 
+# Reverse map: e164 digits → slug (for webhook routing)
+PHONE_TO_SLUG = {v[1]: k for k, v in PHONE_MAP.items()}
+
 FUB_TAG       = "Commercial Golden Letters"
 FUB_BASE      = "https://api.followupboss.com/v1"
 
@@ -550,4 +553,140 @@ def dashboard_data():
         return jsonify(stats)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/webhook/fub", methods=["POST"])
+def webhook_fub():
+    """
+    FUB textMessageReceived webhook endpoint.
+    Receives inbound SMS events and routes the contact via round-robin
+    assignment + AP 259, mirroring the form-submission routing logic.
+    Always returns 200 so FUB does not retry.
+    """
+    import base64, sys
+
+    try:
+        payload = request.get_json(silent=True) or {}
+        data = payload.get("data", {})
+
+        # Only handle inbound texts
+        if not data.get("isInbound", False):
+            log.info("GL webhook: skipping outbound text")
+            return jsonify({"status": "ok", "skipped": "outbound"}), 200
+
+        person_id = data.get("personId")
+        if not person_id:
+            log.info("GL webhook: no personId in payload, skipping")
+            return jsonify({"status": "ok", "skipped": "no_person_id"}), 200
+
+        to_number = data.get("toNumber", "")
+        # Strip leading "+" to get raw e164 digits matching PHONE_TO_SLUG keys
+        e164_digits = to_number.lstrip("+")
+        slug = PHONE_TO_SLUG.get(e164_digits)
+
+        if not slug:
+            log.warning(f"GL webhook: no slug found for toNumber={to_number} (e164={e164_digits})")
+            return jsonify({"status": "ok", "skipped": "unknown_number"}), 200
+
+        # ── Set up FUB auth ──────────────────────────────────────────────────
+        fub_key = os.environ.get("FUB_API_KEY", "")
+        if not fub_key:
+            try:
+                sys.path.insert(0, "/Users/edentdg/.hermes/scripts")
+                from vault_cache_reader import read_credential
+                fub_key = read_credential("Jet-Automations", "Jet FUb Key 6.3.26", "API Key")
+            except Exception:
+                pass
+        if not fub_key:
+            log.warning("GL webhook: FUB key not found — cannot route")
+            return jsonify({"status": "ok", "error": "no_key"}), 200
+
+        auth_header = base64.b64encode(f"{fub_key}:".encode()).decode()
+        fub_headers = {
+            "Authorization": f"Basic {auth_header}",
+            "Content-Type": "application/json",
+            "X-System": "TDG-GL-Landing",
+            "X-System-Key": fub_key,
+        }
+
+        # ── Look up contact in FUB ───────────────────────────────────────────
+        r_person = http.get(f"{FUB_BASE}/people/{person_id}",
+                            headers=fub_headers, timeout=15)
+        if r_person.status_code != 200:
+            log.warning(f"GL webhook: FUB person lookup failed {r_person.status_code} "
+                        f"for personId={person_id}")
+            return jsonify({"status": "ok", "error": "person_not_found"}), 200
+
+        contact = r_person.json()
+        assigned_to_raw = contact.get("assignedTo")
+        existing_assigned_id = (
+            contact.get("assignedUserId")
+            or (assigned_to_raw.get("id") if isinstance(assigned_to_raw, dict) else None)
+        )
+        existing_assigned_to = (
+            assigned_to_raw if isinstance(assigned_to_raw, str)
+            else ((assigned_to_raw or {}).get("name", "") if isinstance(assigned_to_raw, dict) else "")
+        )
+
+        # ── Apply routing logic (mirrors _fub_push) ──────────────────────────
+        group_id = SLUG_GROUP.get(slug)
+        group_members = _get_group_members(group_id, fub_headers) if group_id else []
+        has_real_agent = _is_real_agent(existing_assigned_id, existing_assigned_to)
+        fub_status = "no_action"
+
+        if has_real_agent:
+            # Real agent already owns this contact — apply AP only, never reassign
+            _apply_ap(person_id, fub_headers)
+            fub_status = "ap_applied_existing_agent"
+            log.info(f"GL webhook: personId={person_id} slug={slug} — "
+                     f"real agent '{existing_assigned_to}', AP applied only")
+        else:
+            # Pond / unassigned — round-robin assign + AP
+            next_agent = None
+            if group_members:
+                idx = _get_rr_index(group_id, len(group_members))
+                next_agent = group_members[idx]
+
+            if next_agent:
+                r_upd = http.put(f"{FUB_BASE}/people/{person_id}",
+                                 json={"assignedUserId": next_agent},
+                                 headers=fub_headers, timeout=15)
+                if r_upd.status_code in (200, 201):
+                    fub_status = f"reassigned_to_{next_agent}"
+                    log.info(f"GL webhook: personId={person_id} slug={slug} — "
+                             f"reassigned to agent {next_agent}")
+                else:
+                    log.warning(f"GL webhook: reassign failed {r_upd.status_code}: "
+                                f"{r_upd.text[:200]}")
+                    fub_status = "reassign_failed"
+            else:
+                fub_status = "no_group_members"
+                log.warning(f"GL webhook: no group members for slug={slug} group={group_id}")
+
+            _apply_ap(person_id, fub_headers)
+
+        # ── Log event to DB ──────────────────────────────────────────────────
+        parts = slug.split("-", 1)
+        city     = parts[0].title() if parts else "Unknown"
+        vertical = parts[1].replace("-", " ").title() if len(parts) > 1 else "Commercial"
+        try:
+            row = GLScan(
+                slug=slug, city=city, vertical=vertical,
+                event_type="sms_inbound_routed",
+                fub_id=str(person_id), fub_status=fub_status,
+                ip=request.remote_addr,
+                user_agent=request.headers.get("User-Agent", "")[:300],
+            )
+            db.session.add(row)
+            db.session.commit()
+        except Exception as db_err:
+            log.error(f"GL webhook: DB log failed: {db_err}")
+
+        log.info(f"GL webhook: done — personId={person_id} slug={slug} status={fub_status}")
+        return jsonify({"status": "ok"}), 200
+
+    except Exception as exc:
+        log.error(f"GL webhook: unexpected error: {exc}")
+        # Always return 200 to prevent FUB retries
+        return jsonify({"status": "ok", "error": str(exc)}), 200
 
