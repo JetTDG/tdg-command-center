@@ -11,7 +11,6 @@ from flask_login import login_required
 from datetime import datetime
 from app import db
 from app.models import GLScan
-from app.gl_analytics import get_fub_activity, SLUG_PHONE
 import os, io, logging, requests as http
 
 log = logging.getLogger(__name__)
@@ -513,15 +512,8 @@ def dashboard():
             stats[slug]['days_live'] = (now - first_seen).days
 
     # ── FUB activity (calls + texts — not date-filtered, FUB totals only) ────
-    active_slugs = list(stats.keys())
-    if active_slugs:
-        try:
-            fub = get_fub_activity(slugs=active_slugs)
-            for slug, activity in fub.items():
-                if slug in stats:
-                    stats[slug].update(activity)
-        except Exception as e:
-            log.warning(f"GL dashboard FUB error: {e}")
+    # (FUB shared inbox API does not expose texts via API — skipped)
+    pass
 
     # ── Sort ──────────────────────────────────────────────────────────────────
     def sort_key(r):
@@ -543,7 +535,7 @@ def dashboard():
             totals[k] += r.get(k, 0)
 
     # ── Dropdown options ──────────────────────────────────────────────────────
-    all_cities   = sorted({s.split('-')[0].title()              for s in SLUG_PHONE})
+    all_cities   = sorted({s.split('-')[0].title() for s in PHONE_MAP})
     all_counties = sorted(set(COUNTY_MAP.values()))
 
     # ── Helper for "remove one filter" links ─────────────────────────────────
