@@ -1523,7 +1523,8 @@ def ceo_summary():
         # monthly breakdown
         monthly = []
         for m in range(1, 13):
-            mc = [t for t in closed  if t.month == m]
+            # Use close_date.month (not t.month) — t.month can be stale from import
+            mc = [t for t in closed  if t.close_date and t.close_date.month == m]
             mp = [t for t in pending if t.projected_close_date and t.projected_close_date.month == m]
             monthly.append({
                 'month':          calendar.month_abbr[m],
