@@ -24,6 +24,23 @@
   {% endfor %}
 </div>
 
+<!-- ── Quick search (name / address) ──────────────────────────────────── -->
+<div class="mb-2" style="max-width:380px;">
+  <div class="input-group input-group-sm">
+    <span class="input-group-text bg-white border-end-0" style="border-color:#dee2e6;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="#999" viewBox="0 0 16 16">
+        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11"/>
+      </svg>
+    </span>
+    <input type="text" id="mb-quick-search"
+           class="form-control border-start-0"
+           placeholder="Search by name or address…"
+           style="border-color:#dee2e6;"
+           autocomplete="off">
+    <button class="btn btn-outline-secondary" type="button" id="mb-quick-search-clear" title="Clear search" style="display:none;">✕</button>
+  </div>
+</div>
+
 <!-- Year / Month / Date filter bar -->
 <form method="GET" class="row g-2 mb-2 align-items-center flex-wrap" id="year-form">
   <!-- Year -->
@@ -731,6 +748,7 @@ function refreshComputed(tid) {
 
 const activeFilters = {};  // colIdx → Set of allowed values
 let sortCol = -1, sortDir = 1;  // 1=asc, -1=desc
+let quickSearchTerm = '';
 
 // ── Persist column filters + sort across reloads / adds (per browser) ──────
 const MB_STATE_KEY = 'mb_filter_state_v1';
@@ -811,10 +829,18 @@ function updateTotals(visibleRows) {
 function applyFilters() {
   let vis = 0;
   const visibleRows = [];
+  const qs = quickSearchTerm.trim().toLowerCase();
   getAllRows().forEach(row => {
     let show = true;
+    // Column-level filters
     for (const [ci, allowed] of Object.entries(activeFilters)) {
       if (!allowed.has(getCellVal(row, parseInt(ci)))) { show=false; break; }
+    }
+    // Quick search: client_name (data-col 6) + address (data-col 4)
+    if (show && qs) {
+      const clientVal = (getCellVal(row, 6) || '').toLowerCase();
+      const addrVal   = (getCellVal(row, 4) || '').toLowerCase();
+      if (!clientVal.includes(qs) && !addrVal.includes(qs)) show = false;
     }
     row.classList.toggle('row-hidden', !show);
     if (show) { vis++; visibleRows.push(row); }
@@ -1063,6 +1089,12 @@ document.getElementById('clear-filters-btn').addEventListener('click', function(
   document.querySelectorAll('.col-hdr.filtered').forEach(th=>th.classList.remove('filtered'));
   document.querySelectorAll('.sbtn').forEach(b=>b.textContent='⇅');
   sortCol=-1; sortDir=1;
+  // Also clear quick search
+  quickSearchTerm = '';
+  const qsInput = document.getElementById('mb-quick-search');
+  const qsClear = document.getElementById('mb-quick-search-clear');
+  if (qsInput) qsInput.value = '';
+  if (qsClear) qsClear.style.display = 'none';
   applyFilters();
   try { localStorage.removeItem(MB_STATE_KEY); } catch(e) {}
   // Also reset server-side month/date filters and reload
@@ -1072,6 +1104,25 @@ document.getElementById('clear-filters-btn').addEventListener('click', function(
   url.searchParams.delete('date_to');
   window.location.href = url.toString();
 });
+
+// ── Quick search: name / address ─────────────────────────────────────────
+(function() {
+  const qsInput = document.getElementById('mb-quick-search');
+  const qsClear = document.getElementById('mb-quick-search-clear');
+  if (!qsInput) return;
+  qsInput.addEventListener('input', function() {
+    quickSearchTerm = this.value;
+    qsClear.style.display = this.value ? 'inline-block' : 'none';
+    applyFilters();
+  });
+  qsClear.addEventListener('click', function() {
+    qsInput.value = '';
+    quickSearchTerm = '';
+    this.style.display = 'none';
+    qsInput.focus();
+    applyFilters();
+  });
+})();
 
 // Close on outside click
 document.addEventListener('click', e => {
