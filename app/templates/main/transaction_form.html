@@ -76,15 +76,15 @@
 
     <div class="col-md-2">
       <label class="form-label">Signed Date</label>
-      <input type="date" name="signed_date" class="form-control" value="{{ t.signed_date.strftime('%Y-%m-%d') if t and t.signed_date else '' }}">
+      <input type="date" name="signed_date" id="signed_date" class="form-control" value="{{ t.signed_date.strftime('%Y-%m-%d') if t and t.signed_date else '' }}">
     </div>
     <div class="col-md-2">
       <label class="form-label">MLS Live Date</label>
       <input type="date" name="mls_live_date" class="form-control" value="{{ t.mls_live_date.strftime('%Y-%m-%d') if t and t.mls_live_date else '' }}">
     </div>
     <div class="col-md-2">
-      <label class="form-label">Expiry Date</label>
-      <input type="date" name="expiry_date" class="form-control" value="{{ t.expiry_date.strftime('%Y-%m-%d') if t and t.expiry_date else '' }}">
+      <label class="form-label">Expiry Date <small class="text-muted">auto</small></label>
+      <input type="date" name="expiry_date" id="expiry_date" class="form-control" value="{{ t.expiry_date.strftime('%Y-%m-%d') if t and t.expiry_date else '' }}">
     </div>
     <div class="col-md-2">
       <label class="form-label">Under Contract Date</label>
@@ -373,6 +373,36 @@ document.getElementById('referral_fee').addEventListener('input', function() { t
   if (el) el.addEventListener('input', calcAll);
 });
 
+// ── Auto-fill Expiry Date = Signed Date + 12 months ─────────────────────
+// Only fills if expiry is blank — never overwrites a manually entered value.
+(function() {
+  var signedEl = document.getElementById('signed_date');
+  var expiryEl = document.getElementById('expiry_date');
+  if (!signedEl || !expiryEl) return;
+
+  function autoFillExpiry() {
+    if (expiryEl.value) return;  // already has a value — don't touch it
+    var val = signedEl.value;
+    if (!val) return;
+    var d = new Date(val + 'T00:00:00');
+    if (isNaN(d)) return;
+    d.setFullYear(d.getFullYear() + 1);
+    // Format as YYYY-MM-DD
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    expiryEl.value = d.getFullYear() + '-' + mm + '-' + dd;
+  }
+
+  signedEl.addEventListener('change', autoFillExpiry);
+  // On new form load, run once in case signed_date is pre-filled but expiry is blank
+  if (signedEl.value && !expiryEl.value) autoFillExpiry();
+
+  // If user manually clears expiry then changes signed date, re-auto-fill
+  expiryEl.addEventListener('change', function() {
+    // Once user sets expiry manually, detach auto-fill from future signed_date changes
+    signedEl.removeEventListener('change', autoFillExpiry);
+  });
+})();
 // Run on load if editing existing transaction
 calcAll();
 // Show manual badge if existing GCI doesn't match formula
