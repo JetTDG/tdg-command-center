@@ -4,20 +4,64 @@
 <div class="d-flex justify-content-between align-items-start mb-3">
   <div>
     <div class="page-title">Agents</div>
-    <div class="page-subtitle">Team roster management</div>
+    <div class="page-subtitle">Team roster management &nbsp;<span id="agentCount" class="text-muted" style="font-size:0.82rem;"></span></div>
   </div>
   <a href="{{ url_for('main.add_agent') }}" class="btn btn-gold"><i class="bi bi-plus-lg me-1"></i>Add Agent</a>
 </div>
+
 <div class="card">
   <div class="table-responsive">
-    <table class="table table-hover mb-0">
-      <thead><tr><th>Name</th><th>Role</th><th>Type</th><th>Status</th><th class="text-end">Split %</th><th class="text-end">Cap</th><th>Email</th><th></th></tr></thead>
+    <table class="table table-hover mb-0" id="agentsTable">
+      <thead>
+        <tr>
+          <th>
+            Name
+            <input type="text" id="filterName" class="form-control form-control-sm mt-1" placeholder="Search…" style="min-width:110px;font-size:0.78rem;">
+          </th>
+          <th>
+            Role
+            <select id="filterRole" class="form-select form-select-sm mt-1" style="font-size:0.78rem;">
+              <option value="">All</option>
+              <option>Lead Agent</option>
+              <option>Both L/B</option>
+              <option>Buyer Agent</option>
+            </select>
+          </th>
+          <th>
+            Type
+            <select id="filterType" class="form-select form-select-sm mt-1" style="font-size:0.78rem;">
+              <option value="">All</option>
+              <option>Individual</option>
+              <option>Team</option>
+            </select>
+          </th>
+          <th>
+            Status
+            <select id="filterStatus" class="form-select form-select-sm mt-1" style="font-size:0.78rem;">
+              <option value="Active" selected>Active</option>
+              <option value="">All</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </th>
+          <th class="text-end">Split %</th>
+          <th class="text-end">Cap</th>
+          <th>Email</th>
+          <th>
+            <button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="clearFilters()" style="font-size:0.75rem;white-space:nowrap;">Clear Filters</button>
+          </th>
+        </tr>
+      </thead>
       <tbody>
         {% for a in agents %}
-        <tr>
+        <tr
+          data-name="{{ a.name|lower }}"
+          data-role="{{ a.role or '' }}"
+          data-type="{{ a.agent_type or '' }}"
+          data-status="{{ a.status or '' }}"
+        >
           <td class="fw-semibold">{{ a.name }}</td>
-          <td class="small text-muted">{{ a.role }}</td>
-          <td class="small text-muted">{{ a.agent_type }}</td>
+          <td class="small text-muted">{{ a.role or '—' }}</td>
+          <td class="small text-muted">{{ a.agent_type or '—' }}</td>
           <td><span class="badge-status status-{{ a.status }}">{{ a.status }}</span></td>
           <td class="text-end small">{{ ((a.split_pct or 0)*100)|round(1) }}%</td>
           <td class="text-end small">{{ "${:,.0f}".format(a.cap_amount or 0) }}</td>
@@ -34,4 +78,45 @@
     </table>
   </div>
 </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyFilters() {
+  const name   = document.getElementById('filterName').value.toLowerCase().trim();
+  const role   = document.getElementById('filterRole').value.toLowerCase();
+  const type   = document.getElementById('filterType').value.toLowerCase();
+  const status = document.getElementById('filterStatus').value.toLowerCase();
+
+  const rows = document.querySelectorAll('#agentsTable tbody tr[data-name]');
+  let visible = 0;
+  rows.forEach(row => {
+    const match =
+      (!name   || row.dataset.name.includes(name)) &&
+      (!role   || row.dataset.role.toLowerCase() === role) &&
+      (!type   || row.dataset.type.toLowerCase() === type) &&
+      (!status || row.dataset.status.toLowerCase() === status);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  document.getElementById('agentCount').textContent = `(${visible} shown)`;
+}
+
+function clearFilters() {
+  document.getElementById('filterName').value   = '';
+  document.getElementById('filterRole').value   = '';
+  document.getElementById('filterType').value   = '';
+  document.getElementById('filterStatus').value = '';
+  applyFilters();
+}
+
+// Wire up all filters
+['filterName','filterRole','filterType','filterStatus'].forEach(id => {
+  document.getElementById(id).addEventListener('input', applyFilters);
+});
+
+// Run on load — defaults Status to "Active"
+applyFilters();
+</script>
 {% endblock %}
