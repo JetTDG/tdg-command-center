@@ -1821,6 +1821,268 @@ def edit_agent(aid):
         return redirect(url_for('main.agents'))
     return render_template('main/agent_form.html', agent=agent)
 
+@bp.route('/scorecard/<int:agent_id>')
+@login_required
+def scorecard(agent_id):
+    # Agents can only see their own scorecard
+    if current_user.role == 'agent' and current_user.agent_id != agent_id:
+        flash('You can only view your own scorecard.', 'danger')
+        return redirect(url_for('main.scorecard', agent_id=current_user.agent_id))
+
+    agent = Agent.query.get_or_404(agent_id)
+    year = int(request.args.get('year', current_year()))
+    month = request.args.get('month', 'all')  # 'all' or 1-12
+    division = request.args.get('division', 'all')  # 'all', 'Residential', 'Commercial'
+
+    # All agents for switcher dropdown (admin only)
+    all_agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
+
+    # ── Transactions where this agent appears in ANY column ──────────────────
+    txn_filter = or_(
+        Transaction.agent_id == agent_id,
+        Transaction.primary_agent_name.ilike(f'%{agent.name}%'),
+        Transaction.secondary_agent_name.ilike(f'%{agent.name}%'),
+        Transaction.member3_name.ilike(f'%{agent.name}%'),
+        Transaction.member4_name.ilike(f'%{agent.name}%'),
+    )
+    txn_q = Transaction.query.filter(txn_filter, Transaction.year == year)
+    if division != 'all':
+        txn_q = txn_q.filter(Transaction.division == division)
+    if month != 'all':
+        txn_q = txn_q.filter(Transaction.month == int(month))
+
+    all_txns = txn_q.order_by(Transaction.close_date.desc().nulls_last(), Transaction.signed_date.desc()).all()
+
+    # Helper: agent's personal income on a deal
+    def agent_income(t):
+        n = agent.name.lower()
+        income = 0.0
+        if t.primary_agent_name and n in t.primary_agent_name.lower():
+            income += t.primary_agent_gci or 0
+        if t.secondary_agent_name and n in t.secondary_agent_name.lower():
+            income += t.secondary_agent_gci or 0
+        if t.member3_name and n in t.member3_name.lower():
+            income += t.member3_gci or 0
+        if t.member4_name and n in t.member4_name.lower():
+            income += t.member4_gci or 0
+        return income
+
+    # ── Pipeline (open deals) ────────────────────────────────────────────────
+    CLOSED_STATUSES = {'Closed', 'Withdrawn', 'Expired', 'Cancelled', 'Dead'}
+    pipeline_txns = [t for t in all_txns if t.status not in CLOSED_STATUSES]
+    closed_txns   = [t for t in all_txns if t.status == 'Closed']
+
+    # ── YTD Summary ──────────────────────────────────────────────────────────
+    ytd_units  = len(closed_txns)
+    ytd_income = sum(agent_income(t) for t in closed_txns)
+    ytd_gci    = sum(t.gci or 0 for t in closed_txns)
+    ytd_volume = sum(t.sale_price or 0 for t in closed_txns)
+
+    # ── Monthly grid Jan-Dec (closed deals) ─────────────────────────────────
+    monthly = {}
+    for m in range(1, 13):
+        month_txns = [t for t in closed_txns if t.month == m]
+        monthly[m] = {
+            'units': len(month_txns),
+            'income': sum(agent_income(t) for t in month_txns),
+            'gci': sum(t.gci or 0 for t in month_txns),
+            'txns': month_txns,
+        }
+
+    # ── Source conversion (all txns this year, any status) ───────────────────
+    from collections import defaultdict
+    # Use full-year (no month filter) for source conversion
+    source_txns_q = Transaction.query.filter(txn_filter, Transaction.year == year)
+    if division != 'all':
+        source_txns_q = source_txns_q.filter(Transaction.division == division)
+    source_txns = source_txns_q.all()
+
+    source_map = defaultdict(lambda: {'received': 0, 'active': 0, 'pending': 0, 'closed': 0, 'income': 0.0})
+    for t in source_txns:
+        src = t.lead_source or 'Unknown'
+        source_map[src]['received'] += 1
+        if t.status in ('Active', 'Pre-Signed', 'Coming Soon'):
+            source_map[src]['active'] += 1
+        elif t.status == 'Pending':
+            source_map[src]['pending'] += 1
+        elif t.status == 'Closed':
+            source_map[src]['closed'] += 1
+            source_map[src]['income'] += agent_income(t)
+    source_breakdown = sorted(source_map.items(), key=lambda x: -x[1]['received'])
+
+    # ── Lead Gen (YTD totals from lead_gen_log) ──────────────────────────────
+    lg_q = LeadGenLog.query.filter_by(agent_id=agent_id)
+    if month != 'all':
+        from sqlalchemy import extract as sa_extract
+        lg_q = lg_q.filter(
+            sa_extract('year', LeadGenLog.log_date) == year,
+            sa_extract('month', LeadGenLog.log_date) == int(month)
+        )
+    else:
+        from sqlalchemy import extract as sa_extract
+        lg_q = lg_q.filter(sa_extract('year', LeadGenLog.log_date) == year)
+    lg_logs = lg_q.all()
+
+    lg = {
+        'dials': sum(l.dials or 0 for l in lg_logs),
+        'contacts': sum(l.contacts or 0 for l in lg_logs),
+        'hours': sum(l.hours or 0 for l in lg_logs),
+        'listing_set': sum(l.listing_appts_set or 0 for l in lg_logs),
+        'listing_held': sum(l.listing_appts_held or 0 for l in lg_logs),
+        'listings_signed': sum(l.listings_signed or 0 for l in lg_logs),
+        'buyer_set': sum(l.buyer_appts_set or 0 for l in lg_logs),
+        'buyer_held': sum(l.buyer_appts_held or 0 for l in lg_logs),
+        'buyers_signed': sum(l.buyers_signed or 0 for l in lg_logs),
+    }
+    # Conversion rates (avoid div/0)
+    def pct(num, den):
+        return round(num / den * 100, 1) if den else 0
+    lg['listing_set_to_held'] = pct(lg['listing_held'], lg['listing_set'])
+    lg['listing_held_to_signed'] = pct(lg['listings_signed'], lg['listing_held'])
+    lg['buyer_set_to_held'] = pct(lg['buyer_held'], lg['buyer_set'])
+    lg['buyer_held_to_signed'] = pct(lg['buyers_signed'], lg['buyer_held'])
+    lg['contact_to_appt'] = pct(lg['listing_set'] + lg['buyer_set'], lg['contacts'])
+
+    # ── Year-end projection ───────────────────────────────────────────────────
+    today = date.today()
+    elapsed_months = today.month if year == today.year else 12
+    if ytd_units > 0 and elapsed_months > 0:
+        proj_units  = round(ytd_units / elapsed_months * 12)
+        proj_income = round(ytd_income / elapsed_months * 12)
+    else:
+        proj_units  = 0
+        proj_income = 0.0
+    pending_income = sum(agent_income(t) for t in pipeline_txns if t.status == 'Pending')
+    proj_income_with_pending = proj_income + pending_income
+
+    # ── Pipeline income sum ────────────────────────────────────────────────────
+    pipeline_income = sum(agent_income(t) for t in pipeline_txns)
+
+    # ── Business plan for this year ───────────────────────────────────────────
+    plan = BusinessPlan.query.filter_by(agent_id=agent_id, year=year).first()
+
+    # ── Available years ───────────────────────────────────────────────────────
+    years = list(range(2022, current_year() + 1))
+
+    # ── Check if this agent has any Commercial txns (for division filter) ────
+    has_commercial = Transaction.query.filter(txn_filter, Transaction.division == 'Commercial').count() > 0
+
+    return render_template('main/scorecard.html',
+        agent=agent,
+        year=year,
+        month=month,
+        division=division,
+        all_agents=all_agents,
+        all_txns=all_txns,
+        pipeline_txns=pipeline_txns,
+        closed_txns=closed_txns,
+        monthly=monthly,
+        source_breakdown=source_breakdown,
+        lg=lg,
+        ytd_units=ytd_units,
+        ytd_income=ytd_income,
+        ytd_gci=ytd_gci,
+        ytd_volume=ytd_volume,
+        proj_units=proj_units,
+        proj_income=proj_income,
+        proj_income_with_pending=proj_income_with_pending,
+        pending_income=pending_income,
+        pipeline_income=pipeline_income,
+        plan=plan,
+        years=years,
+        has_commercial=has_commercial,
+        agent_income=agent_income,
+        pct=pct,
+        today=today,
+    )
+
+@bp.route('/scorecard/<int:agent_id>/business-plan', methods=['GET', 'POST'])
+@login_required
+def business_plan_form_for(agent_id):
+    """Business plan form pre-scoped to a specific agent."""
+    if current_user.role == 'agent' and current_user.agent_id != agent_id:
+        flash('You can only edit your own business plan.', 'danger')
+        return redirect(url_for('main.scorecard', agent_id=current_user.agent_id))
+
+    agent = Agent.query.get_or_404(agent_id)
+    year = int(request.args.get('year', current_year()))
+    plan = BusinessPlan.query.filter_by(agent_id=agent_id, year=year).first()
+
+    # Pre-compute defaults from last 12 months of CC data
+    today = date.today()
+    agent_name = agent.name
+
+    # Agent's closed deals in the past 12 months for defaults
+    txn_filter = or_(
+        Transaction.agent_id == agent_id,
+        Transaction.primary_agent_name.ilike(f'%{agent_name}%'),
+        Transaction.secondary_agent_name.ilike(f'%{agent_name}%'),
+    )
+    recent_closed = Transaction.query.filter(
+        txn_filter,
+        Transaction.status == 'Closed',
+        Transaction.close_date >= date(today.year - 1, today.month, 1)
+    ).all()
+
+    # Default conversions from data
+    def agent_income_local(t):
+        n = agent_name.lower()
+        inc = 0.0
+        if t.primary_agent_name and n in t.primary_agent_name.lower(): inc += t.primary_agent_gci or 0
+        if t.secondary_agent_name and n in t.secondary_agent_name.lower(): inc += t.secondary_agent_gci or 0
+        return inc
+
+    n_closed = len(recent_closed)
+    default_avg_price = round(sum(t.sale_price or 0 for t in recent_closed) / n_closed) if n_closed else 350000
+    default_comm_pct  = round(sum(t.commission_pct or 0.03 for t in recent_closed) / n_closed, 4) if n_closed else 0.03
+    default_split_pct = agent.split_pct or 0.7
+    default_units     = round(n_closed * 1.1) if n_closed else 12  # 10% stretch goal
+
+    defaults = {
+        'avg_sale_price': default_avg_price,
+        'listing_comm_pct': default_comm_pct,
+        'buyer_comm_pct': default_comm_pct,
+        'split_pct': default_split_pct,
+        'total_unit_goal': default_units,
+        'gci_goal': round(default_avg_price * default_comm_pct * default_units),
+    }
+
+    if request.method == 'POST':
+        f = request.form
+        if plan:
+            plan.listing_unit_goal = int(f.get('listing_unit_goal') or 0)
+            plan.buyer_unit_goal   = int(f.get('buyer_unit_goal') or 0)
+            plan.total_unit_goal   = int(f.get('total_unit_goal') or 0)
+            plan.gci_goal          = float(f.get('gci_goal') or 0)
+            plan.avg_sale_price    = float(f.get('avg_sale_price') or 0)
+            plan.listing_comm_pct  = float(f.get('listing_comm_pct') or 3) / 100
+            plan.buyer_comm_pct    = float(f.get('buyer_comm_pct') or 3) / 100
+            plan.split_pct         = float(f.get('split_pct') or 70) / 100
+            plan.notes             = f.get('notes', '')
+        else:
+            plan = BusinessPlan(
+                agent_id=agent_id,
+                year=year,
+                listing_unit_goal=int(f.get('listing_unit_goal') or 0),
+                buyer_unit_goal=int(f.get('buyer_unit_goal') or 0),
+                total_unit_goal=int(f.get('total_unit_goal') or 0),
+                gci_goal=float(f.get('gci_goal') or 0),
+                avg_sale_price=float(f.get('avg_sale_price') or 0),
+                listing_comm_pct=float(f.get('listing_comm_pct') or 3) / 100,
+                buyer_comm_pct=float(f.get('buyer_comm_pct') or 3) / 100,
+                split_pct=float(f.get('split_pct') or 70) / 100,
+                notes=f.get('notes', ''),
+                submitted_by=agent.name,
+            )
+            db.session.add(plan)
+        db.session.commit()
+        flash(f'Business plan for {agent.name} ({year}) saved.', 'success')
+        return redirect(url_for('main.scorecard', agent_id=agent_id, year=year))
+
+    years = list(range(2022, current_year() + 2))
+    return render_template('main/business_plan_form_for.html',
+        agent=agent, year=year, plan=plan, defaults=defaults, years=years)
+
 # ─── USERS (Admin) ──────────────────────────────────────────────────────────
 
 @bp.route('/users')

@@ -22,7 +22,10 @@
           <td class="text-end small">{{ (a.split_pct*100)|round(1) }}%</td>
           <td class="text-end small">{{ "${:,.0f}".format(a.cap_amount) }}</td>
           <td class="small text-muted">{{ a.email or '—' }}</td>
-          <td><a href="{{ url_for('main.edit_agent', aid=a.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2">Edit</a></td>
+          <td>
+            <a href="{{ url_for('main.scorecard', agent_id=a.id) }}" class="btn btn-sm btn-gold py-0 px-2 me-1">Scorecard</a>
+            <a href="{{ url_for('main.edit_agent', aid=a.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-2">Edit</a>
+          </td>
         </tr>
         {% else %}
         <tr><td colspan="8" class="text-center text-muted py-4">No agents yet. <a href="{{ url_for('main.add_agent') }}" style="color:var(--tdg-gold)">Add one</a>.</td></tr>

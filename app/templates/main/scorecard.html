@@ -1,0 +1,366 @@
+{% extends 'base.html' %}
+{% block title %}{{ agent.name }} — Scorecard{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <div class="page-title">{{ agent.name }}</div>
+    <div class="page-subtitle">Agent Scorecard — {{ year }}</div>
+  </div>
+  {% if current_user.is_admin %}
+  <div class="d-flex gap-2 align-items-center flex-wrap">
+    <select id="agentSwitch" class="form-select form-select-sm" style="width:auto;min-width:180px;" onchange="window.location='/scorecard/'+this.value+'?year={{ year }}&month={{ month }}&division={{ division }}'">
+      {% for a in all_agents %}
+      <option value="{{ a.id }}" {% if a.id == agent.id %}selected{% endif %}>{{ a.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Filter bar ─────────────────────────────────────────────────────────── #}
+<form method="get" class="d-flex gap-2 flex-wrap mb-4 align-items-center" id="scoreFilterForm">
+  <select name="year" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+    {% for y in years %}
+    <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+    {% endfor %}
+  </select>
+  <select name="month" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+    <option value="all" {% if month == 'all' %}selected{% endif %}>All Months</option>
+    {% for m in range(1,13) %}
+    <option value="{{ m }}" {% if month|string == m|string %}selected{% endif %}>{{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1] }}</option>
+    {% endfor %}
+  </select>
+  {% if has_commercial %}
+  <select name="division" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+    <option value="all" {% if division == 'all' %}selected{% endif %}>All Divisions</option>
+    <option value="Residential" {% if division == 'Residential' %}selected{% endif %}>Residential</option>
+    <option value="Commercial" {% if division == 'Commercial' %}selected{% endif %}>Commercial</option>
+  </select>
+  {% endif %}
+</form>
+
+{# ── KPI summary row ──────────────────────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+  {% set kpis = [
+    ('Units Closed', ytd_units, '', 'bi-check-circle'),
+    ('Agent Income YTD', ytd_income, '$', 'bi-currency-dollar'),
+    ('GCI YTD', ytd_gci, '$', 'bi-graph-up'),
+    ('Volume YTD', ytd_volume, '$', 'bi-building'),
+    ('Pending Deals', pipeline_txns|selectattr('status','equalto','Pending')|list|length, '', 'bi-hourglass-split'),
+    ('Proj. Year-End Income', proj_income_with_pending, '$', 'bi-star'),
+  ] %}
+  {% for label, val, prefix, icon in kpis %}
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card text-center py-3 px-2" style="border-top:3px solid var(--tdg-gold);">
+      <div class="text-muted mb-1" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.05em;">{{ label }}</div>
+      <div class="fw-bold" style="font-size:1.25rem;color:var(--tdg-gold);">
+        {% if prefix == '$' %}{{ "${:,.0f}".format(val) }}{% else %}{{ val }}{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{# ── Section 1: Lead Gen ──────────────────────────────────────────────────── #}
+<div class="card mb-4">
+  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
+    <i class="bi bi-telephone-outbound me-2"></i>Lead Gen Metrics — {{ year }}{% if month != 'all' %} ({{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][month|int-1] }}){% endif %}
+  </div>
+  <div class="card-body p-0">
+    <div class="row g-0">
+      <div class="col-md-6 p-3 border-end">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Metric</th><th class="text-end">Count</th><th class="text-end">Conv%</th></tr></thead>
+          <tbody>
+            <tr><td>Dials</td><td class="text-end">{{ lg.dials }}</td><td class="text-end">—</td></tr>
+            <tr><td>Contacts</td><td class="text-end">{{ lg.contacts }}</td><td class="text-end">—</td></tr>
+            <tr><td>Contact → Appt</td><td class="text-end">{{ lg.listing_set + lg.buyer_set }}</td><td class="text-end {% if lg.contact_to_appt >= 10 %}text-success{% endif %}">{{ lg.contact_to_appt }}%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-6 p-3">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Metric</th><th class="text-end">Set</th><th class="text-end">Held</th><th class="text-end">Signed</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Listing Appts</td>
+              <td class="text-end">{{ lg.listing_set }}</td>
+              <td class="text-end">{{ lg.listing_held }}
+                {% if lg.listing_set > 0 %}<small class="text-muted">({{ lg.listing_set_to_held }}%)</small>{% endif %}
+              </td>
+              <td class="text-end">{{ lg.listings_signed }}
+                {% if lg.listing_held > 0 %}<small class="text-muted">({{ lg.listing_held_to_signed }}%)</small>{% endif %}
+              </td>
+            </tr>
+            <tr>
+              <td>Buyer Appts</td>
+              <td class="text-end">{{ lg.buyer_set }}</td>
+              <td class="text-end">{{ lg.buyer_held }}
+                {% if lg.buyer_set > 0 %}<small class="text-muted">({{ lg.buyer_set_to_held }}%)</small>{% endif %}
+              </td>
+              <td class="text-end">{{ lg.buyers_signed }}
+                {% if lg.buyer_held > 0 %}<small class="text-muted">({{ lg.buyer_held_to_signed }}%)</small>{% endif %}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Section 2: Source Conversion ─────────────────────────────────────────── #}
+{% if source_breakdown %}
+<div class="card mb-4">
+  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
+    <i class="bi bi-funnel me-2"></i>Source Conversion — {{ year }}
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Lead Source</th>
+          <th class="text-end">Received</th>
+          <th class="text-end">Active</th>
+          <th class="text-end">Pending</th>
+          <th class="text-end">Closed</th>
+          <th class="text-end">Close%</th>
+          <th class="text-end">Agent Income</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for src, s in source_breakdown %}
+        <tr>
+          <td class="fw-semibold">{{ src }}</td>
+          <td class="text-end">{{ s.received }}</td>
+          <td class="text-end text-muted">{{ s.active }}</td>
+          <td class="text-end text-muted">{{ s.pending }}</td>
+          <td class="text-end">{{ s.closed }}</td>
+          <td class="text-end {% if s.received > 0 and s.closed/s.received >= 0.5 %}text-success{% endif %}">
+            {{ (s.closed / s.received * 100)|round(0)|int if s.received else 0 }}%
+          </td>
+          <td class="text-end">${{ "{:,.0f}".format(s.income) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Section 3: Monthly Closing Grid ─────────────────────────────────────── #}
+<div class="card mb-4">
+  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
+    <i class="bi bi-calendar3 me-2"></i>Closed Deals by Month — {{ year }}
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0" style="font-size:0.85rem;">
+      <thead>
+        <tr>
+          <th style="min-width:130px;">Month</th>
+          <th class="text-end">Units</th>
+          <th class="text-end">Agent Income</th>
+          <th class="text-end">GCI</th>
+          <th>Deals</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in range(1,13) %}
+        {% set md = monthly[m] %}
+        <tr {% if md.units == 0 %}class="text-muted"{% endif %}>
+          <td>{{ ['January','February','March','April','May','June','July','August','September','October','November','December'][m-1] }}</td>
+          <td class="text-end {% if md.units > 0 %}fw-semibold{% endif %}">{{ md.units or '—' }}</td>
+          <td class="text-end {% if md.income > 0 %}text-success fw-semibold{% endif %}">
+            {% if md.income > 0 %}${{ "{:,.0f}".format(md.income) }}{% else %}—{% endif %}
+          </td>
+          <td class="text-end {% if md.gci > 0 %}fw-semibold{% endif %}">
+            {% if md.gci > 0 %}${{ "{:,.0f}".format(md.gci) }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% for t in md.txns %}
+            <span class="badge bg-light text-dark border me-1" style="font-size:0.72rem;">{{ t.client_name or t.address or '—' }}</span>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="fw-bold" style="border-top:2px solid var(--tdg-gold);">
+          <td>TOTAL</td>
+          <td class="text-end">{{ ytd_units }}</td>
+          <td class="text-end text-success">${{ "{:,.0f}".format(ytd_income) }}</td>
+          <td class="text-end">${{ "{:,.0f}".format(ytd_gci) }}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+{# ── Section 4: Active Pipeline ───────────────────────────────────────────── #}
+{% if pipeline_txns %}
+<div class="card mb-4">
+  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
+    <i class="bi bi-kanban me-2"></i>Active Pipeline ({{ pipeline_txns|length }} deals)
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0" style="font-size:0.85rem;">
+      <thead>
+        <tr>
+          <th>Client / Address</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Source</th>
+          <th class="text-end">Sale Price</th>
+          <th class="text-end">Agent Income</th>
+          <th>Expiry</th>
+          <th>Signed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in pipeline_txns %}
+        {% set inc = agent_income(t) %}
+        <tr>
+          <td>
+            <div class="fw-semibold">{{ t.client_name or '—' }}</div>
+            <div class="text-muted" style="font-size:0.78rem;">{{ t.address or '' }}</div>
+          </td>
+          <td class="small">{{ t.transaction_type or '—' }}</td>
+          <td><span class="badge-status status-{{ t.status }}">{{ t.status }}</span></td>
+          <td class="small text-muted">{{ t.lead_source or '—' }}</td>
+          <td class="text-end">${{ "{:,.0f}".format(t.sale_price or 0) }}</td>
+          <td class="text-end {% if inc > 0 %}text-success fw-semibold{% endif %}">${{ "{:,.0f}".format(inc) }}</td>
+          <td class="small {% if t.exp_in is not none and t.exp_in < 30 %}text-danger{% endif %}">
+            {% if t.expiry_date %}{{ t.expiry_date.strftime('%m/%d/%y') }}{% if t.exp_in is not none %} <span class="text-muted">({{ t.exp_in }}d)</span>{% endif %}{% else %}—{% endif %}
+          </td>
+          <td class="small text-muted">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="fw-semibold" style="border-top:2px solid #dee2e6;">
+          <td colspan="5">Pipeline Agent Income</td>
+          <td class="text-end text-success">${{ "{:,.0f}".format(pipeline_income) }}</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Section 5: Year-End Projection ──────────────────────────────────────── #}
+<div class="card mb-4">
+  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
+    <i class="bi bi-lightning me-2"></i>Year-End Projection
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="p-3 rounded" style="background:#f8f9fa;border-left:4px solid var(--tdg-gold);">
+          <div class="text-muted small">Projected Closed Units</div>
+          <div class="fw-bold fs-4">{{ proj_units }}</div>
+          <div class="text-muted" style="font-size:0.78rem;">Based on {{ ytd_units }} closed in {{ today.month if year == today.year else 12 }} months</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-3 rounded" style="background:#f8f9fa;border-left:4px solid var(--tdg-gold);">
+          <div class="text-muted small">Projected Income (pace only)</div>
+          <div class="fw-bold fs-4 text-success">${{ "{:,.0f}".format(proj_income) }}</div>
+          <div class="text-muted" style="font-size:0.78rem;">Annualized from YTD closed</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-3 rounded" style="background:#f8f9fa;border-left:4px solid var(--tdg-gold);">
+          <div class="text-muted small">Projected Income + Pending</div>
+          <div class="fw-bold fs-4 text-success">${{ "{:,.0f}".format(proj_income_with_pending) }}</div>
+          <div class="text-muted" style="font-size:0.78rem;">Pace + ${{ "{:,.0f}".format(pending_income) }} in pending deals</div>
+        </div>
+      </div>
+    </div>
+    {% if plan %}
+    <div class="mt-3 pt-3 border-top">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <div class="text-muted small">Goal: Units</div>
+          <div class="fw-semibold">{{ plan.total_unit_goal }}
+            {% if plan.total_unit_goal > 0 %}
+            <small class="text-muted">({{ (ytd_units / plan.total_unit_goal * 100)|round(0)|int }}% of goal)</small>
+            {% endif %}
+          </div>
+          {% if plan.total_unit_goal > 0 %}
+          <div class="progress mt-1" style="height:6px;">
+            <div class="progress-bar" style="width:{{ [ytd_units / plan.total_unit_goal * 100, 100]|min }}%;background:var(--tdg-gold);"></div>
+          </div>
+          {% endif %}
+        </div>
+        <div class="col-md-3">
+          <div class="text-muted small">Goal: GCI</div>
+          <div class="fw-semibold">${{ "{:,.0f}".format(plan.gci_goal) }}
+            {% if plan.gci_goal > 0 %}
+            <small class="text-muted">({{ (ytd_gci / plan.gci_goal * 100)|round(0)|int }}%)</small>
+            {% endif %}
+          </div>
+          {% if plan.gci_goal > 0 %}
+          <div class="progress mt-1" style="height:6px;">
+            <div class="progress-bar" style="width:{{ [ytd_gci / plan.gci_goal * 100, 100]|min }}%;background:var(--tdg-gold);"></div>
+          </div>
+          {% endif %}
+        </div>
+        <div class="col-md-3">
+          <div class="text-muted small">Goal: Avg Sale Price</div>
+          <div class="fw-semibold">${{ "{:,.0f}".format(plan.avg_sale_price) }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-muted small">Actual Avg Sale Price</div>
+          <div class="fw-semibold">${{ "{:,.0f}".format(ytd_volume / ytd_units) if ytd_units > 0 else '—' }}</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Business Plan section ────────────────────────────────────────────────── #}
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
+    <span><i class="bi bi-clipboard-data me-2"></i>Business Plan — {{ year }}</span>
+    {% if current_user.is_admin or current_user.agent_id == agent.id %}
+    <a href="{{ url_for('main.business_plan_form_for', agent_id=agent.id, year=year) }}" class="btn btn-sm" style="background:#1a1a2e;color:#fff;font-size:0.78rem;">
+      {% if plan %}Edit Plan{% else %}Set Plan{% endif %}
+    </a>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {% if plan %}
+    <div class="row g-3">
+      <div class="col-6 col-md-3"><div class="text-muted small">Unit Goal</div><div class="fw-semibold">{{ plan.total_unit_goal }}</div></div>
+      <div class="col-6 col-md-3"><div class="text-muted small">GCI Goal</div><div class="fw-semibold">${{ "{:,.0f}".format(plan.gci_goal) }}</div></div>
+      <div class="col-6 col-md-3"><div class="text-muted small">Avg Sale Price</div><div class="fw-semibold">${{ "{:,.0f}".format(plan.avg_sale_price) }}</div></div>
+      <div class="col-6 col-md-3"><div class="text-muted small">Split %</div><div class="fw-semibold">{{ (plan.split_pct * 100)|round(1) }}%</div></div>
+      <div class="col-6 col-md-3"><div class="text-muted small">Listing Comm %</div><div class="fw-semibold">{{ (plan.listing_comm_pct * 100)|round(1) }}%</div></div>
+      <div class="col-6 col-md-3"><div class="text-muted small">Buyer Comm %</div><div class="fw-semibold">{{ (plan.buyer_comm_pct * 100)|round(1) }}%</div></div>
+      {% if plan.notes %}<div class="col-12"><div class="text-muted small">Notes</div><div>{{ plan.notes }}</div></div>{% endif %}
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-4">
+      No business plan set for {{ year }}.
+      {% if current_user.is_admin or current_user.agent_id == agent.id %}
+      <a href="{{ url_for('main.business_plan_form_for', agent_id=agent.id, year=year) }}" style="color:var(--tdg-gold);">Set one →</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Pre-populate pipeline total income in footer (already summed server-side)
+(function() {
+  // Pipeline income is already calculated server-side as pipeline_income variable
+})();
+</script>
+{% endblock %}

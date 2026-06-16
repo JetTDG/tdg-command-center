@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}Business Plan — {{ agent.name }} {{ year }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <div class="page-title">Business Plan</div>
+    <div class="page-subtitle">{{ agent.name }} — {{ year }}</div>
+  </div>
+  <a href="{{ url_for('main.scorecard', agent_id=agent.id, year=year) }}" class="btn btn-outline-secondary btn-sm">← Back to Scorecard</a>
+</div>
+
+<div class="card" style="max-width:680px;">
+  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
+    <i class="bi bi-clipboard-data me-2"></i>{{ agent.name }} — {{ year }} Business Plan
+  </div>
+  <div class="card-body">
+    {% if defaults and not plan %}
+    <div class="alert alert-info py-2 mb-3" style="font-size:0.84rem;">
+      <i class="bi bi-info-circle me-1"></i> Defaults pre-filled from your last 12 months of closed deals. Override any field as needed.
+    </div>
+    {% endif %}
+
+    <form method="POST">
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label fw-semibold">Year</label>
+          <select name="year_select" class="form-select" onchange="window.location='?year='+this.value">
+            {% for y in years %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-6">
+          <label class="form-label">Listing Unit Goal</label>
+          <input type="number" name="listing_unit_goal" class="form-control" value="{{ plan.listing_unit_goal if plan else (defaults.total_unit_goal // 2) }}" min="0">
+        </div>
+        <div class="col-6">
+          <label class="form-label">Buyer Unit Goal</label>
+          <input type="number" name="buyer_unit_goal" class="form-control" value="{{ plan.buyer_unit_goal if plan else (defaults.total_unit_goal // 2) }}" min="0">
+        </div>
+
+        <div class="col-6">
+          <label class="form-label fw-semibold">Total Unit Goal</label>
+          <input type="number" name="total_unit_goal" id="totalUnits" class="form-control" value="{{ plan.total_unit_goal if plan else defaults.total_unit_goal }}" min="0" oninput="calcGCI()">
+        </div>
+        <div class="col-6">
+          <label class="form-label fw-semibold">GCI Goal ($)</label>
+          <input type="number" name="gci_goal" id="gciGoal" class="form-control" value="{{ plan.gci_goal|int if plan else defaults.gci_goal }}" min="0" step="1000">
+        </div>
+
+        <div class="col-6">
+          <label class="form-label">Avg Sale Price ($)</label>
+          <input type="number" name="avg_sale_price" id="avgPrice" class="form-control" value="{{ plan.avg_sale_price|int if plan else defaults.avg_sale_price }}" min="0" step="5000" oninput="calcGCI()">
+        </div>
+        <div class="col-6">
+          <label class="form-label">Split % (your share)</label>
+          <input type="number" name="split_pct" id="splitPct" class="form-control" value="{{ (plan.split_pct * 100)|round(1) if plan else (defaults.split_pct * 100)|round(1) }}" min="0" max="100" step="0.1" oninput="calcGCI()">
+          <div class="form-text">e.g. 70 = you keep 70%</div>
+        </div>
+
+        <div class="col-6">
+          <label class="form-label">Listing Commission %</label>
+          <input type="number" name="listing_comm_pct" id="listComm" class="form-control" value="{{ (plan.listing_comm_pct * 100)|round(2) if plan else (defaults.listing_comm_pct * 100)|round(2) }}" min="0" max="10" step="0.1" oninput="calcGCI()">
+        </div>
+        <div class="col-6">
+          <label class="form-label">Buyer Commission %</label>
+          <input type="number" name="buyer_comm_pct" id="buyerComm" class="form-control" value="{{ (plan.buyer_comm_pct * 100)|round(2) if plan else (defaults.buyer_comm_pct * 100)|round(2) }}" min="0" max="10" step="0.1" oninput="calcGCI()">
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" rows="2">{{ plan.notes if plan else '' }}</textarea>
+        </div>
+
+        <div class="col-12 mt-2">
+          <button type="submit" class="btn btn-gold w-100">Save Business Plan</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function calcGCI() {
+  const units = parseFloat(document.getElementById('totalUnits').value) || 0;
+  const price = parseFloat(document.getElementById('avgPrice').value) || 0;
+  const lComm = parseFloat(document.getElementById('listComm').value) || 3;
+  const bComm = parseFloat(document.getElementById('buyerComm').value) || 3;
+  const split = parseFloat(document.getElementById('splitPct').value) || 70;
+  const avgComm = (lComm + bComm) / 2 / 100;
+  const gci = Math.round(units * price * avgComm * (split / 100) / 1000) * 1000;
+  document.getElementById('gciGoal').value = gci;
+}
+</script>
+{% endblock %}
