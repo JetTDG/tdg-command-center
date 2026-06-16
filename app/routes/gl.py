@@ -735,26 +735,42 @@ def gl_analytics():
     # Build slug → event → count map
     from collections import defaultdict
     slug_events = defaultdict(lambda: defaultdict(int))
+    COUNTY_MAP_GL = {
+        "fraser":              "Macomb",
+        "roseville":           "Macomb",
+        "chesterfield":        "Macomb",
+        "highland":            "Oakland",
+        "white":               "Oakland",
+        "waterford":           "Oakland",
+        "commerce":            "Oakland",
+        "oak":                 "Oakland",
+        "hazel":               "Oakland",
+        "taylor":              "Wayne",
+        "wyandotte":           "Wayne",
+    }
+
     slugs_meta  = {}
     for row in rows:
         slug_events[row.slug][row.event_type] += row.cnt
-        slugs_meta[row.slug] = {"city": row.city, "vertical": row.vertical}
+        city_key = row.slug.split('-')[0].lower() if row.slug else ''
+        county = COUNTY_MAP_GL.get(city_key, '')
+        slugs_meta[row.slug] = {"city": row.city, "vertical": row.vertical, "county": county}
 
     # ── Letter counts per slug from GL Tracker (stored in gl_letter_counts table if exists,
     #    otherwise fall back to hardcoded map built at merge time)
     # We'll store letter counts in a simple JSON in the DB via a config key
     LETTER_COUNTS = {
-        "fraser-industrial":            184,
-        "roseville-industrial":         223,
-        "highland-industrial":           23,
+        "fraser-industrial":            179,
+        "roseville-industrial":         217,
+        "chesterfield-industrial":      138,
+        "highland-industrial":           22,
         "white-lake-industrial":         12,
-        "waterford-industrial":         101,
-        "commerce-township-industrial": 100,
-        "oak-park-industrial":          140,
-        "hazel-park-industrial":        105,
-        "taylor-industrial":            190,
-        "wyandotte-industrial":          61,
-        "chesterfield-industrial":      142,
+        "waterford-industrial":          96,
+        "commerce-township-industrial": 96,
+        "oak-park-industrial":          131,
+        "hazel-park-industrial":         97,
+        "taylor-industrial":            185,
+        "wyandotte-industrial":          57,
     }
 
     # ── Build per-slug stats ──────────────────────────────────────────────────
@@ -769,6 +785,7 @@ def gl_analytics():
             "slug":     slug,
             "city":     meta["city"],
             "vertical": meta["vertical"],
+            "county":   meta.get("county", ""),
             "letters":  letters,
             "scans":    scans,
             "forms":    forms,

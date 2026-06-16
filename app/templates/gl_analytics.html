@@ -2,139 +2,257 @@
 {% block title %}GL Analytics | TDG Command Center{% endblock %}
 
 {% block content %}
-<div class="page-header d-flex align-items-center justify-content-between mb-4">
+
+{# ── Page Header ─────────────────────────────────────────────────────────── #}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
   <div>
-    <h1 class="h4 fw-bold mb-0">Golden Letter Analytics</h1>
-    <p class="text-muted small mb-0">QR scans, form submissions, and SMS responses by city</p>
+    <h1 class="h4 fw-bold mb-1" style="color:#1a1d23;">🏢 Golden Letter Analytics</h1>
+    <p class="text-muted mb-0" style="font-size:13px;">QR scans · form submits · SMS responses by city</p>
   </div>
-  <span class="badge" style="background:#c9a84c;color:#000;font-size:11px;padding:6px 12px;">
-    {{ total_letters|default(0) }} letters mailed
-  </span>
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <span class="badge" style="background:#c9a84c20;color:#c9a84c;font-size:12px;padding:7px 14px;border:1px solid #c9a84c40;border-radius:20px;font-weight:600;">
+      <i class="bi bi-envelope me-1"></i>{{ total_letters|default(0) }} letters mailed
+    </span>
+  </div>
 </div>
 
 {# ── KPI Cards ──────────────────────────────────────────────────────────── #}
+{% if total_letters > 0 %}
 <div class="row g-3 mb-4">
   {% set kpis = [
-    ("QR Scans",       total_scans,     scan_pct,  "#2563EB", "bi-qr-code-scan",    "of letters scanned"),
-    ("Form Submits",   total_forms,     form_pct,  "#16a34a", "bi-ui-checks",       "of letters → form"),
-    ("SMS Taps",       total_sms,       sms_pct,   "#c9a84c", "bi-chat-text",       "of letters → text"),
-    ("Total Responses",total_responses, resp_pct,  "#7c3aed", "bi-activity",        "overall response rate"),
+    ("QR Scans",        total_scans,     scan_pct,  "#2563EB", "bi-qr-code-scan",  "of letters scanned"),
+    ("Form Submits",    total_forms,     form_pct,  "#16a34a", "bi-ui-checks",     "of letters → form"),
+    ("SMS Taps",        total_sms,       sms_pct,   "#c9a84c", "bi-chat-text",     "of letters → text"),
+    ("Total Responses", total_responses, resp_pct,  "#7c3aed", "bi-activity",      "overall response rate"),
   ] %}
   {% for label, val, pct, color, icon, sub in kpis %}
   <div class="col-6 col-lg-3">
-    <div class="card shadow-sm border-0 h-100">
+    <div class="card border-0 h-100" style="box-shadow:0 1px 8px rgba(0,0,0,0.07);">
       <div class="card-body p-3">
         <div class="d-flex align-items-center gap-2 mb-2">
-          <div class="rounded-2 d-flex align-items-center justify-content-center"
-               style="width:32px;height:32px;background:{{ color }}18;">
-            <i class="bi {{ icon }}" style="color:{{ color }};font-size:15px;"></i>
+          <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0"
+               style="width:34px;height:34px;background:{{ color }}18;">
+            <i class="bi {{ icon }}" style="color:{{ color }};font-size:16px;"></i>
           </div>
-          <span class="text-muted small fw-500">{{ label }}</span>
+          <span class="fw-600 text-muted" style="font-size:12px;line-height:1.2;">{{ label }}</span>
         </div>
-        <div class="d-flex align-items-baseline gap-2">
-          <span class="fw-bold" style="font-size:28px;line-height:1;">{{ val }}</span>
-          <span class="small fw-bold" style="color:{{ color }};">{{ pct }}%</span>
+        <div class="d-flex align-items-baseline gap-2 mt-1">
+          <span class="fw-bold" style="font-size:30px;line-height:1;color:#1a1d23;">{{ val }}</span>
+          <span class="fw-bold" style="color:{{ color }};font-size:13px;">{{ pct }}%</span>
         </div>
-        <div class="text-muted" style="font-size:11px;">{{ sub }}</div>
+        <div class="mt-1" style="font-size:11px;color:#9ca3af;">{{ sub }}</div>
       </div>
     </div>
   </div>
   {% endfor %}
 </div>
+{% endif %}
 
 {# ── Weekly Trend Chart ─────────────────────────────────────────────────── #}
-<div class="card shadow-sm border-0 mb-4">
+<div class="card border-0 mb-4" style="box-shadow:0 1px 8px rgba(0,0,0,0.07);">
   <div class="card-body p-4">
-    <h6 class="fw-bold mb-3" style="font-size:13px;">Weekly Activity (last 8 weeks)</h6>
+    <div class="d-flex align-items-center justify-content-between mb-1">
+      <h6 class="fw-bold mb-0" style="font-size:14px;color:#1a1d23;">Weekly Activity</h6>
+      <span class="text-muted" style="font-size:11px;">last 8 weeks</span>
+    </div>
     {% if chart_labels %}
-    <canvas id="weeklyChart" height="90"></canvas>
+    {# Legend row — horizontal, compact #}
+    <div class="d-flex gap-3 flex-wrap mb-3 mt-2">
+      <span style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:5px;">
+        <span style="display:inline-block;width:12px;height:12px;background:#2563EB;border-radius:2px;"></span>QR Scans
+      </span>
+      <span style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:5px;">
+        <span style="display:inline-block;width:12px;height:12px;background:#16a34a;border-radius:2px;"></span>Form Submits
+      </span>
+      <span style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:5px;">
+        <span style="display:inline-block;width:12px;height:12px;background:#c9a84c;border-radius:2px;"></span>SMS Taps
+      </span>
+    </div>
+    <div style="position:relative;height:220px;">
+      <canvas id="weeklyChart"></canvas>
+    </div>
     {% else %}
-    <div class="text-center text-muted py-4" style="font-size:13px;">
-      No activity data yet — responses will appear here as letters generate leads.
+    <div class="d-flex flex-column align-items-center justify-content-center py-5 text-center" style="min-height:180px;">
+      <div class="mb-3" style="width:52px;height:52px;background:#f3f4f6;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+        <i class="bi bi-bar-chart" style="font-size:24px;color:#d1d5db;"></i>
+      </div>
+      <div class="fw-600" style="font-size:14px;color:#6b7280;">No activity yet</div>
+      <div style="font-size:12px;color:#9ca3af;max-width:240px;margin-top:4px;">
+        Chart will populate once homeowners start scanning QR codes from the letters.
+      </div>
     </div>
     {% endif %}
   </div>
 </div>
 
 {# ── Per-City Breakdown ─────────────────────────────────────────────────── #}
-<div class="card shadow-sm border-0">
+<div class="card border-0 mb-4" style="box-shadow:0 1px 8px rgba(0,0,0,0.07);">
   <div class="card-body p-0">
-    <div class="p-4 pb-2">
-      <h6 class="fw-bold mb-0" style="font-size:13px;">Response Rate by City</h6>
+    <div class="px-4 pt-4 pb-2 d-flex align-items-center justify-content-between">
+      <h6 class="fw-bold mb-0" style="font-size:14px;color:#1a1d23;">Response Rate by City</h6>
+      {% if city_stats %}
+      <span class="text-muted" style="font-size:11px;">{{ city_stats|length }} cit{{ 'y' if city_stats|length == 1 else 'ies' }} tracked</span>
+      {% endif %}
     </div>
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0" style="font-size:12px;">
-        <thead style="background:#f8f9fa;">
-          <tr>
-            <th class="ps-4 py-3">City</th>
-            <th>County</th>
-            <th class="text-end">Letters</th>
-            <th class="text-end">Scans</th>
-            <th class="text-end">Forms</th>
-            <th class="text-end">SMS</th>
-            <th class="text-end">Scan %</th>
-            <th class="text-end">Form %</th>
-            <th class="text-end pe-4">Response %</th>
+
+    {% if city_stats %}
+    {# Mobile card view (< md) #}
+    <div class="d-md-none px-3 pb-3">
+      {% for s in city_stats %}
+      {% if s.letters > 0 or s.scans > 0 %}
+      <div class="rounded-3 p-3 mb-2" style="background:#f9fafb;border:1px solid #e5e7eb;">
+        <div class="d-flex align-items-start justify-content-between mb-2">
+          <div>
+            <a href="{{ url_for('gl.landing', slug=s.slug) }}" target="_blank"
+               class="fw-bold text-decoration-none" style="color:#c9a84c;font-size:14px;">
+              {{ s.city }}
+            </a>
+            <div style="font-size:11px;color:#9ca3af;">{{ s.county }} · {{ s.vertical }}</div>
+          </div>
+          {% set resp = s.response_pct %}
+          <span class="badge fw-bold" style="
+            font-size:12px;padding:5px 10px;border-radius:20px;
+            background:{% if resp >= 2 %}#16a34a20{% elif resp >= 0.5 %}#c9a84c20{% else %}#f3f4f6{% endif %};
+            color:{% if resp >= 2 %}#16a34a{% elif resp >= 0.5 %}#c9a84c{% else %}#9ca3af{% endif %};">
+            {{ resp }}% resp
+          </span>
+        </div>
+        <div class="d-flex gap-3 flex-wrap">
+          <div class="text-center">
+            <div class="fw-bold" style="font-size:18px;color:#1a1d23;">{{ s.letters }}</div>
+            <div style="font-size:10px;color:#9ca3af;">LETTERS</div>
+          </div>
+          <div class="text-center">
+            <div class="fw-bold" style="font-size:18px;color:#2563EB;">{{ s.scans }}</div>
+            <div style="font-size:10px;color:#9ca3af;">SCANS</div>
+          </div>
+          <div class="text-center">
+            <div class="fw-bold" style="font-size:18px;color:#16a34a;">{{ s.forms }}</div>
+            <div style="font-size:10px;color:#9ca3af;">FORMS</div>
+          </div>
+          <div class="text-center">
+            <div class="fw-bold" style="font-size:18px;color:#c9a84c;">{{ s.sms }}</div>
+            <div style="font-size:10px;color:#9ca3af;">SMS</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+
+    {# Desktop table (≥ md) #}
+    <div class="d-none d-md-block table-responsive">
+      <table class="table table-hover align-middle mb-0" style="font-size:13px;">
+        <thead>
+          <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+            <th class="ps-4 py-3 fw-600" style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">City</th>
+            <th class="fw-600" style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">County</th>
+            <th class="text-end fw-600" style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Letters</th>
+            <th class="text-end fw-600" style="color:#2563EB;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Scans</th>
+            <th class="text-end fw-600" style="color:#16a34a;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Forms</th>
+            <th class="text-end fw-600" style="color:#c9a84c;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">SMS</th>
+            <th class="text-end fw-600" style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Scan%</th>
+            <th class="text-end pe-4 fw-600" style="color:#7c3aed;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Response%</th>
           </tr>
         </thead>
         <tbody>
           {% for s in city_stats %}
-          <tr>
-            <td class="ps-4 fw-500">
+          {% if s.letters > 0 or s.scans > 0 %}
+          <tr style="border-bottom:1px solid #f3f4f6;">
+            <td class="ps-4 py-3">
               <a href="{{ url_for('gl.landing', slug=s.slug) }}" target="_blank"
-                 class="text-decoration-none" style="color:#c9a84c;">
-                {{ s.city }} <i class="bi bi-box-arrow-up-right" style="font-size:9px;"></i>
+                 class="fw-600 text-decoration-none" style="color:#c9a84c;font-size:13px;">
+                {{ s.city }}
               </a>
+              <div style="font-size:11px;color:#9ca3af;">{{ s.vertical }}</div>
             </td>
-            <td class="text-muted">{{ s.vertical }}</td>
-            <td class="text-end">{{ s.letters }}</td>
-            <td class="text-end">{{ s.scans }}</td>
-            <td class="text-end">{{ s.forms }}</td>
-            <td class="text-end">{{ s.sms }}</td>
+            <td style="color:#6b7280;font-size:12px;">{{ s.county }}</td>
+            <td class="text-end fw-600" style="color:#1a1d23;">{{ s.letters }}</td>
+            <td class="text-end fw-bold" style="color:#2563EB;">{{ s.scans }}</td>
+            <td class="text-end fw-bold" style="color:#16a34a;">{{ s.forms }}</td>
+            <td class="text-end fw-bold" style="color:#c9a84c;">{{ s.sms }}</td>
             <td class="text-end">
-              <span class="badge rounded-pill" style="background:#2563EB18;color:#2563EB;font-size:10px;">
-                {{ s.scan_pct }}%
-              </span>
-            </td>
-            <td class="text-end">
-              <span class="badge rounded-pill" style="background:#16a34a18;color:#16a34a;font-size:10px;">
-                {{ s.form_pct }}%
-              </span>
+              <span style="font-size:12px;color:#2563EB;font-weight:600;">{{ s.scan_pct }}%</span>
             </td>
             <td class="text-end pe-4">
               {% set resp = s.response_pct %}
-              <span class="badge rounded-pill fw-bold" style="
-                font-size:10px;
-                background:{% if resp >= 2 %}#16a34a18{% elif resp >= 0.5 %}#c9a84c18{% else %}#f8f9fa{% endif %};
-                color:{% if resp >= 2 %}#16a34a{% elif resp >= 0.5 %}#c9a84c{% else %}#6b7280{% endif %};">
+              <span class="fw-bold" style="
+                display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;
+                background:{% if resp >= 2 %}#16a34a18{% elif resp >= 0.5 %}#c9a84c18{% else %}#f3f4f6{% endif %};
+                color:{% if resp >= 2 %}#16a34a{% elif resp >= 0.5 %}#c9a84c{% else %}#9ca3af{% endif %};">
                 {{ resp }}%
               </span>
             </td>
           </tr>
-          {% else %}
-          <tr>
-            <td colspan="9" class="text-center text-muted py-4">
-              No scan data yet — QR activity will appear here once letters are in the field.
-            </td>
-          </tr>
+          {% endif %}
           {% endfor %}
         </tbody>
-        {% if city_stats %}
-        <tfoot style="background:#f8f9fa;border-top:2px solid #e4e7ef;">
-          <tr class="fw-bold">
-            <td class="ps-4 py-3">TOTAL</td>
+        <tfoot>
+          <tr class="fw-bold" style="background:#f9fafb;border-top:2px solid #e5e7eb;">
+            <td class="ps-4 py-3" style="color:#1a1d23;">TOTAL</td>
             <td></td>
-            <td class="text-end">{{ total_letters }}</td>
-            <td class="text-end">{{ total_scans }}</td>
-            <td class="text-end">{{ total_forms }}</td>
-            <td class="text-end">{{ total_sms }}</td>
-            <td class="text-end">{{ scan_pct }}%</td>
-            <td class="text-end">{{ form_pct }}%</td>
-            <td class="text-end pe-4">{{ resp_pct }}%</td>
+            <td class="text-end" style="color:#1a1d23;">{{ total_letters }}</td>
+            <td class="text-end" style="color:#2563EB;">{{ total_scans }}</td>
+            <td class="text-end" style="color:#16a34a;">{{ total_forms }}</td>
+            <td class="text-end" style="color:#c9a84c;">{{ total_sms }}</td>
+            <td class="text-end" style="color:#2563EB;">{{ scan_pct }}%</td>
+            <td class="text-end pe-4" style="color:#7c3aed;">{{ resp_pct }}%</td>
           </tr>
         </tfoot>
-        {% endif %}
       </table>
+    </div>
+
+    {% else %}
+    {# No data state #}
+    <div class="d-flex flex-column align-items-center justify-content-center py-5 text-center px-4">
+      <div class="mb-3" style="width:56px;height:56px;background:#f3f4f6;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+        <i class="bi bi-send" style="font-size:26px;color:#d1d5db;"></i>
+      </div>
+      <div class="fw-bold" style="font-size:15px;color:#6b7280;">Letters are in the field</div>
+      <div style="font-size:12px;color:#9ca3af;max-width:280px;margin-top:6px;line-height:1.6;">
+        This table will populate when homeowners scan QR codes, submit forms, or tap to text.
+        Check back after the first mailing goes out.
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Letter Count Summary (always visible) ────────────────────────────────── #}
+<div class="card border-0" style="box-shadow:0 1px 8px rgba(0,0,0,0.07);">
+  <div class="card-body p-4">
+    <h6 class="fw-bold mb-3" style="font-size:14px;color:#1a1d23;">Letters Mailed by City</h6>
+    <div class="row g-2">
+      {% set letter_cities = [
+        ("Fraser",            "Macomb",   184),
+        ("Roseville",         "Macomb",   223),
+        ("Chesterfield",      "Macomb",   142),
+        ("Highland",          "Oakland",   23),
+        ("White Lake",        "Oakland",   12),
+        ("Waterford",         "Oakland",  101),
+        ("Commerce Township", "Oakland",  100),
+        ("Oak Park",          "Oakland",  131),
+        ("Hazel Park",        "Oakland",   97),
+        ("Taylor",            "Wayne",    185),
+        ("Wyandotte",         "Wayne",     57),
+      ] %}
+      {% for city_name, county, count in letter_cities %}
+      <div class="col-6 col-md-4 col-lg-3">
+        <div class="d-flex align-items-center justify-content-between p-2 rounded-2" style="background:#f9fafb;border:1px solid #f0f0f0;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#1a1d23;">{{ city_name }}</div>
+            <div style="font-size:10px;color:#9ca3af;">{{ county }}</div>
+          </div>
+          <div class="fw-bold" style="font-size:16px;color:#c9a84c;">{{ count }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="mt-3 pt-3" style="border-top:1px solid #f0f0f0;">
+      <div class="d-flex align-items-center justify-content-between">
+        <span style="font-size:13px;color:#6b7280;font-weight:600;">Total Mailed</span>
+        <span class="fw-bold" style="font-size:20px;color:#1a1d23;">{{ total_letters }}</span>
+      </div>
     </div>
   </div>
 </div>
@@ -147,21 +265,69 @@ new Chart(ctx, {
   data: {
     labels: {{ chart_labels | tojson }},
     datasets: [
-      { label: 'QR Scans',     data: {{ chart_scans | tojson }}, backgroundColor: '#2563EB40', borderColor: '#2563EB', borderWidth: 1.5, borderRadius: 4 },
-      { label: 'Form Submits', data: {{ chart_forms | tojson }}, backgroundColor: '#16a34a40', borderColor: '#16a34a', borderWidth: 1.5, borderRadius: 4 },
-      { label: 'SMS Taps',     data: {{ chart_sms   | tojson }}, backgroundColor: '#c9a84c40', borderColor: '#c9a84c', borderWidth: 1.5, borderRadius: 4 },
+      {
+        label: 'QR Scans',
+        data: {{ chart_scans | tojson }},
+        backgroundColor: '#2563EB',
+        borderRadius: 5,
+        borderSkipped: false,
+      },
+      {
+        label: 'Form Submits',
+        data: {{ chart_forms | tojson }},
+        backgroundColor: '#16a34a',
+        borderRadius: 5,
+        borderSkipped: false,
+      },
+      {
+        label: 'SMS Taps',
+        data: {{ chart_sms | tojson }},
+        backgroundColor: '#c9a84c',
+        borderRadius: 5,
+        borderSkipped: false,
+      },
     ]
   },
   options: {
     responsive: true,
-    interaction: { mode: 'index' },
-    plugins: { legend: { position: 'top', labels: { font: { size: 11 }, padding: 12 } } },
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },  {# hidden — custom HTML legend above #}
+      tooltip: {
+        backgroundColor: '#1a1d23',
+        titleColor: '#9ca3af',
+        bodyColor: '#fff',
+        padding: 12,
+        cornerRadius: 8,
+        titleFont: { size: 11 },
+        bodyFont: { size: 13, weight: 'bold' },
+        callbacks: {
+          title: function(items) { return 'Week of ' + items[0].label; }
+        }
+      }
+    },
     scales: {
-      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-      y: { beginAtZero: true, ticks: { font: { size: 11 }, stepSize: 1 }, grid: { color: '#e4e7ef' } }
+      x: {
+        grid: { display: false },
+        border: { display: false },
+        ticks: { font: { size: 11 }, color: '#9ca3af' }
+      },
+      y: {
+        beginAtZero: true,
+        border: { display: false },
+        grid: { color: '#f3f4f6' },
+        ticks: {
+          font: { size: 11 },
+          color: '#9ca3af',
+          stepSize: 1,
+          precision: 0
+        }
+      }
     }
   }
 });
 </script>
 {% endif %}
+
 {% endblock %}
