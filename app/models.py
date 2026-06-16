@@ -11,7 +11,8 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256))
-    role = db.Column(db.String(20), default='staff')  # admin, staff
+    role = db.Column(db.String(20), default='agent')  # admin, agent
+    agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True)  # linked agent record
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -20,6 +21,10 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    @property
+    def is_admin(self):
+        return self.role == 'admin'
 
     def __repr__(self):
         return f'<User {self.username}>'

@@ -613,14 +613,19 @@
       <hr class="divider my-2">
       <div class="sidebar-section-label">Admin</div>
       <nav class="nav flex-column">
+        {% if current_user.is_admin %}
         <a class="nav-link {% if 'agents' in request.endpoint %}active{% endif %}"
            href="{{ url_for('main.agents') }}">
           <i class="bi bi-people"></i> Agents
         </a>
-        {% if current_user.role == 'admin' %}
         <a class="nav-link {% if 'users' in request.endpoint %}active{% endif %}"
            href="{{ url_for('main.users') }}">
           <i class="bi bi-shield-lock"></i> Users
+        </a>
+        {% else %}
+        <a class="nav-link {% if 'scorecard' in request.endpoint %}active{% endif %}"
+           href="{{ url_for('main.scorecard', agent_id=current_user.agent_id) if current_user.agent_id else '#' }}">
+          <i class="bi bi-person-badge"></i> My Scorecard
         </a>
         {% endif %}
       </nav>
