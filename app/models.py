@@ -177,9 +177,9 @@ class Transaction(db.Model):
 
     @property
     def company_dollar(self):
-        """CTE 'Team TDG' formula:
-        GCI + Bonus + TxFee − Referral − all agent GCIs
-        (Broker Split, Franchise, E&O, Donation, Other are NOT deducted here — they come off in 1099)
+        """CO$ formula — matches CTE Net Income column:
+        GCI + Bonus + TxFee − Referral − all agent GCIs − E&O
+        (BrokerSplit, FranchiseSplit, Donation, Other come off in income_1099)
         """
         if not self.gci:
             return None
@@ -189,6 +189,7 @@ class Transaction(db.Model):
             self.member3_gci,
             self.member4_gci,
             self.referral_fee,
+            self.eo_fee,
         ]))
         additions = sum(filter(None, [
             self.bonus,

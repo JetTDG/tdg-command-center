@@ -1509,11 +1509,14 @@ def ceo_summary():
     def company_dollar(t):
         return (
             (t.gci or 0)
+            + (t.transaction_fee or 0)
+            + (t.bonus or 0)
             - (t.primary_agent_gci or 0)
             - (t.secondary_agent_gci or 0)
+            - (t.member3_gci or 0)
+            - (t.member4_gci or 0)
             - (t.referral_fee or 0)
-            - (t.transaction_fee or 0)
-            - (t.franchise_split or 0)
+            - (t.eo_fee or 0)
         )
 
     all_closed  = Transaction.query.filter_by(year=year, status='Closed', archived=False).all()
