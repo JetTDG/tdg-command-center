@@ -1851,7 +1851,8 @@ def scorecard(agent_id):
     if month != 'all':
         txn_q = txn_q.filter(Transaction.month == int(month))
 
-    all_txns = txn_q.order_by(Transaction.close_date.desc().nulls_last(), Transaction.signed_date.desc()).all()
+    from sqlalchemy import nullslast
+    all_txns = txn_q.order_by(nullslast(Transaction.close_date.desc()), Transaction.signed_date.desc()).all()
 
     # Helper: agent's personal income on a deal
     def agent_income(t):
