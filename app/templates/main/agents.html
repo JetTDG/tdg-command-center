@@ -19,8 +19,8 @@
           <td class="small text-muted">{{ a.role }}</td>
           <td class="small text-muted">{{ a.agent_type }}</td>
           <td><span class="badge-status status-{{ a.status }}">{{ a.status }}</span></td>
-          <td class="text-end small">{{ (a.split_pct*100)|round(1) }}%</td>
-          <td class="text-end small">{{ "${:,.0f}".format(a.cap_amount) }}</td>
+          <td class="text-end small">{{ ((a.split_pct or 0)*100)|round(1) }}%</td>
+          <td class="text-end small">{{ "${:,.0f}".format(a.cap_amount or 0) }}</td>
           <td class="small text-muted">{{ a.email or '—' }}</td>
           <td>
             <a href="{{ url_for('main.scorecard', agent_id=a.id) }}" class="btn btn-sm btn-gold py-0 px-2 me-1">Scorecard</a>

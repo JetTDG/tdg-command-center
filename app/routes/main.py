@@ -1,7 +1,7 @@
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from app.models import AuditLog
+from app.models import AuditLog, User
 
 def log_change(record_id, field_name, old_value, new_value, table_name='transactions'):
     """Write a single change to the audit log."""
