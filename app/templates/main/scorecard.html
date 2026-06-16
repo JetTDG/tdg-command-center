@@ -62,6 +62,174 @@
   {% endfor %}
 </div>
 
+{# ── FUB Performance Cache Sections (Contact Activity, Appointments, Offers, Overdue Tasks) ── #}
+{% if perf %}
+<div class="card mb-4">
+  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
+    <i class="bi bi-telephone me-2"></i>Contact Activity
+    <small class="fw-normal ms-2" style="font-size:0.78rem;opacity:0.8;">synced {{ perf.cache_date }}</small>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0" style="font-size:0.88rem;">
+      <thead>
+        <tr><th>Metric</th><th class="text-end">This Week</th><th class="text-end">30-Day</th><th class="text-end">Team Rank</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Phone Calls Logged</td>
+          <td class="text-end fw-semibold">{{ perf.calls_7d }}</td>
+          <td class="text-end text-muted">{{ perf.calls_30d }}</td>
+          <td class="text-end"><span class="badge bg-light text-dark border">#{{ perf.call_rank }} of {{ perf.team_size }}</span></td>
+        </tr>
+        <tr>
+          <td>Conversations (2+ min)</td>
+          <td class="text-end fw-semibold">{{ perf.convos_7d }}</td>
+          <td class="text-end text-muted">{{ perf.convos_30d }}</td>
+          <td class="text-end"><span class="badge bg-light text-dark border">#{{ perf.convo_rank }} of {{ perf.team_size }}</span></td>
+        </tr>
+        <tr>
+          <td>Texts Sent</td>
+          <td class="text-end fw-semibold">{{ perf.texts_7d }}</td>
+          <td class="text-end text-muted">{{ perf.texts_30d }}</td>
+          <td class="text-end"><span class="badge bg-light text-dark border">#{{ perf.text_rank }} of {{ perf.team_size }}</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Upcoming Appointments ────────────────────────────────────────────────── #}
+{% if perf.upcoming_appts %}
+<div class="card mb-4">
+  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
+    <i class="bi bi-calendar-check me-2"></i>Upcoming Appointments (Next 14 Days)
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0" style="font-size:0.88rem;">
+      <thead><tr><th>Date &amp; Time</th><th>Contact</th><th>Type</th></tr></thead>
+      <tbody>
+        {% for a in perf.upcoming_appts %}
+        <tr><td>{{ a.date }}</td><td>{{ a.contact }}</td><td><span class="badge bg-light text-dark border">{{ a.type }}</span></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Past Appointments (30d) ─────────────────────────────────────────────── #}
+<div class="card mb-4">
+  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
+    <i class="bi bi-calendar3 me-2"></i>Appointments — Last 30 Days
+    <small class="fw-normal ms-2">Held: <strong>{{ perf.appts_held_30d }}</strong> &nbsp;|&nbsp; Not Held: <strong>{{ perf.appts_not_held_30d }}</strong> &nbsp;|&nbsp; Signed: <strong>{{ perf.appts_signed_30d }}</strong></small>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0" style="font-size:0.85rem;">
+      <thead><tr><th>Contact</th><th>Date</th><th>Type</th><th>Held?</th><th>Signed?</th></tr></thead>
+      <tbody>
+        {% if perf.past_appts %}
+          {% for a in perf.past_appts %}
+          <tr>
+            <td>{{ a.contact }}</td>
+            <td class="text-muted small">{{ a.date }}</td>
+            <td><span class="badge bg-light text-dark border" style="font-size:0.72rem;">{{ a.type }}</span></td>
+            <td>{% if a.held %}<span class="badge bg-success">✓ Held</span>{% else %}<span class="badge bg-danger">✗ Not Held</span>{% endif %}</td>
+            <td>{% if a.signed %}<span class="badge bg-success">✓ Signed</span>{% else %}<span class="badge bg-secondary">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="5" class="text-center text-muted py-3">No BC/LA appointments in the last 30 days</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Offers Written ───────────────────────────────────────────────────────── #}
+<div class="card mb-4">
+  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
+    <i class="bi bi-file-earmark-text me-2"></i>Offers Written
+  </div>
+  <div class="card-body p-0">
+    <div class="row g-0 border-bottom">
+      <div class="col p-3 text-center border-end">
+        <div class="text-muted small">YTD Total</div>
+        <div class="fw-bold fs-4">{{ perf.offers_ytd_total }}</div>
+      </div>
+      <div class="col p-3 text-center border-end">
+        <div class="text-muted small">✅ Accepted</div>
+        <div class="fw-bold fs-4 text-success">{{ perf.offers_ytd_accepted }}</div>
+      </div>
+      <div class="col p-3 text-center border-end">
+        <div class="text-muted small">❌ Rejected</div>
+        <div class="fw-bold fs-4 text-muted">{{ perf.offers_ytd_rejected }}</div>
+      </div>
+      <div class="col p-3 text-center border-end">
+        <div class="text-muted small">🔙 Backed Out</div>
+        <div class="fw-bold fs-4" style="color:#6b21a8;">{{ perf.offers_ytd_backed_out }}</div>
+      </div>
+      <div class="col p-3 text-center">
+        <div class="text-muted small">🔄 In Process</div>
+        <div class="fw-bold fs-4" style="color:#b45309;">{{ perf.offers_ytd_in_process }}</div>
+      </div>
+    </div>
+    {% if perf.offers_30d %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" style="font-size:0.85rem;">
+        <thead><tr><th>Date</th><th>Client</th><th>Address</th><th class="text-end">Offer Price</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for o in perf.offers_30d %}
+          <tr>
+            <td class="text-muted small">{{ o.date }}</td>
+            <td>{{ o.client }}</td>
+            <td class="text-muted small">{{ o.address[:45] }}{% if o.address|length > 45 %}…{% endif %}</td>
+            <td class="text-end">{{ o.price }}</td>
+            <td>
+              {% if 'accepted' in o.status|lower %}<span class="badge" style="background:#1a7f37;">✅ Accepted</span>
+              {% elif 'in process' in o.status|lower or 'negotiation' in o.status|lower %}<span class="badge" style="background:#b45309;">🔄 In Process</span>
+              {% elif 'backed out' in o.status|lower %}<span class="badge" style="background:#6b21a8;">🔙 Backed Out</span>
+              {% else %}<span class="badge bg-secondary">❌ Rejected</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-3" style="font-size:0.85rem;">No offers in the last 30 days</div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Overdue Tasks ────────────────────────────────────────────────────────── #}
+{% if perf.overdue_tasks %}
+<div class="card mb-4">
+  <div class="card-header" style="background:#dc3545;color:#fff;font-weight:700;padding:0.6rem 1rem;">
+    <i class="bi bi-exclamation-triangle me-2"></i>⚠️ Past-Due FUB Tasks ({{ perf.overdue_tasks_count }})
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0" style="font-size:0.85rem;">
+      <thead><tr><th>Contact</th><th>Task Type</th><th>Due Date</th></tr></thead>
+      <tbody>
+        {% for t in perf.overdue_tasks %}
+        <tr>
+          <td>{{ t.contact }}</td>
+          <td>{{ t.task_type }}</td>
+          <td class="text-danger fw-semibold">{{ t.due_date }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="alert alert-secondary mb-4" style="font-size:0.85rem;">
+  <i class="bi bi-clock-history me-1"></i> FUB activity data not yet synced. Contact Activity, Appointments, and Offers will appear after the nightly sync runs.
+</div>
+{% endif %}
+
 {# ── Section 1: Lead Gen ──────────────────────────────────────────────────── #}
 <div class="card mb-4">
   <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">

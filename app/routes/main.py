@@ -1967,6 +1967,24 @@ def scorecard(agent_id):
     # ── Check if this agent has any Commercial txns (for division filter) ────
     has_commercial = Transaction.query.filter(txn_filter, Transaction.division == 'Commercial').count() > 0
 
+    # ── FUB Perf Cache (nightly sync) ────────────────────────────────────────
+    import json as _json
+    from app import db as _db
+    from sqlalchemy import text as _text
+    perf = None
+    try:
+        row = _db.session.execute(_text(
+            "SELECT * FROM agent_perf_cache WHERE agent_id=:aid ORDER BY cache_date DESC LIMIT 1"
+        ), {'aid': agent_id}).fetchone()
+        if row:
+            perf = dict(row._mapping)
+            perf['upcoming_appts'] = _json.loads(perf.get('upcoming_appts_json') or '[]')
+            perf['past_appts']     = _json.loads(perf.get('past_appts_json') or '[]')
+            perf['offers_30d']     = _json.loads(perf.get('offers_30d_json') or '[]')
+            perf['overdue_tasks']  = _json.loads(perf.get('overdue_tasks_json') or '[]')
+    except Exception as _e:
+        import logging; logging.getLogger('scorecard').warning(f'perf cache read failed: {_e}')
+
     return render_template('main/scorecard.html',
         agent=agent,
         year=year,
@@ -1994,6 +2012,7 @@ def scorecard(agent_id):
         agent_income=agent_income,
         pct=pct,
         today=today,
+        perf=perf,
     )
 
 @bp.route('/scorecard/<int:agent_id>/business-plan', methods=['GET', 'POST'])
