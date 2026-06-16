@@ -45,7 +45,6 @@
   {% set kpis = [
     ('Units Closed', ytd_units, '', 'bi-check-circle'),
     ('Agent Income YTD', ytd_income, '$', 'bi-currency-dollar'),
-    ('GCI YTD', ytd_gci, '$', 'bi-graph-up'),
     ('Volume YTD', ytd_volume, '$', 'bi-building'),
     ('Pending Deals', pipeline_txns|selectattr('status','equalto','Pending')|list|length, '', 'bi-hourglass-split'),
     ('Proj. Year-End Income', proj_income_with_pending, '$', 'bi-star'),
@@ -329,7 +328,6 @@
           <th style="min-width:130px;">Month</th>
           <th class="text-end">Units</th>
           <th class="text-end">Agent Income</th>
-          <th class="text-end">GCI</th>
           <th>Deals</th>
         </tr>
       </thead>
@@ -341,9 +339,6 @@
           <td class="text-end {% if md.units > 0 %}fw-semibold{% endif %}">{{ md.units or '—' }}</td>
           <td class="text-end {% if md.income > 0 %}text-success fw-semibold{% endif %}">
             {% if md.income > 0 %}${{ "{:,.0f}".format(md.income) }}{% else %}—{% endif %}
-          </td>
-          <td class="text-end {% if md.gci > 0 %}fw-semibold{% endif %}">
-            {% if md.gci > 0 %}${{ "{:,.0f}".format(md.gci) }}{% else %}—{% endif %}
           </td>
           <td>
             {% for t in md.txns %}
@@ -358,7 +353,6 @@
           <td>TOTAL</td>
           <td class="text-end">{{ ytd_units }}</td>
           <td class="text-end text-success">${{ "{:,.0f}".format(ytd_income) }}</td>
-          <td class="text-end">${{ "{:,.0f}".format(ytd_gci) }}</td>
           <td></td>
         </tr>
       </tfoot>
