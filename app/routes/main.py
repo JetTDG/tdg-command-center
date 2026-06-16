@@ -1983,6 +1983,16 @@ def scorecard(agent_id):
             perf['past_appts']     = _json.loads(perf.get('past_appts_json') or '[]')
             perf['offers_30d']     = _json.loads(perf.get('offers_30d_json') or '[]')
             perf['overdue_tasks']  = _json.loads(perf.get('overdue_tasks_json') or '[]')
+            # 30-day average overdue tasks from cache history
+            hist = _db.session.execute(_text(
+                "SELECT overdue_tasks_count FROM agent_perf_cache "
+                "WHERE agent_id=:aid AND overdue_tasks_count IS NOT NULL "
+                "ORDER BY cache_date DESC LIMIT 30"
+            ), {'aid': agent_id}).fetchall()
+            if hist:
+                perf['overdue_avg_30d'] = round(sum(r[0] for r in hist) / len(hist), 1)
+            else:
+                perf['overdue_avg_30d'] = None
     except Exception as _e:
         import logging; logging.getLogger('scorecard').warning(f'perf cache read failed: {_e}')
 

@@ -201,24 +201,24 @@
 </div>
 
 {# ── Overdue Tasks ────────────────────────────────────────────────────────── #}
-{% if perf.overdue_tasks %}
+{% if perf.overdue_tasks_count %}
 <div class="card mb-4">
   <div class="card-header" style="background:#dc3545;color:#fff;font-weight:700;padding:0.6rem 1rem;">
-    <i class="bi bi-exclamation-triangle me-2"></i>⚠️ Past-Due FUB Tasks ({{ perf.overdue_tasks_count }})
+    <i class="bi bi-exclamation-triangle me-2"></i>Past-Due FUB Tasks
   </div>
-  <div class="table-responsive">
-    <table class="table table-hover mb-0" style="font-size:0.85rem;">
-      <thead><tr><th>Contact</th><th>Task Type</th><th>Due Date</th></tr></thead>
-      <tbody>
-        {% for t in perf.overdue_tasks %}
-        <tr>
-          <td>{{ t.contact }}</td>
-          <td>{{ t.task_type }}</td>
-          <td class="text-danger fw-semibold">{{ t.due_date }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-6 col-md-4">
+        <div class="text-muted small">Current Past-Due</div>
+        <div class="fw-bold" style="font-size:2rem;color:#dc3545;">{{ perf.overdue_tasks_count }}</div>
+      </div>
+      <div class="col-6 col-md-4">
+        <div class="text-muted small">30-Day Daily Avg</div>
+        <div class="fw-bold" style="font-size:2rem;color:#dc3545;">
+          {% if perf.overdue_avg_30d is not none %}{{ perf.overdue_avg_30d }}{% else %}—{% endif %}
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 {% endif %}
