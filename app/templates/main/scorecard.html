@@ -61,41 +61,8 @@
   {% endfor %}
 </div>
 
-{# ── FUB Performance Cache Sections (Contact Activity, Appointments, Offers, Overdue Tasks) ── #}
+{# ── FUB Performance Cache Sections (Appointments, Offers, Overdue Tasks) ── #}
 {% if perf %}
-<div class="card mb-4">
-  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
-    <i class="bi bi-telephone me-2"></i>Contact Activity
-    <small class="fw-normal ms-2" style="font-size:0.78rem;opacity:0.8;">synced {{ perf.cache_date }}</small>
-  </div>
-  <div class="table-responsive">
-    <table class="table table-hover mb-0" style="font-size:0.88rem;">
-      <thead>
-        <tr><th>Metric</th><th class="text-end">This Week</th><th class="text-end">30-Day</th><th class="text-end">Team Rank</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Phone Calls Logged</td>
-          <td class="text-end fw-semibold">{{ perf.calls_7d }}</td>
-          <td class="text-end text-muted">{{ perf.calls_30d }}</td>
-          <td class="text-end"><span class="badge bg-light text-dark border">#{{ perf.call_rank }} of {{ perf.team_size }}</span></td>
-        </tr>
-        <tr>
-          <td>Conversations (2+ min)</td>
-          <td class="text-end fw-semibold">{{ perf.convos_7d }}</td>
-          <td class="text-end text-muted">{{ perf.convos_30d }}</td>
-          <td class="text-end"><span class="badge bg-light text-dark border">#{{ perf.convo_rank }} of {{ perf.team_size }}</span></td>
-        </tr>
-        <tr>
-          <td>Texts Sent</td>
-          <td class="text-end fw-semibold">{{ perf.texts_7d }}</td>
-          <td class="text-end text-muted">{{ perf.texts_30d }}</td>
-          <td class="text-end"><span class="badge bg-light text-dark border">#{{ perf.text_rank }} of {{ perf.team_size }}</span></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
 
 {# ── Upcoming Appointments ────────────────────────────────────────────────── #}
 {% if perf.upcoming_appts %}
@@ -237,16 +204,37 @@
   <div class="card-body p-0">
     <div class="row g-0">
       <div class="col-md-6 p-3 border-end">
+        <p class="text-muted mb-2" style="font-size:0.78rem;">From FUB (same definition as weekly email)</p>
         <table class="table table-sm mb-0">
-          <thead><tr><th>Metric</th><th class="text-end">Count</th><th class="text-end">Conv%</th></tr></thead>
+          <thead><tr><th>Metric</th><th class="text-end">This Week</th><th class="text-end">30-Day</th><th class="text-end">Rank</th></tr></thead>
           <tbody>
-            <tr><td>Dials</td><td class="text-end">{{ lg.dials }}</td><td class="text-end">—</td></tr>
-            <tr><td>Contacts</td><td class="text-end">{{ lg.contacts }}</td><td class="text-end">—</td></tr>
-            <tr><td>Contact → Appt</td><td class="text-end">{{ lg.listing_set + lg.buyer_set }}</td><td class="text-end {% if lg.contact_to_appt >= 10 %}text-success{% endif %}">{{ lg.contact_to_appt }}%</td></tr>
+            {% if perf %}
+            <tr>
+              <td>Calls Logged</td>
+              <td class="text-end fw-semibold">{{ perf.calls_7d }}</td>
+              <td class="text-end text-muted">{{ perf.calls_30d }}</td>
+              <td class="text-end"><small class="text-muted">#{{ perf.call_rank }}/{{ perf.team_size }}</small></td>
+            </tr>
+            <tr>
+              <td>Conversations (2+ min)</td>
+              <td class="text-end fw-semibold">{{ perf.convos_7d }}</td>
+              <td class="text-end text-muted">{{ perf.convos_30d }}</td>
+              <td class="text-end"><small class="text-muted">#{{ perf.convo_rank }}/{{ perf.team_size }}</small></td>
+            </tr>
+            <tr>
+              <td>Texts Sent</td>
+              <td class="text-end fw-semibold">{{ perf.texts_7d }}</td>
+              <td class="text-end text-muted">{{ perf.texts_30d }}</td>
+              <td class="text-end"><small class="text-muted">#{{ perf.text_rank }}/{{ perf.team_size }}</small></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-muted small py-2">FUB activity syncs nightly</td></tr>
+            {% endif %}
           </tbody>
         </table>
       </div>
       <div class="col-md-6 p-3">
+        <p class="text-muted mb-2" style="font-size:0.78rem;">From CC (agent-logged)</p>
         <table class="table table-sm mb-0">
           <thead><tr><th>Metric</th><th class="text-end">Set</th><th class="text-end">Held</th><th class="text-end">Signed</th></tr></thead>
           <tbody>
