@@ -620,6 +620,12 @@ def add_transaction():
             secondary_agent_name=f.get('secondary_agent_name', '') or None,
             secondary_agent_pct=float(f.get('secondary_agent_pct') or 0) / 100 or None,
             secondary_agent_gci=float(f.get('secondary_agent_gci') or 0) or None,
+            member3_name=f.get('member3_name', '') or None,
+            member3_pct=float(f.get('member3_pct') or 0) / 100 or None,
+            member3_gci=float(f.get('member3_gci') or 0) or None,
+            member4_name=f.get('member4_name', '') or None,
+            member4_pct=float(f.get('member4_pct') or 0) / 100 or None,
+            member4_gci=float(f.get('member4_gci') or 0) or None,
             mortgage_company=f.get('mortgage_company', '') or None,
             title_company=f.get('title_company', '') or None,
             signed_date=_parse_date(f.get('signed_date')),
@@ -701,6 +707,12 @@ def edit_transaction(tid):
         t.secondary_agent_name = f.get('secondary_agent_name', '') or None
         t.secondary_agent_pct = float(f.get('secondary_agent_pct') or 0) / 100 or None
         t.secondary_agent_gci = float(f.get('secondary_agent_gci') or 0) or None
+        t.member3_name = f.get('member3_name', '') or None
+        t.member3_pct = float(f.get('member3_pct') or 0) / 100 or None
+        t.member3_gci = float(f.get('member3_gci') or 0) or None
+        t.member4_name = f.get('member4_name', '') or None
+        t.member4_pct = float(f.get('member4_pct') or 0) / 100 or None
+        t.member4_gci = float(f.get('member4_gci') or 0) or None
         t.mortgage_company = f.get('mortgage_company', '') or None
         t.title_company = f.get('title_company', '') or None
         t.signed_date = _parse_date(f.get('signed_date'))
