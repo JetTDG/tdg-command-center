@@ -756,9 +756,16 @@ def gl_analytics():
         county = COUNTY_MAP_GL.get(city_key, '')
         slugs_meta[row.slug] = {"city": row.city, "vertical": row.vertical, "county": county}
 
-    # ── Letter counts per slug from GL Tracker (stored in gl_letter_counts table if exists,
-    #    otherwise fall back to hardcoded map built at merge time)
-    # We'll store letter counts in a simple JSON in the DB via a config key
+    # ── Pull city rows from GL Tracker for the batch table ───────────────────
+    # Only rows for our 11 generated cities (rows 60–70 in tracker)
+    # Columns: B=County, C=City, D=Vertical, G=Letters, S=Mail Date
+    BATCH_CITIES = {
+        "fraser", "roseville", "chesterfield", "highland",
+        "white lake", "waterford", "commerce township",
+        "oak park", "hazel park", "taylor", "wyandotte",
+    }
+
+    # Correct letter counts from regen (actual PDF page counts)
     LETTER_COUNTS = {
         "fraser-industrial":            179,
         "roseville-industrial":         217,
@@ -766,12 +773,52 @@ def gl_analytics():
         "highland-industrial":           22,
         "white-lake-industrial":         12,
         "waterford-industrial":          96,
-        "commerce-township-industrial": 96,
+        "commerce-township-industrial":  96,
         "oak-park-industrial":          131,
         "hazel-park-industrial":         97,
         "taylor-industrial":            185,
         "wyandotte-industrial":          57,
     }
+
+    # Pull tracker rows
+    try:
+        from googleapiclient.discovery import build as goog_build
+        from google.oauth2.credentials import Credentials as GCreds
+        import os
+        token_path = os.path.expanduser("~/.hermes/google_token.json")
+        _gcreds = GCreds.from_authorized_user_file(token_path)
+        _gsvc = goog_build("sheets", "v4", credentials=_gcreds)
+        _res = _gsvc.spreadsheets().values().get(
+            spreadsheetId="1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo",
+            range="'Commercial GLs Schedule'!B:S"
+        ).execute()
+        _rows = _res.get("values", [])
+    except Exception:
+        _rows = []
+
+    batch_rows = []
+    seen_batch = set()
+    for _r in _rows[1:]:
+        _city     = _r[1].strip() if len(_r) > 1 else ""
+        _vertical = _r[2].strip() if len(_r) > 2 else ""
+        _letters  = _r[5].strip() if len(_r) > 5 else ""
+        _maildate = _r[17].strip() if len(_r) > 17 else ""
+        _slug_key = f"{_city.lower().replace(' ','-')}-{_vertical.lower()}"
+        if _city.lower() in BATCH_CITIES and _slug_key not in seen_batch:
+            seen_batch.add(_slug_key)
+            # Use regen count if available, else tracker
+            _count = LETTER_COUNTS.get(_slug_key, int(_letters) if _letters.isdigit() else 0)
+            batch_rows.append({
+                "city":      _city,
+                "vertical":  _vertical,
+                "letters":   _count,
+                "mail_date": _maildate if _maildate else None,
+            })
+
+    # Sort: mailed first (have date), then pending alphabetically
+    batch_rows.sort(key=lambda r: (0 if r["mail_date"] else 1, r["city"]))
+    total_batch = sum(r["letters"] for r in batch_rows)
+
 
     # ── Build per-slug stats ──────────────────────────────────────────────────
     city_stats = []
@@ -830,6 +877,8 @@ def gl_analytics():
 
     return render_template("gl_analytics.html",
         city_stats=city_stats,
+        batch_rows=batch_rows,
+        total_batch=total_batch,
         total_letters=total_letters,
         total_scans=total_scans,
         total_forms=total_forms,
