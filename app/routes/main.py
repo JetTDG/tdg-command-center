@@ -636,10 +636,12 @@ def add_transaction():
             close_date=_parse_date(f.get('close_date')),
             inspection_date=_parse_date(f.get('inspection_date')),
             appraisal_date=_parse_date(f.get('appraisal_date')),
-            year=int(f.get('year') or current_year()),
-            month=int(f.get('month') or current_month()),
             notes=f.get('notes', ''),
         )
+        # Derive year/month from close_date → signed_date → today (never from form input)
+        _anchor = t.close_date or t.signed_date or datetime.utcnow().date()
+        t.year  = _anchor.year
+        t.month = _anchor.month
         db.session.add(t)
         # Detect manual overrides: if TC entered a value that differs from the formula,
         # treat it as a flat-fee override and leave it alone.  0 or blank = auto-calc.
@@ -723,8 +725,10 @@ def edit_transaction(tid):
         t.close_date = _parse_date(f.get('close_date'))
         t.inspection_date = _parse_date(f.get('inspection_date'))
         t.appraisal_date = _parse_date(f.get('appraisal_date'))
-        t.year = int(f.get('year') or current_year())
-        t.month = int(f.get('month') or current_month())
+        # Derive year/month from close_date → signed_date → today (never from form input)
+        _anchor = t.close_date or t.signed_date or datetime.utcnow().date()
+        t.year  = _anchor.year
+        t.month = _anchor.month
         t.notes = f.get('notes', '')
         t.updated_at = datetime.utcnow()
         # Detect manual overrides — same logic as add: 0/blank = auto-calc, anything

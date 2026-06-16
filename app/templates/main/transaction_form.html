@@ -106,10 +106,6 @@
       <label class="form-label">Appraisal Date</label>
       <input type="date" name="appraisal_date" class="form-control" value="{{ t.appraisal_date.strftime('%Y-%m-%d') if t and t.appraisal_date else '' }}">
     </div>
-    <div class="col-md-2">
-      <label class="form-label">Year</label>
-      <input type="number" name="year" class="form-control" value="{{ t.year if t else '' }}" placeholder="{{ 2026 }}">
-    </div>
 
     {# ── SECTION: Financials ──────────────────────────────────────── #}
     <div class="col-12"><h6 class="text-muted fw-semibold text-uppercase" style="font-size:.72rem;letter-spacing:.08em;border-bottom:1px solid #eee;padding-bottom:6px;margin-top:8px">Financials</h6></div>
