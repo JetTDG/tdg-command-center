@@ -22,8 +22,8 @@
             Role
             <select id="filterRole" class="form-select form-select-sm mt-1" style="font-size:0.78rem;">
               <option value="">All</option>
-              <option>Lead Agent</option>
               <option>Both L/B</option>
+              <option>Lead Agent</option>
               <option>Buyer Agent</option>
             </select>
           </th>
@@ -47,7 +47,7 @@
           <th class="text-end">Cap</th>
           <th>Email</th>
           <th>
-            <button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="clearFilters()" style="font-size:0.75rem;white-space:nowrap;">Clear Filters</button>
+            <button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="clearAgentFilters()" style="font-size:0.75rem;white-space:nowrap;">Clear Filters</button>
           </th>
         </tr>
       </thead>
@@ -55,9 +55,9 @@
         {% for a in agents %}
         <tr
           data-name="{{ a.name|lower }}"
-          data-role="{{ a.role or '' }}"
-          data-type="{{ a.agent_type or '' }}"
-          data-status="{{ a.status or '' }}"
+          data-role="{{ (a.role or '')|lower }}"
+          data-type="{{ (a.agent_type or '')|lower }}"
+          data-status="{{ (a.status or '')|lower }}"
         >
           <td class="fw-semibold">{{ a.name }}</td>
           <td class="small text-muted">{{ a.role or '—' }}</td>
@@ -79,44 +79,41 @@
   </div>
 </div>
 
-{% endblock %}
-
-{% block scripts %}
 <script>
-function applyFilters() {
-  const name   = document.getElementById('filterName').value.toLowerCase().trim();
-  const role   = document.getElementById('filterRole').value.toLowerCase();
-  const type   = document.getElementById('filterType').value.toLowerCase();
-  const status = document.getElementById('filterStatus').value.toLowerCase();
+function applyAgentFilters() {
+  var name   = document.getElementById('filterName').value.toLowerCase().trim();
+  var role   = document.getElementById('filterRole').value.toLowerCase();
+  var type   = document.getElementById('filterType').value.toLowerCase();
+  var status = document.getElementById('filterStatus').value.toLowerCase();
 
-  const rows = document.querySelectorAll('#agentsTable tbody tr[data-name]');
-  let visible = 0;
-  rows.forEach(row => {
-    const match =
-      (!name   || row.dataset.name.includes(name)) &&
-      (!role   || row.dataset.role.toLowerCase() === role) &&
-      (!type   || row.dataset.type.toLowerCase() === type) &&
-      (!status || row.dataset.status.toLowerCase() === status);
+  var rows = document.querySelectorAll('#agentsTable tbody tr[data-name]');
+  var visible = 0;
+  rows.forEach(function(row) {
+    var match =
+      (!name   || row.dataset.name.indexOf(name) !== -1) &&
+      (!role   || row.dataset.role === role) &&
+      (!type   || row.dataset.type === type) &&
+      (!status || row.dataset.status === status);
     row.style.display = match ? '' : 'none';
     if (match) visible++;
   });
-  document.getElementById('agentCount').textContent = `(${visible} shown)`;
+  document.getElementById('agentCount').textContent = '(' + visible + ' shown)';
 }
 
-function clearFilters() {
+function clearAgentFilters() {
   document.getElementById('filterName').value   = '';
   document.getElementById('filterRole').value   = '';
   document.getElementById('filterType').value   = '';
   document.getElementById('filterStatus').value = '';
-  applyFilters();
+  applyAgentFilters();
 }
 
-// Wire up all filters
-['filterName','filterRole','filterType','filterStatus'].forEach(id => {
-  document.getElementById(id).addEventListener('input', applyFilters);
-});
+document.getElementById('filterName').addEventListener('input', applyAgentFilters);
+document.getElementById('filterRole').addEventListener('change', applyAgentFilters);
+document.getElementById('filterType').addEventListener('change', applyAgentFilters);
+document.getElementById('filterStatus').addEventListener('change', applyAgentFilters);
 
-// Run on load — defaults Status to "Active"
-applyFilters();
+// Run immediately — Status already set to "Active" in the HTML
+applyAgentFilters();
 </script>
 {% endblock %}
