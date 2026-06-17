@@ -677,8 +677,16 @@ def add_transaction():
                 appraisal_date=_parse_date(f.get('appraisal_date')),
                 notes=f.get('notes', ''),
             )
-            # Derive year/month from close_date → signed_date → today (never from form input)
-            _anchor = t.close_date or t.signed_date or datetime.utcnow().date()
+            # Derive year/month from the most meaningful date for this status.
+            # Closed → close_date; Pending → under_contract_date or projected_close_date;
+            # everything else → signed_date or mls_live_date; fallback → today.
+            _s = t.status or ''
+            if _s == 'Closed':
+                _anchor = t.close_date or datetime.utcnow().date()
+            elif _s == 'Pending':
+                _anchor = t.under_contract_date or t.projected_close_date or datetime.utcnow().date()
+            else:
+                _anchor = t.signed_date or t.mls_live_date or datetime.utcnow().date()
             t.year  = _anchor.year
             t.month = _anchor.month
             db.session.add(t)
@@ -762,8 +770,16 @@ def edit_transaction(tid):
         t.close_date = _parse_date(f.get('close_date'))
         t.inspection_date = _parse_date(f.get('inspection_date'))
         t.appraisal_date = _parse_date(f.get('appraisal_date'))
-        # Derive year/month from close_date → signed_date → today (never from form input)
-        _anchor = t.close_date or t.signed_date or datetime.utcnow().date()
+        # Derive year/month from the most meaningful date for this status.
+        # Closed → close_date; Pending → under_contract_date or projected_close_date;
+        # everything else → signed_date or mls_live_date; fallback → today.
+        _s = t.status or ''
+        if _s == 'Closed':
+            _anchor = t.close_date or datetime.utcnow().date()
+        elif _s == 'Pending':
+            _anchor = t.under_contract_date or t.projected_close_date or datetime.utcnow().date()
+        else:
+            _anchor = t.signed_date or t.mls_live_date or datetime.utcnow().date()
         t.year  = _anchor.year
         t.month = _anchor.month
         t.notes = f.get('notes', '')
