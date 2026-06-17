@@ -619,14 +619,22 @@ def add_transaction():
         agent_id_val = int(f['agent_id'])
         status_val = f['status']
         if address:
+            # Normalize address for comparison: lowercase, collapse spaces, Twp→Township
+            import re as _re
+            def _norm_addr(a):
+                a = a.lower().strip()
+                a = _re.sub(r'\btwp\b', 'township', a)
+                a = _re.sub(r'\s+', ' ', a)
+                return a
+            norm_new = _norm_addr(address)
             existing = Transaction.query.filter(
                 Transaction.agent_id == agent_id_val,
-                Transaction.address == address,
                 Transaction.status == status_val,
                 Transaction.archived == False,
-            ).first()
-            if existing:
-                return _render_form(error=f"A {status_val} transaction already exists for this agent at '{address}' (ID #{existing.id}). Edit the existing record instead.")
+            ).all()
+            dup = next((t for t in existing if _norm_addr(t.address or '') == norm_new), None)
+            if dup:
+                return _render_form(error=f"A {status_val} transaction already exists for this agent at '{dup.address}' (ID #{dup.id}). Edit the existing record instead.")
 
         try:
             t = Transaction(
