@@ -614,12 +614,12 @@ def add_transaction():
         if missing:
             return _render_form(error=f"Please fill in: {', '.join(missing)}")
 
-        # ── Duplicate guard ───────────────────────────────────────────────
+        # ── Duplicate warning (does NOT block save) ───────────────────────
         address = f.get('address', '').strip()
         agent_id_val = int(f['agent_id'])
         status_val = f['status']
+        dup_warning = None
         if address:
-            # Normalize address for comparison: lowercase, collapse spaces, Twp→Township
             import re as _re
             def _norm_addr(a):
                 a = a.lower().strip()
@@ -634,7 +634,7 @@ def add_transaction():
             ).all()
             dup = next((t for t in existing if _norm_addr(t.address or '') == norm_new), None)
             if dup:
-                return _render_form(error=f"A {status_val} transaction already exists for this agent at '{dup.address}' (ID #{dup.id}). Edit the existing record instead.")
+                dup_warning = f"⚠️ Heads up: a {status_val} transaction may already exist for this agent at '{dup.address}' (ID #{dup.id}). The record was saved anyway — please verify with your TC."
 
         try:
             t = Transaction(
@@ -720,6 +720,8 @@ def add_transaction():
                 recalc_member4=_agent_recalc('member4_gci', 'member4_pct'),
             )
             db.session.commit()
+            if dup_warning:
+                flash(dup_warning, 'warning')
             return redirect(url_for('main.my_business'))
         except Exception as e:
             db.session.rollback()
