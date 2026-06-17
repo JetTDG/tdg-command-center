@@ -78,7 +78,7 @@
     </div>
     <div class="col-md-3">
       <label class="form-label">Location / Office</label>
-      <input type="text" name="location" class="form-control" value="{{ t.location if t else '' }}" placeholder="e.g. Rochester">
+      <input type="text" name="location" id="location" class="form-control" value="{{ t.location if t else '' }}" placeholder="e.g. Rochester">
     </div>
 
     {# ── SECTION: Dates ───────────────────────────────────────────── #}
@@ -260,6 +260,14 @@
       </select>
     </div>
     <div class="col-md-2">
+      <label class="form-label">Admin</label>
+      <select name="admin_name" id="admin_name" class="form-select">
+        <option value="">— Select —</option>
+        <option value="Julie Kelsey" {% if t and t.admin_name=='Julie Kelsey' %}selected{% endif %}>Julie Kelsey</option>
+        <option value="Joanne Sumiec" {% if t and t.admin_name=='Joanne Sumiec' %}selected{% endif %}>Joanne Sumiec</option>
+      </select>
+    </div>
+    <div class="col-md-2">
       <label class="form-label">Paid?</label>
       <select name="paid" class="form-select">
         <option value="">—</option>
@@ -280,6 +288,49 @@
 </form>
 
 <script>
+// ── Auto-defaults: Location + Admin ──────────────────────────────────────
+const ALEX_LINTON_ID = '31';
+
+function applyDefaults() {
+  var agentSel  = document.querySelector('select[name="agent_id"]');
+  var divSel    = document.querySelector('select[name="division"]');
+  var locField  = document.getElementById('location');
+  var adminSel  = document.getElementById('admin_name');
+  if (!agentSel || !divSel || !locField || !adminSel) return;
+
+  var agentId  = agentSel.value;
+  var division = divSel.value;
+
+  // Location default (only set if blank)
+  if (!locField.value) {
+    locField.value = (agentId === ALEX_LINTON_ID) ? 'Grosse Pointe' : 'Rochester';
+  }
+
+  // Admin default (only set if blank)
+  if (!adminSel.value) {
+    if (division === 'Commercial') adminSel.value = 'Joanne Sumiec';
+    else if (division === 'Residential') adminSel.value = 'Julie Kelsey';
+  }
+}
+
+// Re-run when agent or division changes; also update admin if division changes even if already set
+document.querySelector('select[name="agent_id"]').addEventListener('change', function() {
+  var locField = document.getElementById('location');
+  // Always update location when agent changes (it's an agent-level default)
+  locField.value = (this.value === ALEX_LINTON_ID) ? 'Grosse Pointe' : 'Rochester';
+  applyDefaults();
+});
+document.querySelector('select[name="division"]').addEventListener('change', function() {
+  var adminSel = document.getElementById('admin_name');
+  // Always update admin when division changes
+  if (this.value === 'Commercial') adminSel.value = 'Joanne Sumiec';
+  else if (this.value === 'Residential') adminSel.value = 'Julie Kelsey';
+  applyDefaults();
+});
+
+// Run on load for new forms (t is null)
+{% if not t %}applyDefaults();{% endif %}
+
 // ── CTE Formula Live Preview ──────────────────────────────────────────────
 // Matches backend apply_formulas() exactly so TC sees results before saving.
 
