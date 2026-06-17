@@ -4,7 +4,12 @@
 <div class="page-title">{{ 'Edit' if t else 'Add' }} Transaction</div>
 <div class="page-subtitle">{{ 'Update transaction details' if t else 'Record a new transaction' }}</div>
 
-<form method="POST" class="mt-3" id="tx-form">
+<div id="tx-validation-alert" style="display:none;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:14px 18px;margin-bottom:16px;color:#991b1b;">
+  <strong>⚠️ Please fill in the required fields before saving:</strong>
+  <ul id="tx-validation-list" style="margin:6px 0 0 18px;padding:0;"></ul>
+</div>
+
+<form method="POST" class="mt-3" id="tx-form" novalidate>
   <div class="row g-3">
 
     {# ── SECTION: Core Info ───────────────────────────────────────── #}
@@ -12,7 +17,7 @@
 
     <div class="col-md-3">
       <label class="form-label">Agent (Primary) *</label>
-      <select name="agent_id" class="form-select" required>
+      <select name="agent_id" class="form-select" data-required="Agent (Primary)">
         <option value="" {% if not t or not t.agent_id %}selected{% endif %}>— Select agent —</option>
         {% for a in agents %}
         <option value="{{ a.id }}" {% if t and t.agent_id==a.id %}selected{% endif %}>{{ a.name }}</option>
@@ -21,20 +26,20 @@
     </div>
     <div class="col-md-2">
       <label class="form-label">Type *</label>
-      <select name="transaction_type" class="form-select" required>
+      <select name="transaction_type" class="form-select" data-required="Type">
         {% for tp in ['Listing','Buyer','Referral','Lease','LOI','CRE Listing','CRE Buyer','CRE Landlord Rep','CRE Tenant Rep','CRE Business Only','Other'] %}
         <option {% if t and t.transaction_type==tp %}selected{% endif %}>{{ tp }}</option>{% endfor %}
       </select>
     </div>
     <div class="col-md-2">
       <label class="form-label">Status *</label>
-      <select name="status" class="form-select" required>
+      <select name="status" class="form-select" data-required="Status">
         {% for s in statuses %}<option {% if t and t.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
       </select>
     </div>
     <div class="col-md-2">
       <label class="form-label">Division *</label>
-      <select name="division" class="form-select" required>
+      <select name="division" class="form-select" data-required="Division">
         <option value="" {% if not t or not t.division %}selected{% endif %}>— Select —</option>
         <option value="Residential" {% if t and t.division=='Residential' %}selected{% endif %}>Residential</option>
         <option value="Commercial" {% if t and t.division=='Commercial' %}selected{% endif %}>Commercial</option>
@@ -439,5 +444,36 @@ calcAll();
     }
   });
 })();
+
+// ── Required field validation ─────────────────────────────────────────────
+document.getElementById('tx-form').addEventListener('submit', function(e) {
+  var errors = [];
+  document.querySelectorAll('#tx-form select[data-required]').forEach(function(sel) {
+    if (!sel.value || sel.value === '') {
+      errors.push(sel.getAttribute('data-required'));
+      sel.style.borderColor = '#f87171';
+    } else {
+      sel.style.borderColor = '';
+    }
+  });
+  if (errors.length > 0) {
+    e.preventDefault();
+    var alertBox = document.getElementById('tx-validation-alert');
+    var list     = document.getElementById('tx-validation-list');
+    list.innerHTML = errors.map(function(f) { return '<li>' + f + '</li>'; }).join('');
+    alertBox.style.display = 'block';
+    alertBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
+document.querySelectorAll('#tx-form select[data-required]').forEach(function(sel) {
+  sel.addEventListener('change', function() {
+    if (this.value) {
+      this.style.borderColor = '';
+      var stillMissing = Array.from(document.querySelectorAll('#tx-form select[data-required]'))
+        .some(function(s) { return !s.value; });
+      if (!stillMissing) document.getElementById('tx-validation-alert').style.display = 'none';
+    }
+  });
+});
 </script>
 {% endblock %}
