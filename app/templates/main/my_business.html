@@ -304,25 +304,25 @@ function monthChanged() {
           {# Primary Agent col 25 #}
           <td data-val="{{ t.primary_agent_name or '' }}"><span class="ec" data-field="primary_agent_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.primary_agent_name or '' }}</span></td>
           {# Pri% col 26 #}
-          <td data-val="{{ t.primary_agent_pct or '' }}"><span class="ec num" data-field="primary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.primary_agent_pct*100) + '%' if t.primary_agent_pct else '' }}</span></td>
+          <td data-val="{{ t.primary_agent_pct or '' }}"><span class="ec num" data-field="primary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.2f}".format(t.primary_agent_pct*100) + '%' if t.primary_agent_pct else '' }}</span></td>
           {# Primary GCI col 27 #}
           <td data-val="{{ t.primary_agent_gci or '' }}"><span class="ec num" data-field="primary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.primary_agent_gci) if t.primary_agent_gci else '' }}</span></td>
           {# 2nd Agent col 28 #}
           <td data-val="{{ t.secondary_agent_name or '' }}"><span class="ec" data-field="secondary_agent_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.secondary_agent_name or '' }}</span></td>
           {# 2nd% col 29 #}
-          <td data-val="{{ t.secondary_agent_pct or '' }}"><span class="ec num" data-field="secondary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.secondary_agent_pct*100) + '%' if t.secondary_agent_pct else '' }}</span></td>
+          <td data-val="{{ t.secondary_agent_pct or '' }}"><span class="ec num" data-field="secondary_agent_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.2f}".format(t.secondary_agent_pct*100) + '%' if t.secondary_agent_pct else '' }}</span></td>
           {# 2nd GCI col 30 #}
           <td data-val="{{ t.secondary_agent_gci or '' }}"><span class="ec num" data-field="secondary_agent_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.secondary_agent_gci) if t.secondary_agent_gci else '' }}</span></td>
           {# Member 3 col 31 #}
           <td data-val="{{ t.member3_name or '' }}"><span class="ec" data-field="member3_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.member3_name or '' }}</span></td>
           {# M3% col 32 #}
-          <td data-val="{{ t.member3_pct or '' }}"><span class="ec num" data-field="member3_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member3_pct*100) + '%' if t.member3_pct else '' }}</span></td>
+          <td data-val="{{ t.member3_pct or '' }}"><span class="ec num" data-field="member3_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.2f}".format(t.member3_pct*100) + '%' if t.member3_pct else '' }}</span></td>
           {# M3 GCI col 33 #}
           <td data-val="{{ t.member3_gci or '' }}"><span class="ec num" data-field="member3_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.member3_gci) if t.member3_gci else '' }}</span></td>
           {# Member 4 col 34 #}
           <td data-val="{{ t.member4_name or '' }}"><span class="ec" data-field="member4_name" data-tid="{{ t.id }}" data-list="dl-agents">{{ t.member4_name or '' }}</span></td>
           {# M4% col 35 #}
-          <td data-val="{{ t.member4_pct or '' }}"><span class="ec num" data-field="member4_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.0f}".format(t.member4_pct*100) + '%' if t.member4_pct else '' }}</span></td>
+          <td data-val="{{ t.member4_pct or '' }}"><span class="ec num" data-field="member4_pct" data-tid="{{ t.id }}" data-pct="1">{{ "{:.2f}".format(t.member4_pct*100) + '%' if t.member4_pct else '' }}</span></td>
           {# M4 GCI col 36 #}
           <td data-val="{{ t.member4_gci or '' }}"><span class="ec num" data-field="member4_gci" data-tid="{{ t.id }}">{{ "{:,.0f}".format(t.member4_gci) if t.member4_gci else '' }}</span></td>
           {# Donation col 38 #}
