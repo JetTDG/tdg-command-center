@@ -592,91 +592,124 @@ def my_business():
 @bp.route('/my-business/add', methods=['GET', 'POST'])
 @login_required
 def add_transaction():
+    def _render_form(error=None):
+        agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
+        statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
+                    'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
+        lead_sources = [r[0] for r in db.session.query(Transaction.lead_source)
+                        .filter(Transaction.lead_source.isnot(None), Transaction.lead_source != '')
+                        .distinct().order_by(Transaction.lead_source).all()]
+        return render_template('main/transaction_form.html', agents=agents, statuses=statuses,
+                               lead_sources=lead_sources, t=None, form_error=error, form_data=request.form)
+
     if request.method == 'POST':
         f = request.form
-        t = Transaction(
-            agent_id=int(f['agent_id']),
-            transaction_type=f['transaction_type'],
-            status=f['status'],
-            division=f.get('division') or None,
-            sub_status=f.get('sub_status') or None,
-            lead_type=f.get('lead_type', 'Team'),
-            lead_source=f.get('lead_source') or None,
-            address=f.get('address', ''),
-            client_name=f.get('client_name', ''),
-            location=f.get('location', ''),
-            sale_price=float(f.get('sale_price') or 0),
-            list_price=float(f.get('list_price') or 0) or None,
-            commission_pct=float(f.get('commission_pct') or 0) / 100,
-            gci=float(f.get('gci') or 0),
-            bonus=float(f.get('bonus') or 0) or None,
-            transaction_fee=float(f.get('transaction_fee') or 0) or None,
-            broker_split=float(f.get('broker_split') or 0) or None,
-            franchise_split=float(f.get('franchise_split') or 0) or None,
-            referral_fee=float(f.get('referral_fee') or 0) or None,
-            referral_pct=float(f.get('referral_pct') or 0) / 100 or None,
-            eo_fee=float(f.get('eo_fee') or 0) or None,
-            donation=float(f.get('donation') or 0) or None,
-            other_fee=float(f.get('other_fee') or 0) or None,
-            primary_agent_name=f.get('primary_agent_name', '') or None,
-            primary_agent_pct=float(f.get('primary_agent_pct') or 0) / 100 or None,
-            primary_agent_gci=float(f.get('primary_agent_gci') or 0) or None,
-            secondary_agent_name=f.get('secondary_agent_name', '') or None,
-            secondary_agent_pct=float(f.get('secondary_agent_pct') or 0) / 100 or None,
-            secondary_agent_gci=float(f.get('secondary_agent_gci') or 0) or None,
-            member3_name=f.get('member3_name', '') or None,
-            member3_pct=float(f.get('member3_pct') or 0) / 100 or None,
-            member3_gci=float(f.get('member3_gci') or 0) or None,
-            member4_name=f.get('member4_name', '') or None,
-            member4_pct=float(f.get('member4_pct') or 0) / 100 or None,
-            member4_gci=float(f.get('member4_gci') or 0) or None,
-            mortgage_company=f.get('mortgage_company', '') or None,
-            title_company=f.get('title_company', '') or None,
-            signed_date=_parse_date(f.get('signed_date')),
-            mls_live_date=_parse_date(f.get('mls_live_date')),
-            expiry_date=_parse_date(f.get('expiry_date')),
-            under_contract_date=_parse_date(f.get('contract_date')),
-            projected_close_date=_parse_date(f.get('projected_close_date')),
-            close_date=_parse_date(f.get('close_date')),
-            inspection_date=_parse_date(f.get('inspection_date')),
-            appraisal_date=_parse_date(f.get('appraisal_date')),
-            notes=f.get('notes', ''),
-        )
-        # Derive year/month from close_date → signed_date → today (never from form input)
-        _anchor = t.close_date or t.signed_date or datetime.utcnow().date()
-        t.year  = _anchor.year
-        t.month = _anchor.month
-        db.session.add(t)
-        # Detect manual overrides: if TC entered a value that differs from the formula,
-        # treat it as a flat-fee override and leave it alone.  0 or blank = auto-calc.
-        gci_base_price = (t.sale_price or t.list_price or 0)
-        submitted_gci = float(f.get('gci') or 0)
-        formula_gci   = round(gci_base_price * (t.commission_pct or 0), 2)
-        recalc_gci    = (submitted_gci == 0 or submitted_gci == formula_gci)
 
-        def _agent_recalc(gci_field, pct_attr):
-            submitted = float(f.get(gci_field) or 0)
-            pct = getattr(t, pct_attr) or 0
-            gci_net = (t.gci or 0) - (t.referral_fee or 0)
-            formula  = round(gci_net * pct, 2) if pct else 0
-            return submitted == 0 or submitted == formula
+        # ── Server-side required field check ──────────────────────────────
+        missing = []
+        if not f.get('agent_id'): missing.append('Agent (Primary)')
+        if not f.get('transaction_type'): missing.append('Type')
+        if not f.get('status'): missing.append('Status')
+        if not f.get('division'): missing.append('Division')
+        if missing:
+            return _render_form(error=f"Please fill in: {', '.join(missing)}")
 
-        apply_formulas(t,
-            recalc_gci=recalc_gci,
-            recalc_primary=_agent_recalc('primary_agent_gci', 'primary_agent_pct'),
-            recalc_secondary=_agent_recalc('secondary_agent_gci', 'secondary_agent_pct'),
-            recalc_member3=_agent_recalc('member3_gci', 'member3_pct'),
-            recalc_member4=_agent_recalc('member4_gci', 'member4_pct'),
-        )
-        db.session.commit()
-        return redirect(url_for('main.my_business'))
-    agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
-    statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
-                'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
-    lead_sources = [r[0] for r in db.session.query(Transaction.lead_source)
-                    .filter(Transaction.lead_source.isnot(None), Transaction.lead_source != '')
-                    .distinct().order_by(Transaction.lead_source).all()]
-    return render_template('main/transaction_form.html', agents=agents, statuses=statuses, lead_sources=lead_sources, t=None)
+        # ── Duplicate guard ───────────────────────────────────────────────
+        address = f.get('address', '').strip()
+        agent_id_val = int(f['agent_id'])
+        status_val = f['status']
+        if address:
+            existing = Transaction.query.filter(
+                Transaction.agent_id == agent_id_val,
+                Transaction.address == address,
+                Transaction.status == status_val,
+                Transaction.archived == False,
+            ).first()
+            if existing:
+                return _render_form(error=f"A {status_val} transaction already exists for this agent at '{address}' (ID #{existing.id}). Edit the existing record instead.")
+
+        try:
+            t = Transaction(
+                agent_id=agent_id_val,
+                transaction_type=f['transaction_type'],
+                status=status_val,
+                division=f.get('division') or None,
+                sub_status=f.get('sub_status') or None,
+                lead_type=f.get('lead_type', 'Team'),
+                lead_source=f.get('lead_source') or None,
+                address=address,
+                client_name=f.get('client_name', ''),
+                location=f.get('location', ''),
+                sale_price=float(f.get('sale_price') or 0),
+                list_price=float(f.get('list_price') or 0) or None,
+                commission_pct=float(f.get('commission_pct') or 0) / 100,
+                gci=float(f.get('gci') or 0),
+                bonus=float(f.get('bonus') or 0) or None,
+                transaction_fee=float(f.get('transaction_fee') or 0) or None,
+                broker_split=float(f.get('broker_split') or 0) or None,
+                franchise_split=float(f.get('franchise_split') or 0) or None,
+                referral_fee=float(f.get('referral_fee') or 0) or None,
+                referral_pct=float(f.get('referral_pct') or 0) / 100 or None,
+                eo_fee=float(f.get('eo_fee') or 0) or None,
+                donation=float(f.get('donation') or 0) or None,
+                other_fee=float(f.get('other_fee') or 0) or None,
+                primary_agent_name=f.get('primary_agent_name', '') or None,
+                primary_agent_pct=float(f.get('primary_agent_pct') or 0) / 100 or None,
+                primary_agent_gci=float(f.get('primary_agent_gci') or 0) or None,
+                secondary_agent_name=f.get('secondary_agent_name', '') or None,
+                secondary_agent_pct=float(f.get('secondary_agent_pct') or 0) / 100 or None,
+                secondary_agent_gci=float(f.get('secondary_agent_gci') or 0) or None,
+                member3_name=f.get('member3_name', '') or None,
+                member3_pct=float(f.get('member3_pct') or 0) / 100 or None,
+                member3_gci=float(f.get('member3_gci') or 0) or None,
+                member4_name=f.get('member4_name', '') or None,
+                member4_pct=float(f.get('member4_pct') or 0) / 100 or None,
+                member4_gci=float(f.get('member4_gci') or 0) or None,
+                mortgage_company=f.get('mortgage_company', '') or None,
+                title_company=f.get('title_company', '') or None,
+                signed_date=_parse_date(f.get('signed_date')),
+                mls_live_date=_parse_date(f.get('mls_live_date')),
+                expiry_date=_parse_date(f.get('expiry_date')),
+                under_contract_date=_parse_date(f.get('contract_date')),
+                projected_close_date=_parse_date(f.get('projected_close_date')),
+                close_date=_parse_date(f.get('close_date')),
+                inspection_date=_parse_date(f.get('inspection_date')),
+                appraisal_date=_parse_date(f.get('appraisal_date')),
+                notes=f.get('notes', ''),
+            )
+            # Derive year/month from close_date → signed_date → today (never from form input)
+            _anchor = t.close_date or t.signed_date or datetime.utcnow().date()
+            t.year  = _anchor.year
+            t.month = _anchor.month
+            db.session.add(t)
+            # Detect manual overrides: if TC entered a value that differs from the formula,
+            # treat it as a flat-fee override and leave it alone.  0 or blank = auto-calc.
+            gci_base_price = (t.sale_price or t.list_price or 0)
+            submitted_gci = float(f.get('gci') or 0)
+            formula_gci   = round(gci_base_price * (t.commission_pct or 0), 2)
+            recalc_gci    = (submitted_gci == 0 or submitted_gci == formula_gci)
+
+            def _agent_recalc(gci_field, pct_attr):
+                submitted = float(f.get(gci_field) or 0)
+                pct = getattr(t, pct_attr) or 0
+                gci_net = (t.gci or 0) - (t.referral_fee or 0)
+                formula  = round(gci_net * pct, 2) if pct else 0
+                return submitted == 0 or submitted == formula
+
+            apply_formulas(t,
+                recalc_gci=recalc_gci,
+                recalc_primary=_agent_recalc('primary_agent_gci', 'primary_agent_pct'),
+                recalc_secondary=_agent_recalc('secondary_agent_gci', 'secondary_agent_pct'),
+                recalc_member3=_agent_recalc('member3_gci', 'member3_pct'),
+                recalc_member4=_agent_recalc('member4_gci', 'member4_pct'),
+            )
+            db.session.commit()
+            return redirect(url_for('main.my_business'))
+        except Exception as e:
+            db.session.rollback()
+            import traceback
+            err_detail = traceback.format_exc().splitlines()[-1]
+            return _render_form(error=f"Save failed: {err_detail}. Please check your entries and try again.")
 
 @bp.route('/my-business/edit/<int:tid>', methods=['GET', 'POST'])
 @login_required

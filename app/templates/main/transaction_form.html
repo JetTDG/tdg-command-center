@@ -8,6 +8,11 @@
   <strong>⚠️ Please fill in the required fields before saving:</strong>
   <ul id="tx-validation-list" style="margin:6px 0 0 18px;padding:0;"></ul>
 </div>
+{% if form_error %}
+<div style="background:#fef2f2;border:1.5px solid #f87171;border-radius:8px;padding:14px 18px;margin-bottom:16px;color:#991b1b;">
+  <strong>⚠️ {{ form_error }}</strong>
+</div>
+{% endif %}
 
 <form method="POST" class="mt-3" id="tx-form" novalidate>
   <div class="row g-3">
