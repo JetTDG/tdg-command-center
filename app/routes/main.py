@@ -138,12 +138,16 @@ def home():
 
     # ── Pending: under-contract this month (for Pending card sub-line) ────────
     def pending_uc_mtd_q(division_filter=None):
-        """Count Pending transactions whose under_contract_date falls in current month."""
+        """Count Pending transactions whose under_contract_date falls in current month (current year only)."""
         q = Transaction.query.filter(
             Transaction.archived == False,
             Transaction.status == 'Pending',
             Transaction.under_contract_date >= mtd_start,
             Transaction.under_contract_date <= mtd_end,
+            or_(
+                Transaction.year == year,
+                and_(Transaction.year == None, extract('year', Transaction.signed_date) == year),
+            ),
         )
         return _div_filter(q, division_filter).count()
 
