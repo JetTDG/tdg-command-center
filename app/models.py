@@ -133,6 +133,7 @@ class Transaction(db.Model):
     notes = db.Column(db.Text)
     amt_paid = db.Column(db.Float)     # amount paid to agent
     archived = db.Column(db.Boolean, default=False)  # True = old historical, hidden from My Business
+    is_import_duplicate = db.Column(db.Boolean, default=False)  # True = confirmed import dup, PERMANENT — never reset
     division = db.Column(db.String(50))               # 'Commercial' or 'Residential' — stored in DB
     fub_id = db.Column(db.String(50))
     docusign_id = db.Column(db.String(50))
