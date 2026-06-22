@@ -283,8 +283,8 @@ def home():
         },
     }
 
-    # Recent transactions — all, sorted by updated_at
-    recent_all  = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(Transaction.archived == False).order_by(Transaction.updated_at.desc()).limit(20).all()
+    # Recent transactions — all, sorted by signed_date descending
+    recent_all  = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(Transaction.archived == False).order_by(Transaction.signed_date.desc().nullslast()).limit(20).all()
     recent_res  = [t for t in recent_all if t.division == 'Residential'][:10]
     recent_comm = [t for t in recent_all if t.division == 'Commercial'][:10]
 
