@@ -37,6 +37,9 @@ PHONE_MAP = {
     "commerce-township-industrial": ("(248) 970-9231", "12489702319"),
     "hazel-park-industrial":      ("(248) 970-9231", "12489702319"),
     "oak-park-industrial":        ("(248) 970-9231", "12489702319"),
+    "springfield-twp-industrial": ("(248) 970-9231", "12489702319"),
+    "south-lyon-industrial":      ("(248) 970-9231", "12489702319"),
+    "independence-twp-industrial": ("(248) 970-9231", "12489702319"),
     # Oakland County Retail
     "oakland-retail":             ("(248) 629-2036", "12486292036"),
     "highland-retail":            ("(248) 629-2036", "12486292036"),
@@ -46,6 +49,8 @@ PHONE_MAP = {
     "wyandotte-industrial":       ("(313) 474-5937", "13134745937"),
     "dearborn-industrial":        ("(313) 474-5937", "13134745937"),
     "dearborn-heights-industrial": ("(313) 474-5937", "13134745937"),
+    "brownstown-twp-industrial":  ("(313) 474-5937", "13134745937"),
+    "northville-industrial":      ("(313) 474-5937", "13134745937"),
     # Genesee County Industrial
     "flint-industrial":           ("(810) 207-6329", "18102076329"),
     "genesee-industrial":         ("(810) 207-6329", "18102076329"),
@@ -54,6 +59,7 @@ PHONE_MAP = {
     "genesee-retail":             ("(810) 339-8306", "18103398306"),
     # Washtenaw County
     "washtenaw-industrial":       ("(734) 821-3877", "17348213877"),
+    "dexter-industrial":          ("(734) 821-3877", "17348213877"),
     # Livingston County
     "livingston-industrial":      ("(517) 618-9157", "15176189157"),
 }
@@ -77,13 +83,21 @@ SLUG_INBOX = {
     "genesee-retail":        49,
     "oakland-industrial":    43,
     "highland-industrial":   43,
+    "hazel-park-industrial": 43,
+    "oak-park-industrial":   43,
+    "springfield-twp-industrial": 43,
+    "south-lyon-industrial": 43,
+    "independence-twp-industrial": 43,
     "oakland-retail":        50,
     "highland-retail":       50,
     "washtenaw-industrial":  51,
+    "dexter-industrial":     51,
     "wayne-industrial":      53,
     "livingston-industrial": 54,
     "dearborn-industrial":   53,
     "dearborn-heights-industrial": 53,
+    "brownstown-twp-industrial": 53,
+    "northville-industrial": 53,
 }
 
 # Slug → FUB CRE Group ID (form submission — round-robin across live members)
@@ -100,6 +114,13 @@ SLUG_GROUP = {
     "wayne-industrial":      26,
     "dearborn-industrial":   26,
     "dearborn-heights-industrial": 26,
+    "brownstown-twp-industrial": 26,
+    "northville-industrial": 26,
+    "springfield-twp-industrial": 22,
+    "south-lyon-industrial": 22,
+    "independence-twp-industrial": 22,
+    "washtenaw-industrial":  24,
+    "dexter-industrial":     24,
 }
 
 # Non-agent pond IDs — eligible for reassignment (VA Support etc.)
