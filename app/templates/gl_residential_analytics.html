@@ -26,9 +26,9 @@
   {% set kpis = [
     ("QR Scans",      total_scans,   scan_pct, "#2563EB", "bi-qr-code-scan",  "of letters scanned"),
     ("Fello → FUB",   total_fello,   none,     "#7c3aed", "bi-person-check",  "full submissions"),
-    ("Inbound Calls", total_calls,   none,     "#16a34a", "bi-telephone",     "homeowners called"),
-    ("Inbound Texts", total_texts,   none,     "#c9a84c", "bi-chat-text",     "homeowners texted"),
-    ("Emails",        total_emails,  none,     "#0891b2", "bi-envelope-open", "homeowners emailed"),
+    ("Inbound Calls", total_calls,   none,     "#16a34a", "bi-telephone",     "calls received"),
+    ("Inbound Texts", total_texts,   none,     "#c9a84c", "bi-chat-text",     "texts received"),
+    ("Emails",        total_emails,  none,     "#0891b2", "bi-envelope-open", "emails received"),
     ("Total Responses", total_resp_all, resp_pct, "#ef4444", "bi-activity",   "overall response rate"),
   ] %}
   {% for label, val, pct, color, icon, sub in kpis %}
@@ -146,23 +146,51 @@
 
     {# Desktop table (≥ md) #}
     <div class="d-none d-md-block table-responsive">
-      <table class="table table-hover align-middle mb-0" style="font-size:13px;">
+      <table class="table table-hover align-middle mb-0" id="areaTable" style="font-size:13px;">
         <thead>
           <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
-            <th class="ps-4 py-3 fw-600" style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Mailing Area</th>
-            <th class="text-end fw-600" style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Letters</th>
-            <th class="text-end fw-600" style="color:#2563EB;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">QR Scans</th>
-            <th class="text-end fw-600" style="color:#16a34a;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Calls</th>
-            <th class="text-end fw-600" style="color:#c9a84c;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Texts</th>
-            <th class="text-end fw-600" style="color:#0891b2;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Emails</th>
-            <th class="text-end fw-600" style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Scan%</th>
-            <th class="text-end pe-4 fw-600" style="color:#ef4444;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Response%</th>
+            <th class="ps-4 py-3 sortable" data-col="area" data-dir="asc"
+                style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;">
+              Mailing Area <span class="sort-icon" id="icon-area">↕</span></th>
+            <th class="text-end sortable" data-col="letters" data-dir="asc"
+                style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;">
+              Letters <span class="sort-icon" id="icon-letters">↕</span></th>
+            <th class="text-end sortable" data-col="scans" data-dir="asc"
+                style="color:#2563EB;font-size:11px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;">
+              QR Scans <span class="sort-icon" id="icon-scans">↕</span></th>
+            <th class="text-end sortable" data-col="calls" data-dir="asc"
+                style="color:#16a34a;font-size:11px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;">
+              Calls <span class="sort-icon" id="icon-calls">↕</span></th>
+            <th class="text-end sortable" data-col="texts" data-dir="asc"
+                style="color:#c9a84c;font-size:11px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;">
+              Texts <span class="sort-icon" id="icon-texts">↕</span></th>
+            <th class="text-end sortable" data-col="emails" data-dir="asc"
+                style="color:#0891b2;font-size:11px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;">
+              Emails <span class="sort-icon" id="icon-emails">↕</span></th>
+            <th class="text-end sortable" data-col="scan_pct" data-dir="asc"
+                style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;">
+              Scan% <span class="sort-icon" id="icon-scan_pct">↕</span></th>
+            <th class="text-end pe-4 sortable" data-col="resp_pct" data-dir="asc"
+                style="color:#ef4444;font-size:11px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;">
+              Response% <span class="sort-icon" id="icon-resp_pct">↕</span></th>
+            <th class="text-end pe-4 sortable" data-col="mail_date_ts" data-dir="desc"
+                style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;">
+              Mail Date <span class="sort-icon" id="icon-mail_date_ts">↓</span></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="areaTableBody">
           {% for s in area_stats %}
           {% if s.letters > 0 or s.scans > 0 %}
-          <tr style="border-bottom:1px solid #f3f4f6;">
+          <tr style="border-bottom:1px solid #f3f4f6;"
+              data-area="{{ s.area }}"
+              data-letters="{{ s.letters }}"
+              data-scans="{{ s.scans }}"
+              data-calls="{{ s.calls }}"
+              data-texts="{{ s.texts }}"
+              data-emails="{{ s.emails }}"
+              data-scan_pct="{{ s.scan_pct }}"
+              data-resp_pct="{{ s.resp_pct }}"
+              data-mail_date_ts="{{ s.mail_date_ts }}">
             <td class="ps-4 py-3">
               <div class="fw-600" style="color:#1a1d23;font-size:13px;">{{ s.area }}</div>
               {% if s.mail_date %}
@@ -177,7 +205,7 @@
             <td class="text-end">
               <span style="font-size:12px;color:#2563EB;font-weight:600;">{{ s.scan_pct }}%</span>
             </td>
-            <td class="text-end pe-4">
+            <td class="text-end">
               {% set resp = s.resp_pct %}
               <span class="fw-bold" style="
                 display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;
@@ -186,6 +214,7 @@
                 {{ resp }}%
               </span>
             </td>
+            <td class="text-end pe-4 fw-600" style="color:#6b7280;font-size:12px;">{{ s.mail_date if s.mail_date else '—' }}</td>
           </tr>
           {% endif %}
           {% endfor %}
@@ -199,7 +228,8 @@
             <td class="text-end" style="color:#c9a84c;">{{ total_texts }}</td>
             <td class="text-end" style="color:#0891b2;">{{ total_emails }}</td>
             <td class="text-end" style="color:#2563EB;">{{ scan_pct }}%</td>
-            <td class="text-end pe-4" style="color:#ef4444;">{{ resp_pct }}%</td>
+            <td class="text-end" style="color:#ef4444;">{{ resp_pct }}%</td>
+            <td class="text-end pe-4"></td>
           </tr>
         </tfoot>
       </table>
@@ -311,5 +341,61 @@ new Chart(ctx, {
 });
 </script>
 {% endif %}
+
+<script>
+// ── Clickable column sort for the mailing area table ──────────────────────
+(function() {
+  const tbody = document.getElementById('areaTableBody');
+  if (!tbody) return;
+
+  // Current sort state: default = mail_date_ts desc
+  let currentCol = 'mail_date_ts';
+  let currentDir = 'desc';
+
+  function getVal(row, col) {
+    const v = row.dataset[col.replace(/_([a-z])/g, (_, c) => c.toUpperCase())] ||
+              row.getAttribute('data-' + col) || '';
+    // numeric cols
+    if (['letters','scans','calls','texts','emails','scan_pct','resp_pct','mail_date_ts'].includes(col)) {
+      return parseFloat(v) || 0;
+    }
+    return v.toLowerCase();
+  }
+
+  function setIcons(activeCol, dir) {
+    document.querySelectorAll('.sort-icon').forEach(el => { el.textContent = '↕'; });
+    const ic = document.getElementById('icon-' + activeCol);
+    if (ic) ic.textContent = dir === 'asc' ? '↑' : '↓';
+  }
+
+  function sortTable(col) {
+    // Toggle direction if same col, else default to desc for numerics, asc for text
+    if (col === currentCol) {
+      currentDir = currentDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      currentDir = ['letters','scans','calls','texts','emails','scan_pct','resp_pct','mail_date_ts'].includes(col) ? 'desc' : 'asc';
+      currentCol = col;
+    }
+
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.sort((a, b) => {
+      const av = getVal(a, col);
+      const bv = getVal(b, col);
+      if (av < bv) return currentDir === 'asc' ? -1 : 1;
+      if (av > bv) return currentDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    rows.forEach(r => tbody.appendChild(r));
+    setIcons(currentCol, currentDir);
+  }
+
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => sortTable(th.dataset.col));
+  });
+
+  // Apply default sort indicator on load
+  setIcons(currentCol, currentDir);
+})();
+</script>
 
 {% endblock %}

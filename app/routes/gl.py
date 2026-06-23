@@ -1112,8 +1112,34 @@ def gl_residential_analytics():
             'resp_pct':  round(total_resp / letters * 100, 1) if letters else 0,
         })
 
-    # Sort by scan count desc, then area name
-    area_stats.sort(key=lambda x: (-x['scans'], x['area']))
+    # Parse mail_date string into a sortable timestamp (most recent first as default)
+    import re as _re
+    def _parse_mail_ts(date_str):
+        """Extract the latest date from strings like '7/29/25', '8/12 & 8/19', '1/13/25'."""
+        if not date_str:
+            return 0
+        # Find all date-like tokens: M/D, M/D/YY, M/D/YYYY
+        tokens = _re.findall(r'\d{1,2}/\d{1,2}(?:/\d{2,4})?', date_str)
+        if not tokens:
+            return 0
+        best = 0
+        for tok in tokens:
+            parts = tok.split('/')
+            try:
+                mo, dy = int(parts[0]), int(parts[1])
+                yr = int(parts[2]) if len(parts) > 2 else 99
+                if yr < 100:
+                    yr += 2000
+                best = max(best, yr * 10000 + mo * 100 + dy)
+            except (ValueError, IndexError):
+                pass
+        return best
+
+    for a in area_stats:
+        a['mail_date_ts'] = _parse_mail_ts(a['mail_date'])
+
+    # Default sort: most recently mailed first, then by area name
+    area_stats.sort(key=lambda x: (-x['mail_date_ts'], x['area']))
 
     # ── 5. Totals ─────────────────────────────────────────────────────────
     total_letters  = sum(a['letters'] for a in area_stats)
