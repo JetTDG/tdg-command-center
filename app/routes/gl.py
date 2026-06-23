@@ -831,13 +831,24 @@ def gl_analytics():
     except Exception:
         _rows = []
 
+    import re as _re_cre, datetime as _dt_cre
+    def _cre_norm_date(d):
+        """Append /YY to bare M/D tokens — CRE sheet uses current year (2026)."""
+        if not d:
+            return d
+        cur_yy = str(_dt_cre.date.today().year)[-2:]
+        def _ay(m):
+            tok = m.group(0)
+            return tok if tok.count('/') >= 2 else tok + '/' + cur_yy
+        return _re_cre.sub(r'\d{1,2}/\d{1,2}(?:/\d{2,4})?', _ay, d)
+
     batch_rows = []
     seen_batch = set()
     for _r in _rows[1:]:
         _city     = _r[1].strip() if len(_r) > 1 else ""
         _vertical = _r[2].strip() if len(_r) > 2 else ""
         _letters  = _r[5].strip() if len(_r) > 5 else ""
-        _maildate = _r[17].strip() if len(_r) > 17 else ""
+        _maildate = _cre_norm_date(_r[17].strip() if len(_r) > 17 else "")
         _slug_key = f"{_city.lower().replace(' ','-')}-{_vertical.lower()}"
         if _city.lower() in BATCH_CITIES and _slug_key not in seen_batch:
             seen_batch.add(_slug_key)
@@ -986,13 +997,28 @@ def gl_residential_analytics():
     # 2025: cols D=area(3), I=letters(8), O=mailed(14)
     area_meta = {}   # normalised_area -> {display, letters, mail_date}
 
-    def _add_rows(sheet_rows, area_idx, letters_idx, mailed_idx):
+    import re as _re_md
+
+    def _normalize_mail_date(date_str, sheet_year):
+        """Append /YY to any M/D token that is missing a year portion."""
+        yy = str(sheet_year)[-2:]  # e.g. 26 or 25
+        def _add_year(m):
+            token = m.group(0)
+            # Already has a year (3 parts) — leave it alone
+            if token.count('/') >= 2:
+                return token
+            return token + '/' + yy
+        return _re_md.sub(r'\d{1,2}/\d{1,2}(?:/\d{2,4})?', _add_year, date_str)
+
+    def _add_rows(sheet_rows, area_idx, letters_idx, mailed_idx, sheet_year):
         for r in sheet_rows[2:]:   # skip header + totals row
             area_raw = r[area_idx].strip() if len(r) > area_idx else ''
             if not area_raw or _is_cre_area(area_raw):
                 continue
             letters_raw = r[letters_idx].strip() if len(r) > letters_idx else ''
             mailed_raw  = r[mailed_idx].strip()  if len(r) > mailed_idx  else ''
+            if mailed_raw:
+                mailed_raw = _normalize_mail_date(mailed_raw, sheet_year)
             try:
                 letters = int(letters_raw.replace(',', ''))
             except (ValueError, AttributeError):
@@ -1004,8 +1030,8 @@ def gl_residential_analytics():
             if mailed_raw and not area_meta[key]['mail_date']:
                 area_meta[key]['mail_date'] = mailed_raw
 
-    _add_rows(rows_2026, 3, 9, 13)
-    _add_rows(rows_2025, 3, 8, 14)
+    _add_rows(rows_2026, 3, 9, 13, 2026)
+    _add_rows(rows_2025, 3, 8, 14, 2025)
 
     # ── 2. Scan counts per area from res_gl_scans ─────────────────────────
     scan_rows = db.session.execute(sa_text("""
