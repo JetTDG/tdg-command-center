@@ -289,12 +289,29 @@ def home():
     recent_comm = [t for t in recent_all if t.division == 'Commercial'][:10]
 
     def t_to_dict(t):
+        # Buyer vs Seller label
+        tx_type = (t.transaction_type or '').lower()
+        if 'buyer' in tx_type or 'tenant' in tx_type:
+            side = 'Buyer'
+        elif 'listing' in tx_type or 'seller' in tx_type or 'landlord' in tx_type:
+            side = 'Seller'
+        else:
+            side = t.transaction_type or ''
+        # Residential vs Commercial
+        division = t.division or ('Commercial' if 'cre' in tx_type or 'commercial' in tx_type or 'lease' in tx_type else 'Residential')
+        # Date — prefer signed_date, fall back to close_date
+        date_val = t.signed_date or t.close_date
+        date_str = date_val.strftime('%-m/%-d/%y') if date_val else ''
         return {
             'agent':       t.agent.name if t.agent else (t.primary_agent_name or '—'),
             'address':     t.address or 'No address',
             'status':      t.status or '',
             'list_price':  t.list_price or t.sale_price or 0,
             'type':        t.transaction_type or '',
+            'side':        side,
+            'division':    division,
+            'date':        date_str,
+            'source':      t.lead_source or '',
         }
 
     recent_json = {

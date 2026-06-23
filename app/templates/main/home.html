@@ -146,6 +146,24 @@
                 <td>
                   <div class="fw-semibold small">{{ t.agent.name if t.agent else (t.primary_agent_name or '—') }}</div>
                   <div class="text-muted" style="font-size:0.75rem">{{ t.address or 'No address' }}</div>
+                  <div style="font-size:0.7rem;margin-top:2px;">
+                    {% set tx = (t.transaction_type or '')|lower %}
+                    {% if 'buyer' in tx or 'tenant' in tx %}
+                      <span style="color:#2563eb;font-weight:600">Buyer</span>
+                    {% elif 'listing' in tx or 'seller' in tx or 'landlord' in tx %}
+                      <span style="color:#16a34a;font-weight:600">Seller</span>
+                    {% else %}
+                      <span style="color:#6b7280">{{ t.transaction_type or '' }}</span>
+                    {% endif %}
+                    &nbsp;·&nbsp;
+                    <span style="color:#6b7280">{{ t.division or 'Residential' }}</span>
+                    {% if t.signed_date or t.close_date %}
+                      &nbsp;·&nbsp;<span style="color:#6b7280">{{ (t.signed_date or t.close_date).strftime('%-m/%-d/%y') }}</span>
+                    {% endif %}
+                    {% if t.lead_source %}
+                      &nbsp;·&nbsp;<span style="color:#9ca3af">{{ t.lead_source }}</span>
+                    {% endif %}
+                  </div>
                 </td>
                 <td class="text-end">
                   <span class="badge-status status-{{ t.status | replace(' ', '-') }}">{{ t.status }}</span>
@@ -290,17 +308,27 @@ function refreshRecent() {
     tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center py-3">No transactions</td></tr>';
     return;
   }
-  tbody.innerHTML = rows.map(t => `
+  tbody.innerHTML = rows.map(t => {
+    const sideColor = t.side==='Buyer' ? '#2563eb' : t.side==='Seller' ? '#16a34a' : '#6b7280';
+    const metaLine = [
+      t.side   ? `<span style="color:${sideColor};font-weight:600">${t.side}</span>` : '',
+      t.division ? `<span style="color:#6b7280">${t.division}</span>` : '',
+      t.date   ? `<span style="color:#6b7280">${t.date}</span>` : '',
+      t.source ? `<span style="color:#9ca3af">${t.source}</span>` : '',
+    ].filter(Boolean).join(' &nbsp;·&nbsp; ');
+    return `
     <tr>
       <td>
         <div class="fw-semibold small">${t.agent}</div>
         <div class="text-muted" style="font-size:0.75rem">${t.address}</div>
+        ${metaLine ? `<div style="font-size:0.7rem;margin-top:2px">${metaLine}</div>` : ''}
       </td>
       <td class="text-end">
         <span class="badge-status status-${statusClass(t.status)}">${t.status}</span>
         <div class="text-muted mt-1" style="font-size:0.75rem">${fmtDollar(t.list_price)}</div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function setMetric(m) {
