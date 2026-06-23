@@ -604,9 +604,13 @@
            href="{{ url_for('main.ask') }}">
           <i class="bi bi-chat-dots"></i> Ask TDG
         </a>
-        <a class="nav-link {% if 'gl_analytics' in request.endpoint %}active{% endif %}"
+        <a class="nav-link {% if request.endpoint == 'gl.gl_analytics' %}active{% endif %}"
            href="{{ url_for('gl.gl_analytics') }}">
-          <i class="bi bi-qr-code-scan"></i> GL Analytics
+          <i class="bi bi-qr-code-scan"></i> CRE GL Analytics
+        </a>
+        <a class="nav-link {% if request.endpoint == 'gl.gl_residential_analytics' %}active{% endif %}"
+           href="{{ url_for('gl.gl_residential_analytics') }}">
+          <i class="bi bi-house"></i> Residential GL Analytics
         </a>
       </nav>
 

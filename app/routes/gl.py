@@ -920,3 +920,225 @@ def gl_analytics():
         chart_forms=chart_forms,
         chart_sms=chart_sms,
     )
+
+
+# ── Residential GL Analytics ──────────────────────────────────────────────
+
+# Keywords that flag a row in Company Mailings as CRE (not residential)
+_CRE_KEYWORDS = {
+    'industrial', 'retail', 'commercial', 'cre', 'property address',
+    'over 10.5k', 'under 10.5k', 'over 15k', 'under 15k', 'over 20k',
+    'under 20k', 'up to 20k', 'sq ft', 'vacancies',
+}
+
+def _is_cre_area(area: str) -> bool:
+    a = area.lower()
+    return any(kw in a for kw in _CRE_KEYWORDS)
+
+
+@bp.route("/residential-analytics")
+@login_required
+def gl_residential_analytics():
+    """Residential GL Analytics — QR scans + calls/texts/emails by mailing area."""
+    from collections import defaultdict
+    from sqlalchemy import text as sa_text
+
+    # ── 1. Pull mailing areas from 2025 + 2026 Company Mailings tabs ─────
+    try:
+        from googleapiclient.discovery import build as goog_build
+        from google.oauth2.credentials import Credentials as GCreds
+        import os as _os
+        token_path = _os.path.expanduser("~/.hermes/google_token.json")
+        _gcreds = GCreds.from_authorized_user_file(token_path)
+        _gsvc   = goog_build("sheets", "v4", credentials=_gcreds)
+        SHEET_ID = "1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo"
+
+        def _fetch(tab, area_col, letters_col, mailed_col):
+            res = _gsvc.spreadsheets().values().get(
+                spreadsheetId=SHEET_ID, range=f"'{tab}'!A:Z").execute()
+            return res.get("values", [])
+
+        rows_2026 = _fetch("2026 Company Mailings", 3, 9, 13)
+        rows_2025 = _fetch("2025 Company Mailings", 3, 8, 14)
+    except Exception as e:
+        rows_2026, rows_2025 = [], []
+
+    # Build area → {letters, mail_date} — residential only, dedupe by normalised name
+    # 2026: cols D=area(3), J=letters(9), N=mailed(13)
+    # 2025: cols D=area(3), I=letters(8), O=mailed(14)
+    area_meta = {}   # normalised_area -> {display, letters, mail_date}
+
+    def _add_rows(sheet_rows, area_idx, letters_idx, mailed_idx):
+        for r in sheet_rows[2:]:   # skip header + totals row
+            area_raw = r[area_idx].strip() if len(r) > area_idx else ''
+            if not area_raw or _is_cre_area(area_raw):
+                continue
+            letters_raw = r[letters_idx].strip() if len(r) > letters_idx else ''
+            mailed_raw  = r[mailed_idx].strip()  if len(r) > mailed_idx  else ''
+            try:
+                letters = int(letters_raw.replace(',', ''))
+            except (ValueError, AttributeError):
+                letters = 0
+            key = area_raw.lower().strip()
+            if key not in area_meta:
+                area_meta[key] = {'display': area_raw, 'letters': 0, 'mail_date': ''}
+            area_meta[key]['letters']   += letters
+            if mailed_raw and not area_meta[key]['mail_date']:
+                area_meta[key]['mail_date'] = mailed_raw
+
+    _add_rows(rows_2026, 3, 9, 13)
+    _add_rows(rows_2025, 3, 8, 14)
+
+    # ── 2. Scan counts per area from res_gl_scans ─────────────────────────
+    scan_rows = db.session.execute(sa_text("""
+        SELECT LOWER(TRIM(area)) as area_key, COUNT(*) as cnt
+        FROM   res_gl_scans
+        WHERE  area IS NOT NULL AND area != ''
+        GROUP  BY 1
+    """)).fetchall()
+    scan_by_area = {r[0]: r[1] for r in scan_rows}
+
+    # Grand total scans (including unattributed)
+    total_scans_all = db.session.execute(
+        sa_text("SELECT COUNT(*) FROM res_gl_scans WHERE source = 'qr_scans'")
+    ).scalar() or 0
+    total_fello     = db.session.execute(
+        sa_text("SELECT COUNT(*) FROM res_gl_scans WHERE source = 'fello_audit'")
+    ).scalar() or 0
+
+    # ── 3. Calls / Texts / Emails from tracker tab ────────────────────────
+    # Cols: A=Call date(0), B=Text date(1), C=Email date(2), D=Name(3), E=Agent(4), G=Address(6)
+    # Residential = agent does NOT end in (CRE)
+    calls_by_area  = defaultdict(int)
+    texts_by_area  = defaultdict(int)
+    emails_by_area = defaultdict(int)
+    total_calls = total_texts = total_emails = 0
+
+    try:
+        cte_res = _gsvc.spreadsheets().values().get(
+            spreadsheetId=SHEET_ID,
+            range="'Inbound Calls/Texts/Emails'!A:H"
+        ).execute()
+        cte_rows = cte_res.get("values", [])[1:]
+
+        for cr in cte_rows:
+            def _c(i): return cr[i].strip() if len(cr) > i else ''
+            call_d  = _c(0)
+            text_d  = _c(1)
+            email_d = _c(2)
+            agent   = _c(4)
+            address = _c(6)
+
+            # Skip CRE rows
+            if '(cre)' in agent.lower():
+                continue
+
+            has_call  = bool(call_d  and call_d.upper()  != 'X' and call_d  != '')
+            has_text  = bool(text_d  and text_d.upper()  != 'X' and text_d  != '')
+            has_email = bool(email_d and email_d.upper() != 'X' and email_d != '')
+
+            if not (has_call or has_text or has_email):
+                continue
+
+            # Parse city from address to find area
+            city = ''
+            if address and ',' in address:
+                parts = [p.strip() for p in address.split(',')]
+                if len(parts) >= 2 and not parts[1].startswith('MI '):
+                    city = parts[1]
+
+            # Try to match to a known area via city keywords
+            matched_area = ''
+            city_l = city.lower()
+            for key in area_meta:
+                if city_l and city_l in key:
+                    matched_area = key
+                    break
+
+            if has_call:
+                total_calls += 1
+                if matched_area:
+                    calls_by_area[matched_area] += 1
+            if has_text:
+                total_texts += 1
+                if matched_area:
+                    texts_by_area[matched_area] += 1
+            if has_email:
+                total_emails += 1
+                if matched_area:
+                    emails_by_area[matched_area] += 1
+
+    except Exception:
+        pass
+
+    # ── 4. Build per-area stats table ─────────────────────────────────────
+    area_stats = []
+    for key, meta in sorted(area_meta.items(), key=lambda x: x[1]['display']):
+        letters = meta['letters']
+        scans   = scan_by_area.get(key, 0)
+        calls   = calls_by_area.get(key, 0)
+        texts   = texts_by_area.get(key, 0)
+        emails  = emails_by_area.get(key, 0)
+        total_resp = scans + calls + texts + emails
+        area_stats.append({
+            'area':      meta['display'],
+            'letters':   letters,
+            'scans':     scans,
+            'calls':     calls,
+            'texts':     texts,
+            'emails':    emails,
+            'mail_date': meta['mail_date'],
+            'scan_pct':  round(scans / letters * 100, 1) if letters else 0,
+            'resp_pct':  round(total_resp / letters * 100, 1) if letters else 0,
+        })
+
+    # Sort by scan count desc, then area name
+    area_stats.sort(key=lambda x: (-x['scans'], x['area']))
+
+    # ── 5. Totals ─────────────────────────────────────────────────────────
+    total_letters  = sum(a['letters'] for a in area_stats)
+    total_scans    = total_scans_all   # all QR scans including unattributed
+    total_resp_all = total_scans + total_calls + total_texts + total_emails
+    unattributed   = total_scans_all - sum(scan_by_area.values())
+
+    # ── 6. Weekly trend chart (last 16 weeks from res_gl_scans) ──────────
+    weekly_rows = db.session.execute(sa_text("""
+        SELECT DATE_TRUNC('week', scan_date)::date AS week,
+               COUNT(*) AS cnt
+        FROM   res_gl_scans
+        WHERE  source = 'qr_scans'
+          AND  scan_date >= NOW() - INTERVAL '16 weeks'
+        GROUP  BY 1
+        ORDER  BY 1
+    """)).fetchall()
+
+    chart_labels = [str(r[0]) for r in weekly_rows]
+    chart_scans  = [r[1]      for r in weekly_rows]
+
+    # ── 7. Batch summary table ─────────────────────────────────────────────
+    # Re-use area_meta, sorted by mail_date
+    batch_rows = [
+        {'area': m['display'], 'letters': m['letters'], 'mail_date': m['mail_date']}
+        for m in area_meta.values()
+        if m['letters'] > 0
+    ]
+    batch_rows.sort(key=lambda r: (0 if r['mail_date'] else 1, r['area']))
+    total_batch = sum(r['letters'] for r in batch_rows)
+
+    return render_template("gl_residential_analytics.html",
+        area_stats      = area_stats,
+        batch_rows      = batch_rows,
+        total_batch     = total_batch,
+        total_letters   = total_letters,
+        total_scans     = total_scans,
+        total_fello     = total_fello,
+        total_calls     = total_calls,
+        total_texts     = total_texts,
+        total_emails    = total_emails,
+        total_resp_all  = total_resp_all,
+        unattributed    = unattributed,
+        scan_pct        = round(total_scans / total_letters * 100, 1) if total_letters else 0,
+        resp_pct        = round(total_resp_all / total_letters * 100, 1) if total_letters else 0,
+        chart_labels    = chart_labels,
+        chart_scans     = chart_scans,
+    )
