@@ -923,8 +923,8 @@ function openDD(th, colIdx, e) {
 }
 
 // Date columns (by data-col index): any column showing a date value
-// Col 9=Signed Date, 10=MLS Live, 12=Exp Date, 16=Under Contr, 17=Proj Close, 18=Close Date, 39=Inspection, 40=Appraisal
-const DATE_COLS = new Set([9, 10, 12, 14, 15, 16, 17, 18, 39, 40]);
+// Col 10=Signed Date, 12=MLS Live, 14=Exp Date, 16=Under Contr, 17=Proj Close, 18=Close Date, 41=Inspection, 42=Appraisal
+const DATE_COLS = new Set([10, 12, 14, 16, 17, 18, 41, 42]);
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 // Normalize a cell value to YYYY-MM-DD (or '' if blank/non-date)
