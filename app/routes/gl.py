@@ -811,9 +811,17 @@ def gl_analytics():
     try:
         from googleapiclient.discovery import build as goog_build
         from google.oauth2.credentials import Credentials as GCreds
-        import os
-        token_path = os.path.expanduser("~/.hermes/google_token.json")
-        _gcreds = GCreds.from_authorized_user_file(token_path)
+        import os, json as _json2, base64 as _b64_2
+        _token_env2 = os.environ.get("GOOGLE_TOKEN_JSON", "")
+        if _token_env2:
+            _token_dict2 = _json2.loads(_b64_2.b64decode(_token_env2).decode())
+            import google.auth.transport.requests as _gtr2
+            _gcreds = GCreds.from_authorized_user_info(_token_dict2)
+            if _gcreds.expired and _gcreds.refresh_token:
+                _gcreds.refresh(_gtr2.Request())
+        else:
+            token_path = os.path.expanduser("~/.hermes/google_token.json")
+            _gcreds = GCreds.from_authorized_user_file(token_path)
         _gsvc = goog_build("sheets", "v4", credentials=_gcreds)
         _res = _gsvc.spreadsheets().values().get(
             spreadsheetId="1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo",
@@ -949,9 +957,18 @@ def gl_residential_analytics():
     try:
         from googleapiclient.discovery import build as goog_build
         from google.oauth2.credentials import Credentials as GCreds
-        import os as _os
-        token_path = _os.path.expanduser("~/.hermes/google_token.json")
-        _gcreds = GCreds.from_authorized_user_file(token_path)
+        import os as _os, json as _json, base64 as _b64, tempfile as _tf
+        # Support Railway env var (base64-encoded token JSON) OR local file
+        _token_env = _os.environ.get("GOOGLE_TOKEN_JSON", "")
+        if _token_env:
+            _token_dict = _json.loads(_b64.b64decode(_token_env).decode())
+            import google.auth.transport.requests as _gtr
+            _gcreds = GCreds.from_authorized_user_info(_token_dict)
+            if _gcreds.expired and _gcreds.refresh_token:
+                _gcreds.refresh(_gtr.Request())
+        else:
+            token_path = _os.path.expanduser("~/.hermes/google_token.json")
+            _gcreds = GCreds.from_authorized_user_file(token_path)
         _gsvc   = goog_build("sheets", "v4", credentials=_gcreds)
 
         def _fetch(tab, area_col, letters_col, mailed_col):
