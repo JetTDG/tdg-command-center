@@ -44,6 +44,8 @@ PHONE_MAP = {
     "wayne-industrial":           ("(313) 474-5937", "13134745937"),
     "taylor-industrial":          ("(313) 474-5937", "13134745937"),
     "wyandotte-industrial":       ("(313) 474-5937", "13134745937"),
+    "dearborn-industrial":        ("(313) 474-5937", "13134745937"),
+    "dearborn-heights-industrial": ("(313) 474-5937", "13134745937"),
     # Genesee County Industrial
     "flint-industrial":           ("(810) 207-6329", "18102076329"),
     "genesee-industrial":         ("(810) 207-6329", "18102076329"),
@@ -80,6 +82,8 @@ SLUG_INBOX = {
     "washtenaw-industrial":  51,
     "wayne-industrial":      53,
     "livingston-industrial": 54,
+    "dearborn-industrial":   53,
+    "dearborn-heights-industrial": 53,
 }
 
 # Slug → FUB CRE Group ID (form submission — round-robin across live members)
@@ -94,6 +98,8 @@ SLUG_GROUP = {
     "livingston-industrial": 25,
     "washtenaw-industrial":  24,
     "wayne-industrial":      26,
+    "dearborn-industrial":   26,
+    "dearborn-heights-industrial": 26,
 }
 
 # Non-agent pond IDs — eligible for reassignment (VA Support etc.)
