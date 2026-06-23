@@ -944,6 +944,8 @@ def gl_residential_analytics():
     from sqlalchemy import text as sa_text
 
     # ── 1. Pull mailing areas from 2025 + 2026 Company Mailings tabs ─────
+    _gsvc    = None
+    SHEET_ID = "1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo"
     try:
         from googleapiclient.discovery import build as goog_build
         from google.oauth2.credentials import Credentials as GCreds
@@ -951,7 +953,6 @@ def gl_residential_analytics():
         token_path = _os.path.expanduser("~/.hermes/google_token.json")
         _gcreds = GCreds.from_authorized_user_file(token_path)
         _gsvc   = goog_build("sheets", "v4", credentials=_gcreds)
-        SHEET_ID = "1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo"
 
         def _fetch(tab, area_col, letters_col, mailed_col):
             res = _gsvc.spreadsheets().values().get(
@@ -1015,6 +1016,8 @@ def gl_residential_analytics():
     total_calls = total_texts = total_emails = 0
 
     try:
+        if _gsvc is None:
+            raise RuntimeError("Sheets not initialized")
         cte_res = _gsvc.spreadsheets().values().get(
             spreadsheetId=SHEET_ID,
             range="'Inbound Calls/Texts/Emails'!A:H"
