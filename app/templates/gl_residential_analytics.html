@@ -24,11 +24,11 @@
 {# ── KPI Cards ──────────────────────────────────────────────────────────── #}
 <div class="row g-3 mb-4">
   {% set kpis = [
-    ("QR Scans",      total_scans,   scan_pct, "#2563EB", "bi-qr-code-scan",  "of letters scanned"),
-    ("Fello → FUB",   total_fello,   none,     "#7c3aed", "bi-person-check",  "full submissions"),
-    ("Inbound Calls", total_calls,   none,     "#16a34a", "bi-telephone",     "calls received"),
-    ("Inbound Texts", total_texts,   none,     "#c9a84c", "bi-chat-text",     "texts received"),
-    ("Emails",        total_emails,  none,     "#0891b2", "bi-envelope-open", "emails received"),
+    ("QR Scans",      total_scans,   scan_pct,   "#2563EB", "bi-qr-code-scan",  "of letters scanned"),
+    ("Fello → FUB",   total_fello,   fello_pct,  "#7c3aed", "bi-person-check",  "full submissions"),
+    ("Inbound Calls", total_calls,   calls_pct,  "#16a34a", "bi-telephone",     "calls received"),
+    ("Inbound Texts", total_texts,   texts_pct,  "#c9a84c", "bi-chat-text",     "texts received"),
+    ("Emails",        total_emails,  emails_pct, "#0891b2", "bi-envelope-open", "emails received"),
     ("Total Responses", total_resp_all, resp_pct, "#ef4444", "bi-activity",   "overall response rate"),
   ] %}
   {% for label, val, pct, color, icon, sub in kpis %}

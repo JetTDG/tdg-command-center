@@ -1042,9 +1042,9 @@ def gl_residential_analytics():
     """)).fetchall()
     scan_by_area = {r[0]: r[1] for r in scan_rows}
 
-    # Grand total scans (including unattributed)
+    # Grand total scans (all sources — includes pre-Jet historical data)
     total_scans_all = db.session.execute(
-        sa_text("SELECT COUNT(*) FROM res_gl_scans WHERE source = 'qr_scans'")
+        sa_text("SELECT COUNT(*) FROM res_gl_scans")
     ).scalar() or 0
     total_fello     = db.session.execute(
         sa_text("SELECT COUNT(*) FROM res_gl_scans WHERE source = 'fello_audit'")
@@ -1178,8 +1178,7 @@ def gl_residential_analytics():
         SELECT DATE_TRUNC('week', scan_date)::date AS week,
                COUNT(*) AS cnt
         FROM   res_gl_scans
-        WHERE  source = 'qr_scans'
-          AND  scan_date >= NOW() - INTERVAL '16 weeks'
+        WHERE  scan_date >= NOW() - INTERVAL '16 weeks'
         GROUP  BY 1
         ORDER  BY 1
     """)).fetchall()
@@ -1210,6 +1209,10 @@ def gl_residential_analytics():
         total_resp_all  = total_resp_all,
         unattributed    = unattributed,
         scan_pct        = round(total_scans / total_letters * 100, 1) if total_letters else 0,
+        fello_pct       = round(total_fello  / total_letters * 100, 1) if total_letters else 0,
+        calls_pct       = round(total_calls  / total_letters * 100, 1) if total_letters else 0,
+        texts_pct       = round(total_texts  / total_letters * 100, 1) if total_letters else 0,
+        emails_pct      = round(total_emails / total_letters * 100, 1) if total_letters else 0,
         resp_pct        = round(total_resp_all / total_letters * 100, 1) if total_letters else 0,
         chart_labels    = chart_labels,
         chart_scans     = chart_scans,
