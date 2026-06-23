@@ -283,10 +283,12 @@ def home():
         },
     }
 
-    # Recent transactions — all, sorted by signed_date descending
-    recent_all  = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(Transaction.archived == False).order_by(Transaction.signed_date.desc().nullslast()).limit(20).all()
-    recent_res  = [t for t in recent_all if t.division == 'Residential'][:10]
-    recent_comm = [t for t in recent_all if t.division == 'Commercial'][:10]
+    # Recent transactions — each segment gets its own top-10 query so Commercial
+    # always shows 10 even when the combined top-20 has few commercial rows.
+    _base = lambda: Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(Transaction.archived == False)
+    recent_all  = _base().order_by(Transaction.signed_date.desc().nullslast()).limit(10).all()
+    recent_res  = _base().filter(Transaction.division == 'Residential').order_by(Transaction.signed_date.desc().nullslast()).limit(10).all()
+    recent_comm = _base().filter(Transaction.division == 'Commercial').order_by(Transaction.signed_date.desc().nullslast()).limit(10).all()
 
     def t_to_dict(t):
         # Buyer vs Seller label
@@ -424,7 +426,7 @@ def home():
         presigned_gci=presigned_gci,
         kpi=kpi,
         recent_json=recent_json,
-        recent=recent_all[:10],
+        recent=recent_all,
         monthly_trend=monthly_trend,
         current_month=calendar.month_name[month],
         year=year
