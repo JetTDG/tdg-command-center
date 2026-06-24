@@ -144,7 +144,15 @@
               {% for t in recent %}
               <tr>
                 <td>
-                  <div class="fw-semibold small">{{ t.agent.name if t.agent else (t.primary_agent_name or '—') }}</div>
+                  <div class="fw-semibold small">
+                    {% set agent_obj = t.agent %}
+                    {% set aid = agent_obj.id if agent_obj else t.primary_agent_id %}
+                    {% if current_user.is_admin and aid %}
+                      <a href="{{ url_for('main.scorecard', agent_id=aid) }}" style="color:inherit;text-decoration:none;" onmouseover="this.style.color='var(--tdg-gold)'" onmouseout="this.style.color='inherit'">{{ agent_obj.name if agent_obj else (t.primary_agent_name or '—') }}</a>
+                    {% else %}
+                      {{ agent_obj.name if agent_obj else (t.primary_agent_name or '—') }}
+                    {% endif %}
+                  </div>
                   <div class="text-muted" style="font-size:0.75rem">{{ t.address or 'No address' }}</div>
                   <div style="font-size:0.7rem;margin-top:2px;">
                     {% set tx = (t.transaction_type or '')|lower %}

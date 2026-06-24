@@ -1075,8 +1075,13 @@ def _build_leaderboard(year, statuses, transaction_types=None, month=None):
         Transaction.primary_agent_name,
         func.sum(Transaction.primary_agent_gci).label('gci'),
         func.count(Transaction.id).label('units'),
-        func.sum(Transaction.sale_price).label('volume')
-    ).filter(*filters).group_by(Transaction.primary_agent_name).all()
+        func.sum(Transaction.sale_price).label('volume'),
+        Transaction.primary_agent_id
+    ).filter(*filters).group_by(Transaction.primary_agent_name, Transaction.primary_agent_id).all()
+
+    # Build name→agent_id map from Agent table for names missing primary_agent_id
+    from app.models import Agent as AgentModel
+    agent_name_map = {a.name.lower(): a.id for a in AgentModel.query.all()}
 
     result = sorted([
         {
@@ -1084,6 +1089,7 @@ def _build_leaderboard(year, statuses, transaction_types=None, month=None):
             'gci': float(r[1] or 0),
             'units': int(r[2] or 0),
             'volume': float(r[3] or 0),
+            'agent_id': r[4] or agent_name_map.get((r[0] or '').lower()),
         }
         for r in rows
     ], key=lambda x: x['gci'], reverse=True)
