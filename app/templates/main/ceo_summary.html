@@ -144,7 +144,7 @@
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-<!-- ── GL ANALYTICS LINK CARD ──────────────────────────────────── -->
+<!-- ── GL ANALYTICS LINK CARDS ──────────────────────────────────── -->
 <div class="row g-3 mb-4">
   <div class="col-12">
     <a href="{{ url_for('gl.gl_analytics') }}" class="text-decoration-none">
@@ -156,6 +156,21 @@
           <div class="stat-label" style="color:#9CA3AF;">Commercial Golden Letters</div>
           <div class="stat-value" style="color:#fff;font-size:1.1rem;">GL Analytics Dashboard</div>
           <div class="stat-sub" style="color:#9CA3AF;">QR scans · form submits · SMS responses · response rate by city</div>
+        </div>
+        <i class="bi bi-arrow-right-circle" style="font-size:1.6rem;color:var(--tdg-gold);flex-shrink:0;"></i>
+      </div>
+    </a>
+  </div>
+  <div class="col-12">
+    <a href="{{ url_for('gl.gl_residential_analytics') }}" class="text-decoration-none">
+      <div class="stat-card d-flex align-items-center gap-3" style="background:linear-gradient(135deg,#1a1d23 0%,#2d3748 100%);border-color:#3d4a5c;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div style="width:48px;height:48px;background:var(--tdg-gold);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="bi bi-house-fill" style="font-size:1.5rem;color:#fff;"></i>
+        </div>
+        <div class="flex-grow-1">
+          <div class="stat-label" style="color:#9CA3AF;">Residential Golden Letters</div>
+          <div class="stat-value" style="color:#fff;font-size:1.1rem;">Resi GL Analytics Dashboard</div>
+          <div class="stat-sub" style="color:#9CA3AF;">QR scans · form submits · SMS responses · response rate by area</div>
         </div>
         <i class="bi bi-arrow-right-circle" style="font-size:1.6rem;color:var(--tdg-gold);flex-shrink:0;"></i>
       </div>
