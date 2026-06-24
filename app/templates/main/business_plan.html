@@ -33,7 +33,13 @@
       <tbody>
         {% for row in board %}
         <tr>
-          <td class="fw-semibold">{{ row.agent.name if row.agent else "—" }}</td>
+          <td class="fw-semibold">
+            {% if current_user.is_admin and row.agent %}
+              <a href="{{ url_for('main.scorecard', agent_id=row.agent.id) }}" style="color:inherit;text-decoration:none;" onmouseover="this.style.color='var(--tdg-gold)'" onmouseout="this.style.color='inherit'">{{ row.agent.name }}</a>
+            {% else %}
+              {{ row.agent.name if row.agent else "—" }}
+            {% endif %}
+          </td>
           {% if row.plan %}
           <td class="text-end">{{ "${:,.0f}".format(row.plan.gci_goal) }}</td>
           <td class="text-end fw-bold" style="color:var(--tdg-gold)">{{ "${:,.0f}".format(row.actual_gci) }}</td>
