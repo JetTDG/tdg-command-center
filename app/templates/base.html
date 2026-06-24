@@ -652,7 +652,81 @@
       <a href="{{ url_for('main.ceo_summary') }}" {% if 'ceo_summary' in request.endpoint %}class="active"{% endif %}>
         <i class="bi bi-bar-chart-line"></i>CEO
       </a>
+      <a href="#" id="mobile-more-btn" onclick="document.getElementById('mobile-more-drawer').classList.toggle('open');return false;">
+        <i class="bi bi-list"></i>More
+      </a>
     </nav>
+
+    <!-- Mobile "More" slide-up drawer -->
+    <div id="mobile-more-drawer" style="
+      display:none;position:fixed;bottom:60px;left:0;right:0;
+      background:var(--tdg-surface);border-top:1px solid var(--tdg-border);
+      z-index:1099;padding:0.5rem 0 0.75rem;
+      box-shadow:0 -4px 20px rgba(0,0,0,0.18);
+      border-radius:16px 16px 0 0;
+      transform:translateY(100%);transition:transform 0.22s ease;
+    ">
+      <div style="width:40px;height:4px;background:var(--tdg-border);border-radius:4px;margin:0.4rem auto 0.75rem;"></div>
+
+      <div style="padding:0 1rem 0.25rem;font-size:0.6rem;font-weight:700;color:var(--tdg-muted);text-transform:uppercase;letter-spacing:0.08em;">Pages</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;padding:0 0.75rem 0.5rem;">
+        <a href="{{ url_for('main.lead_gen') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if 'lead_gen' in request.endpoint %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
+          <i class="bi bi-telephone-outbound" style="font-size:1.1rem;{% if 'lead_gen' in request.endpoint %}color:var(--tdg-gold);{% endif %}"></i>Lead Gen
+        </a>
+        <a href="{{ url_for('main.business_plan') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if 'business_plan' in request.endpoint %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
+          <i class="bi bi-clipboard-data" style="font-size:1.1rem;{% if 'business_plan' in request.endpoint %}color:var(--tdg-gold);{% endif %}"></i>Biz Plan
+        </a>
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('main.agents') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if 'agents' in request.endpoint %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
+          <i class="bi bi-people" style="font-size:1.1rem;{% if 'agents' in request.endpoint %}color:var(--tdg-gold);{% endif %}"></i>Roster
+        </a>
+        <a href="{{ url_for('main.users') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if 'users' in request.endpoint %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
+          <i class="bi bi-shield-lock" style="font-size:1.1rem;{% if 'users' in request.endpoint %}color:var(--tdg-gold);{% endif %}"></i>Users
+        </a>
+        {% else %}
+        <a href="{{ url_for('main.scorecard', agent_id=current_user.agent_id) if current_user.agent_id else '#' }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if 'scorecard' in request.endpoint %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
+          <i class="bi bi-person-badge" style="font-size:1.1rem;{% if 'scorecard' in request.endpoint %}color:var(--tdg-gold);{% endif %}"></i>Scorecard
+        </a>
+        {% endif %}
+        <a href="{{ url_for('gl.gl_analytics') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if request.endpoint == 'gl.gl_analytics' %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
+          <i class="bi bi-qr-code-scan" style="font-size:1.1rem;{% if request.endpoint == 'gl.gl_analytics' %}color:var(--tdg-gold);{% endif %}"></i>CRE GL
+        </a>
+        <a href="{{ url_for('gl.gl_residential_analytics') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if request.endpoint == 'gl.gl_residential_analytics' %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
+          <i class="bi bi-house" style="font-size:1.1rem;{% if request.endpoint == 'gl.gl_residential_analytics' %}color:var(--tdg-gold);{% endif %}"></i>Resi GL
+        </a>
+      </div>
+    </div>
+    <script>
+      (function(){
+        var drawer = document.getElementById('mobile-more-drawer');
+        var btn    = document.getElementById('mobile-more-btn');
+        if (!drawer) return;
+        drawer.style.display = 'block';
+        drawer.addEventListener('transitionend', function(){
+          if (!drawer.classList.contains('open')) drawer.style.display = 'none';
+        });
+        HTMLElement.prototype._moreDrawerOpen = false;
+        btn && btn.addEventListener('click', function(e){
+          e.preventDefault();
+          if (drawer.classList.contains('open')) {
+            drawer.classList.remove('open');
+          } else {
+            drawer.style.display = 'block';
+            requestAnimationFrame(function(){
+              requestAnimationFrame(function(){ drawer.classList.add('open'); });
+            });
+          }
+        });
+        document.addEventListener('click', function(e){
+          if (drawer.classList.contains('open') && !drawer.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+            drawer.classList.remove('open');
+          }
+        });
+      })();
+    </script>
+    <style>
+      #mobile-more-drawer.open { transform: translateY(0) !important; display: block !important; }
+    </style>
 
     <!-- Main Content -->
     <main class="main-content">
