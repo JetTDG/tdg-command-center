@@ -1031,6 +1031,12 @@ document.querySelectorAll('.col-hdr[data-col]').forEach(th => {
 });
 
 // Search inside dropdown
+// NOTE: labels use class="d-flex" (Bootstrap), so Bootstrap's display:flex !important
+// overrides a plain style.display='none'. Must use setProperty with !important to hide.
+function setLabelVisible(el, visible) {
+  if (visible) { el.style.removeProperty('display'); }
+  else { el.style.setProperty('display', 'none', 'important'); }
+}
 fddSearch.addEventListener('input', function() {
   const q = this.value.toLowerCase();
   if (DATE_COLS.has(curCol)) {
@@ -1038,15 +1044,15 @@ fddSearch.addEventListener('input', function() {
     fddBoxes.querySelectorAll('.dt-month').forEach(mo => {
       let any = false;
       mo.querySelectorAll('.dt-days label').forEach(l => {
-        const hit = l.textContent.toLowerCase().includes(q);
-        l.style.display = hit ? '' : 'none';
+        const hit = !q || l.textContent.toLowerCase().includes(q);
+        setLabelVisible(l, hit);
         if (hit) any = true;
       });
-      mo.style.display = (q==='' || any) ? '' : 'none';
+      setLabelVisible(mo, q==='' || any);
       if (q!=='' && any) mo.querySelector('.dt-days').style.display='block';
     });
   } else {
-    fddBoxes.querySelectorAll('label').forEach(l => l.style.display=l.textContent.toLowerCase().includes(q)?'':'none');
+    fddBoxes.querySelectorAll('label').forEach(l => setLabelVisible(l, !q || l.textContent.toLowerCase().includes(q)));
   }
 });
 
