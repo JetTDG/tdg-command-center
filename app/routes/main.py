@@ -2002,15 +2002,26 @@ def scorecard(agent_id):
     # ── Pipeline income sum ────────────────────────────────────────────────────
     pipeline_income = sum(agent_income(t) for t in pipeline_txns)
 
-    # ── Self-Gen (Agent lead type) vs Team lead type breakdown ────────────────
+    # ── Self-Gen: Rolling 12 months (not YTD) ────────────────────────────────
+    from datetime import date as _date, timedelta as _timedelta
+    _rolling_start = _date.today() - _timedelta(days=365)
+    _rolling_q = Transaction.query.filter(
+        txn_filter,
+        Transaction.status == 'Closed',
+        Transaction.close_date >= _rolling_start,
+    )
+    if division != 'all':
+        _rolling_q = _rolling_q.filter(Transaction.division == division)
+    rolling_12_closed = _rolling_q.all()
+
     SELF_GEN_TARGET = 40_000
-    self_gen_closed = [t for t in closed_txns if t.lead_type == 'Agent']
-    team_closed     = [t for t in closed_txns if t.lead_type != 'Agent']
-    self_gen_income = sum(agent_income(t) for t in self_gen_closed)
-    team_income_val = sum(agent_income(t) for t in team_closed)
-    self_gen_units  = len(self_gen_closed)
-    team_units      = len(team_closed)
-    self_gen_pct    = min(round(self_gen_income / SELF_GEN_TARGET * 100, 1), 100) if SELF_GEN_TARGET else 0
+    self_gen_closed  = [t for t in rolling_12_closed if t.lead_type == 'Agent']
+    team_closed      = [t for t in rolling_12_closed if t.lead_type != 'Agent']
+    self_gen_income  = sum(agent_income(t) for t in self_gen_closed)
+    team_income_val  = sum(agent_income(t) for t in team_closed)
+    self_gen_units   = len(self_gen_closed)
+    team_units       = len(team_closed)
+    self_gen_pct     = min(round(self_gen_income / SELF_GEN_TARGET * 100, 1), 100) if SELF_GEN_TARGET else 0
 
     # ── Business plan for this year ───────────────────────────────────────────
     plan = BusinessPlan.query.filter_by(agent_id=agent_id, year=year).first()
