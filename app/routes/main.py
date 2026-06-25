@@ -615,8 +615,8 @@ def add_transaction():
             status=f['status'],
             division=f.get('division') or None,
             sub_status=f.get('sub_status') or None,
-            lead_type=f.get('lead_type', 'Team'),
             lead_source=f.get('lead_source') or None,
+            lead_type='Agent' if 'SOI' in (f.get('lead_source') or '') else f.get('lead_type', 'Team'),
             address=f.get('address', ''),
             client_name=f.get('client_name', ''),
             location=f.get('location', ''),
@@ -716,8 +716,8 @@ def edit_transaction(tid):
         t.status = f['status']
         t.division = f.get('division') or None
         t.sub_status = f.get('sub_status') or None
-        t.lead_type = f.get('lead_type', 'Team')
         t.lead_source = f.get('lead_source') or None
+        t.lead_type = 'Agent' if 'SOI' in (f.get('lead_source') or '') else f.get('lead_type', 'Team')
         t.address = f.get('address', '')
         t.client_name = f.get('client_name', '')
         t.location = f.get('location', '') or None
@@ -847,6 +847,9 @@ def patch_transaction(tid):
 
         if field in TEXT_FIELDS:
             setattr(t, field, value.strip() or None)
+            # Auto-set lead_type to Agent whenever lead_source contains SOI
+            if field == 'lead_source' and 'SOI' in (value or ''):
+                t.lead_type = 'Agent'
         elif field in FLOAT_FIELDS:
             # commission_pct and agent pcts are stored as decimals
             v = float(value) if value.strip() else None
