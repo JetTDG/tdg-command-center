@@ -61,6 +61,65 @@
   {% endfor %}
 </div>
 
+{# ── Self-Gen Progress + Lead Type KPIs ───────────────────────────────────── #}
+<div class="card mb-4">
+  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
+    <i class="bi bi-bullseye me-2"></i>Self-Gen (SOI) Progress — {{ year }}
+  </div>
+  <div class="card-body pb-2">
+
+    {# ── Progress bar ── #}
+    <div class="mb-3">
+      <div class="d-flex justify-content-between align-items-baseline mb-1">
+        <span class="fw-semibold" style="font-size:0.9rem;">Self-Gen Closing GCI</span>
+        <span class="text-muted" style="font-size:0.82rem;">
+          ${{ "{:,.0f}".format(self_gen_income) }} of ${{ "{:,.0f}".format(self_gen_target) }} goal
+          &nbsp;·&nbsp; <strong>{{ self_gen_pct }}%</strong>
+        </span>
+      </div>
+      <div class="progress" style="height:18px;border-radius:9px;background:#e9ecef;">
+        <div class="progress-bar"
+             role="progressbar"
+             style="width:{{ self_gen_pct }}%;background:{% if self_gen_pct >= 100 %}#198754{% elif self_gen_pct >= 60 %}var(--tdg-gold){% else %}#f0a500{% endif %};border-radius:9px;transition:width .4s ease;"
+             aria-valuenow="{{ self_gen_pct }}" aria-valuemin="0" aria-valuemax="100">
+          {% if self_gen_pct >= 20 %}<span style="font-size:0.78rem;font-weight:700;padding:0 6px;">{{ self_gen_pct }}%</span>{% endif %}
+        </div>
+      </div>
+      {% if self_gen_pct >= 100 %}
+      <div class="mt-1 text-success fw-semibold" style="font-size:0.82rem;"><i class="bi bi-trophy-fill me-1"></i>🎉 $40K Self-Gen Target Achieved!</div>
+      {% else %}
+      {% set remaining = self_gen_target - self_gen_income %}
+      <div class="mt-1 text-muted" style="font-size:0.79rem;">${{ "{:,.0f}".format(remaining) }} remaining to hit the ${{ "{:,.0f}".format(self_gen_target) }} goal</div>
+      {% endif %}
+    </div>
+
+    {# ── Team vs Agent Lead Type KPIs ── #}
+    <div class="row g-0 border-top pt-3">
+      <div class="col-6 col-md-3 px-3 text-center border-end">
+        <div class="text-muted mb-1" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.05em;">Self-Gen Units</div>
+        <div class="fw-bold" style="font-size:1.3rem;color:var(--tdg-gold);">{{ self_gen_units }}</div>
+        <div class="text-muted" style="font-size:0.72rem;">Agent / SOI leads</div>
+      </div>
+      <div class="col-6 col-md-3 px-3 text-center border-end">
+        <div class="text-muted mb-1" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.05em;">Self-Gen Income</div>
+        <div class="fw-bold" style="font-size:1.3rem;color:var(--tdg-gold);">${{ "{:,.0f}".format(self_gen_income) }}</div>
+        <div class="text-muted" style="font-size:0.72rem;">Closed YTD</div>
+      </div>
+      <div class="col-6 col-md-3 px-3 text-center border-end">
+        <div class="text-muted mb-1" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.05em;">Team Lead Units</div>
+        <div class="fw-bold" style="font-size:1.3rem;">{{ team_units }}</div>
+        <div class="text-muted" style="font-size:0.72rem;">Team-sourced leads</div>
+      </div>
+      <div class="col-6 col-md-3 px-3 text-center">
+        <div class="text-muted mb-1" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.05em;">Team Lead Income</div>
+        <div class="fw-bold" style="font-size:1.3rem;">${{ "{:,.0f}".format(team_income_val) }}</div>
+        <div class="text-muted" style="font-size:0.72rem;">Closed YTD</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 {# ── FUB Performance Cache Sections (Appointments, Offers, Overdue Tasks) ── #}
 {% if perf %}
 

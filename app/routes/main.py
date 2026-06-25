@@ -2002,6 +2002,16 @@ def scorecard(agent_id):
     # ── Pipeline income sum ────────────────────────────────────────────────────
     pipeline_income = sum(agent_income(t) for t in pipeline_txns)
 
+    # ── Self-Gen (Agent lead type) vs Team lead type breakdown ────────────────
+    SELF_GEN_TARGET = 40_000
+    self_gen_closed = [t for t in closed_txns if t.lead_type == 'Agent']
+    team_closed     = [t for t in closed_txns if t.lead_type != 'Agent']
+    self_gen_income = sum(agent_income(t) for t in self_gen_closed)
+    team_income_val = sum(agent_income(t) for t in team_closed)
+    self_gen_units  = len(self_gen_closed)
+    team_units      = len(team_closed)
+    self_gen_pct    = min(round(self_gen_income / SELF_GEN_TARGET * 100, 1), 100) if SELF_GEN_TARGET else 0
+
     # ── Business plan for this year ───────────────────────────────────────────
     plan = BusinessPlan.query.filter_by(agent_id=agent_id, year=year).first()
 
@@ -2067,6 +2077,12 @@ def scorecard(agent_id):
         pct=pct,
         today=today,
         perf=perf,
+        self_gen_income=self_gen_income,
+        team_income_val=team_income_val,
+        self_gen_units=self_gen_units,
+        team_units=team_units,
+        self_gen_pct=self_gen_pct,
+        self_gen_target=SELF_GEN_TARGET,
     )
 
 @bp.route('/scorecard/<int:agent_id>/business-plan', methods=['GET', 'POST'])
