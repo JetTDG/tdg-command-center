@@ -59,7 +59,7 @@
           data-type="{{ (a.agent_type or '')|lower }}"
           data-status="{{ (a.status or '')|lower }}"
         >
-          <td class="fw-semibold">{{ a.name }}</td>
+          <td class="fw-semibold"><a href="{{ url_for('main.scorecard', agent_id=a.id) }}" style="color:inherit;text-decoration:none;">{{ a.name }}</a></td>
           <td class="small text-muted">{{ a.role or '—' }}</td>
           <td class="small text-muted">{{ a.agent_type or '—' }}</td>
           <td><span class="badge-status status-{{ a.status }}">{{ a.status }}</span></td>

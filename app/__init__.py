@@ -35,10 +35,12 @@ def create_app():
 
     from app.routes import auth, main
     from app.routes import gl
+    from app.routes import docs
     auth.init_oauth(app)
     app.register_blueprint(auth.bp)
     app.register_blueprint(main.bp)
     app.register_blueprint(gl.bp)
+    app.register_blueprint(docs.bp)
 
     # Ensure all tables exist (safe — only creates missing ones)
     with app.app_context():

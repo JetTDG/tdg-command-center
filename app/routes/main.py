@@ -2005,6 +2005,52 @@ def scorecard(agent_id):
     # ── Pipeline income sum ────────────────────────────────────────────────────
     pipeline_income = sum(agent_income(t) for t in pipeline_txns)
 
+    # ── Self-Gen: Rolling 12 months (not YTD) ────────────────────────────────
+    from datetime import date as _date, timedelta as _timedelta
+    _rolling_start = _date.today() - _timedelta(days=365)
+    _rolling_q = Transaction.query.filter(
+        txn_filter,
+        Transaction.status == 'Closed',
+        Transaction.close_date >= _rolling_start,
+    )
+    if division != 'all':
+        _rolling_q = _rolling_q.filter(Transaction.division == division)
+    rolling_12_closed = _rolling_q.all()
+
+    SELF_GEN_TARGET = 40_000
+    self_gen_closed  = [t for t in rolling_12_closed if t.lead_type == 'Agent']
+    team_closed      = [t for t in rolling_12_closed if t.lead_type != 'Agent']
+    self_gen_income  = sum(agent_income(t) for t in self_gen_closed)
+    team_income_val  = sum(agent_income(t) for t in team_closed)
+    self_gen_units   = len(self_gen_closed)
+    team_units       = len(team_closed)
+    self_gen_pct     = min(round(self_gen_income / SELF_GEN_TARGET * 100, 1), 100) if SELF_GEN_TARGET else 0
+
+    # ── Lead Mix KPI card (6th card in scorecard header row) ─────────────────
+    def _lm_pct(num, denom):
+        return round(num / denom * 100) if denom else 0
+
+    _sg_vol   = sum(t.sale_price or 0 for t in self_gen_closed)
+    _co_vol   = sum(t.sale_price or 0 for t in team_closed)
+    _tot_vol  = _sg_vol + _co_vol
+    _tot_inc  = self_gen_income + team_income_val
+    _tot_u    = self_gen_units + team_units
+
+    lead_mix = dict(
+        sg_units     = self_gen_units,
+        co_units     = team_units,
+        sg_vol       = _sg_vol,
+        co_vol       = _co_vol,
+        sg_income    = self_gen_income,
+        co_income    = team_income_val,
+        sg_units_pct = _lm_pct(self_gen_units,   _tot_u),
+        co_units_pct = _lm_pct(team_units,        _tot_u),
+        sg_vol_pct   = _lm_pct(_sg_vol,           _tot_vol),
+        co_vol_pct   = _lm_pct(_co_vol,            _tot_vol),
+        sg_inc_pct   = _lm_pct(self_gen_income,   _tot_inc),
+        co_inc_pct   = _lm_pct(team_income_val,   _tot_inc),
+    )
+
     # ── Business plan for this year ───────────────────────────────────────────
     plan = BusinessPlan.query.filter_by(agent_id=agent_id, year=year).first()
 
@@ -2070,6 +2116,13 @@ def scorecard(agent_id):
         pct=pct,
         today=today,
         perf=perf,
+        self_gen_income=self_gen_income,
+        team_income_val=team_income_val,
+        self_gen_units=self_gen_units,
+        team_units=team_units,
+        self_gen_pct=self_gen_pct,
+        self_gen_target=SELF_GEN_TARGET,
+        lead_mix=lead_mix,
     )
 
 @bp.route('/scorecard/<int:agent_id>/business-plan', methods=['GET', 'POST'])

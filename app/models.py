@@ -336,3 +336,47 @@ class GLRoundRobin(db.Model):
 
     def __repr__(self):
         return f'<GLRoundRobin group={self.group_id} next={self.next_index}>'
+
+
+class DocEnvelope(db.Model):
+    """Tracks every DocuSign envelope sent through the TDG e-sign pipeline."""
+    __tablename__ = 'doc_envelopes'
+    id               = db.Column(db.Integer, primary_key=True)
+    envelope_id      = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    doc_type         = db.Column(db.String(50), index=True)   # mutual_release | nda | buyer | listing | buyer_addendum | seller_addendum | offers_out | unknown
+    subject          = db.Column(db.String(400))
+    ds_status        = db.Column(db.String(30), index=True)   # sent | delivered | completed | voided | declined
+    stage            = db.Column(db.String(60), index=True)   # awaiting_agent_signature | awaiting_client_signature | completed | voided | declined
+    property_address = db.Column(db.String(300))
+    party_label      = db.Column(db.String(200))              # "123 Main St" for MR; "ACME Corp" for NDA
+
+    # Agent (signer 1)
+    agent_name       = db.Column(db.String(150))
+    agent_email      = db.Column(db.String(200))
+    agent_status     = db.Column(db.String(30))               # completed | sent | delivered | declined
+
+    # Client / receiving party (signer 2)
+    party_name       = db.Column(db.String(150))
+    party_email      = db.Column(db.String(200))
+    party_status     = db.Column(db.String(30))
+
+    # Second client if present (MR with Buyer 2)
+    party2_name      = db.Column(db.String(150))
+    party2_email     = db.Column(db.String(200))
+    party2_status    = db.Column(db.String(30))
+
+    # Broker / admin CC (Laith on MR)
+    broker_name      = db.Column(db.String(150))
+    broker_status    = db.Column(db.String(30))
+
+    total_signers    = db.Column(db.Integer, default=1)
+    has_two_clients  = db.Column(db.Boolean, default=False)
+
+    # Timestamps from DocuSign
+    created_at       = db.Column(db.DateTime, index=True)
+    sent_at          = db.Column(db.DateTime)
+    completed_at     = db.Column(db.DateTime)
+    last_synced_at   = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<DocEnvelope {self.doc_type} {self.envelope_id[:8]}… {self.stage}>'
