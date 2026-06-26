@@ -59,6 +59,60 @@
     </div>
   </div>
   {% endfor %}
+
+  {# ── 6th card: SOI vs Company lead mix (rolling 12 months) ──── #}
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card py-2 px-2 h-100" style="border-top:3px solid var(--tdg-gold);font-size:0.72rem;">
+      <div class="text-muted text-center mb-2" style="text-transform:uppercase;letter-spacing:.05em;font-size:0.72rem;">Lead Mix · 12 Mo</div>
+
+      {# Header row #}
+      <div class="d-flex justify-content-between mb-1 fw-semibold" style="font-size:0.68rem;color:#555;">
+        <span style="width:34%"></span>
+        <span style="width:33%;text-align:center;">SOI</span>
+        <span style="width:33%;text-align:center;">Co.</span>
+      </div>
+
+      {# Units row #}
+      <div class="d-flex justify-content-between align-items-baseline border-top pt-1 mb-1">
+        <span class="text-muted" style="width:34%;font-size:0.65rem;text-transform:uppercase;">Units</span>
+        <span style="width:33%;text-align:center;">
+          <span class="fw-bold" style="color:var(--tdg-gold);">{{ lead_mix.sg_units }}</span>
+          <span class="text-muted" style="font-size:0.65rem;"> ({{ lead_mix.sg_units_pct }}%)</span>
+        </span>
+        <span style="width:33%;text-align:center;">
+          <span class="fw-bold" style="color:var(--tdg-gold);">{{ lead_mix.co_units }}</span>
+          <span class="text-muted" style="font-size:0.65rem;"> ({{ lead_mix.co_units_pct }}%)</span>
+        </span>
+      </div>
+
+      {# Volume row #}
+      <div class="d-flex justify-content-between align-items-baseline border-top pt-1 mb-1">
+        <span class="text-muted" style="width:34%;font-size:0.65rem;text-transform:uppercase;">Vol</span>
+        <span style="width:33%;text-align:center;">
+          <span class="fw-bold" style="color:var(--tdg-gold);font-size:0.78rem;">{{ "${:,.0f}".format(lead_mix.sg_vol / 1000) }}K</span>
+          <span class="text-muted" style="font-size:0.65rem;"> ({{ lead_mix.sg_vol_pct }}%)</span>
+        </span>
+        <span style="width:33%;text-align:center;">
+          <span class="fw-bold" style="color:var(--tdg-gold);font-size:0.78rem;">{{ "${:,.0f}".format(lead_mix.co_vol / 1000) }}K</span>
+          <span class="text-muted" style="font-size:0.65rem;"> ({{ lead_mix.co_vol_pct }}%)</span>
+        </span>
+      </div>
+
+      {# GCI (agent income) row #}
+      <div class="d-flex justify-content-between align-items-baseline border-top pt-1">
+        <span class="text-muted" style="width:34%;font-size:0.65rem;text-transform:uppercase;">GCI</span>
+        <span style="width:33%;text-align:center;">
+          <span class="fw-bold" style="color:var(--tdg-gold);font-size:0.78rem;">{{ "${:,.0f}".format(lead_mix.sg_income / 1000) }}K</span>
+          <span class="text-muted" style="font-size:0.65rem;"> ({{ lead_mix.sg_inc_pct }}%)</span>
+        </span>
+        <span style="width:33%;text-align:center;">
+          <span class="fw-bold" style="color:var(--tdg-gold);font-size:0.78rem;">{{ "${:,.0f}".format(lead_mix.co_income / 1000) }}K</span>
+          <span class="text-muted" style="font-size:0.65rem;"> ({{ lead_mix.co_inc_pct }}%)</span>
+        </span>
+      </div>
+
+    </div>
+  </div>
 </div>
 
 {# ── Self-Gen Progress + Lead Type KPIs ───────────────────────────────────── #}
