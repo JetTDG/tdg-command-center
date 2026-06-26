@@ -1062,40 +1062,43 @@ def delete_lead_gen(lid):
 # ─── LEADERBOARD ────────────────────────────────────────────────────────────
 
 def _build_leaderboard(year, statuses, transaction_types=None, month=None):
-    """Return agents ranked by agent GCI (primary_agent_gci = agent's split only)
-    for given year and list of statuses. Optionally filter by transaction_types and month."""
-    filters = [
-        Transaction.year == year,
-        Transaction.status.in_(statuses),
-        Transaction.primary_agent_name.isnot(None),
-        Transaction.primary_agent_name != ''
-    ]
-    if transaction_types:
-        filters.append(Transaction.transaction_type.in_(transaction_types))
-    if month:
-        filters.append(Transaction.month == month)
-    rows = db.session.query(
-        Transaction.primary_agent_name,
-        func.sum(Transaction.primary_agent_gci).label('gci'),
-        func.count(Transaction.id).label('units'),
-        func.sum(Transaction.sale_price).label('volume'),
-        Transaction.primary_agent_id
-    ).filter(*filters).group_by(Transaction.primary_agent_name, Transaction.primary_agent_id).all()
-
-    # Build name→agent_id map from Agent table for names missing primary_agent_id
+    """Return ALL active agents ranked by agent GCI for given year and list of statuses.
+    Agents with 0 are included. Deduplication is by agent_id (not free-text name).
+    Optionally filter by transaction_types and month."""
     from app.models import Agent as AgentModel
-    agent_name_map = {a.name.lower(): a.id for a in AgentModel.query.all()}
+    active_agents = AgentModel.query.filter_by(status='Active').order_by(AgentModel.name).all()
 
-    result = sorted([
-        {
-            'name': r[0],
-            'gci': float(r[1] or 0),
-            'units': int(r[2] or 0),
-            'volume': float(r[3] or 0),
-            'agent_id': r[4] or agent_name_map.get((r[0] or '').lower()),
-        }
-        for r in rows
-    ], key=lambda x: x['gci'], reverse=True)
+    result = []
+    for agent in active_agents:
+        q = Transaction.query.filter(
+            Transaction.archived == False,
+            Transaction.year == year,
+            Transaction.status.in_(statuses),
+            db.or_(
+                Transaction.primary_agent_id == agent.id,
+                db.and_(
+                    Transaction.primary_agent_id.is_(None),
+                    func.lower(Transaction.primary_agent_name) == agent.name.lower()
+                )
+            )
+        )
+        if transaction_types:
+            q = q.filter(Transaction.transaction_type.in_(transaction_types))
+        if month:
+            q = q.filter(Transaction.month == month)
+        txns = q.all()
+        gci    = float(sum((t.primary_agent_gci or 0) for t in txns))
+        units  = len(txns)
+        volume = float(sum((t.sale_price or 0) for t in txns))
+        result.append({
+            'name':     agent.name,
+            'gci':      gci,
+            'units':    units,
+            'volume':   volume,
+            'agent_id': agent.id,
+        })
+
+    result.sort(key=lambda x: x['gci'], reverse=True)
     return result
 
 
