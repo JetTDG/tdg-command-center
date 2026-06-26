@@ -61,6 +61,7 @@ DOC_TYPE_LABELS = {
     'buyer_addendum':    'Buyer Addendum',
     'seller_addendum':   'Seller Addendum',
     'offers_out':        'Offers Out',
+    'addendum':          'Addendum',
     'unknown':           'Other',
 }
 
