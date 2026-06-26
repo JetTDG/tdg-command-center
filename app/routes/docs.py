@@ -47,7 +47,7 @@ STAGE_LABELS = {
     'form_received':               'Form Received',
     'sent_to_docusign':            'Sent to DocuSign',
     'awaiting_agent_signature':    'Awaiting Agent Signature',
-    'awaiting_client_signature':   'Awaiting Client Signature',
+    'awaiting_client_signature':   'Awaiting 2nd Client Signature',
     'completed':                   'Completed',
     'voided':                      'Voided',
     'declined':                    'Declined',
