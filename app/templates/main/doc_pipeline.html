@@ -1,0 +1,400 @@
+{% extends 'base.html' %}
+{% block title %}Document Pipeline — TDG Command Center{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── Page-level ─────────────────────────────────────────────────────────── */
+  .dp-hero {
+    background: var(--tdg-surface);
+    border: 1px solid var(--tdg-border);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .dp-hero h1 { font-size: 1.4rem; font-weight: 700; margin: 0; }
+  .dp-hero .sub { font-size: 0.78rem; color: var(--tdg-muted); margin-top: 2px; }
+
+  /* ── Stage summary cards ────────────────────────────────────────────────── */
+  .stage-cards { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.25rem; }
+  .stage-card {
+    flex: 1 1 130px;
+    background: var(--tdg-surface);
+    border: 1px solid var(--tdg-border);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: box-shadow .15s, border-color .15s;
+    text-decoration: none; color: inherit;
+    display: block;
+  }
+  .stage-card:hover { box-shadow: var(--shadow-md); border-color: var(--tdg-gold); color: inherit; }
+  .stage-card.active { border-color: var(--tdg-gold); background: var(--tdg-gold-light); }
+  .stage-card .sc-count { font-size: 1.7rem; font-weight: 700; line-height: 1; }
+  .stage-card .sc-label { font-size: 0.72rem; color: var(--tdg-muted); margin-top: 3px; font-weight: 500; }
+  .stage-card .sc-icon  { font-size: 1.1rem; margin-bottom: 0.3rem; }
+
+  /* count colour per stage */
+  .sc-awaiting_agent_signature  .sc-count { color: #d97706; }
+  .sc-awaiting_client_signature .sc-count { color: #d97706; }
+  .sc-completed .sc-count { color: var(--tdg-green); }
+  .sc-voided    .sc-count { color: var(--tdg-muted); }
+  .sc-declined  .sc-count { color: var(--tdg-red); }
+  .sc-sent_to_docusign  .sc-count { color: #2563eb; }
+  .sc-form_received .sc-count { color: var(--tdg-muted); }
+
+  /* ── Filters bar ─────────────────────────────────────────────────────────── */
+  .filter-bar {
+    background: var(--tdg-surface);
+    border: 1px solid var(--tdg-border);
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 1.1rem;
+    display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-end;
+    box-shadow: var(--shadow-sm);
+  }
+  .filter-bar .form-label { font-size: 0.72rem; font-weight: 600; color: var(--tdg-muted); margin-bottom: 3px; }
+  .filter-bar .form-select,
+  .filter-bar .form-control { font-size: 0.82rem; height: 34px; padding: 0.2rem 0.6rem; }
+  .filter-bar .f-grp { display: flex; flex-direction: column; }
+  .filter-bar .f-grp-search { flex: 1 1 220px; }
+  .filter-bar .btn-sm { height: 34px; font-size: 0.82rem; }
+
+  /* ── Table ───────────────────────────────────────────────────────────────── */
+  .dp-table-wrap {
+    background: var(--tdg-surface);
+    border: 1px solid var(--tdg-border);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .dp-table-wrap .table { margin: 0; }
+  .dp-table-wrap .table thead th {
+    font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--tdg-muted);
+    background: var(--tdg-bg); border-bottom: 1px solid var(--tdg-border);
+    padding: 0.6rem 0.85rem; white-space: nowrap;
+  }
+  .dp-table-wrap .table tbody td {
+    font-size: 0.82rem; padding: 0.65rem 0.85rem;
+    vertical-align: middle; border-bottom: 1px solid var(--tdg-border);
+  }
+  .dp-table-wrap .table tbody tr:last-child td { border-bottom: 0; }
+  .dp-table-wrap .table tbody tr:hover td { background: var(--tdg-bg); }
+
+  /* ── Stage badge ────────────────────────────────────────────────────────── */
+  .stage-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 0.72rem; font-weight: 600; padding: 3px 9px; border-radius: 99px;
+  }
+
+  /* ── Signer progress ────────────────────────────────────────────────────── */
+  .signer-line { font-size: 0.75rem; line-height: 1.6; }
+  .signer-line .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px;
+  }
+  .dot-completed { background: var(--tdg-green); }
+  .dot-sent      { background: #f59e0b; }
+  .dot-delivered { background: #3b82f6; }
+  .dot-declined  { background: var(--tdg-red); }
+  .dot-pending   { background: #d1d5db; }
+  .dot-na        { background: transparent; border: 1px solid #d1d5db; }
+
+  /* ── Doc type chip ──────────────────────────────────────────────────────── */
+  .dtype-chip {
+    display: inline-block; font-size: 0.7rem; font-weight: 600;
+    padding: 2px 8px; border-radius: 4px; white-space: nowrap;
+  }
+  .dt-mutual_release    { background: #dbeafe; color: #1d4ed8; }
+  .dt-nda               { background: #f3e8ff; color: #7c3aed; }
+  .dt-buyer             { background: #dcfce7; color: #166534; }
+  .dt-listing           { background: #fef9c3; color: #854d0e; }
+  .dt-buyer_addendum    { background: #dcfce7; color: #166534; }
+  .dt-seller_addendum   { background: #fef9c3; color: #854d0e; }
+  .dt-offers_out        { background: #fee2e2; color: #991b1b; }
+  .dt-unknown           { background: #f1f5f9; color: #64748b; }
+
+  /* ── Empty state ────────────────────────────────────────────────────────── */
+  .dp-empty {
+    text-align: center; padding: 4rem 1rem;
+    color: var(--tdg-muted); font-size: 0.9rem;
+  }
+  .dp-empty i { font-size: 2.5rem; display: block; margin-bottom: 0.75rem; color: #d1d5db; }
+
+  /* ── Sync badge ─────────────────────────────────────────────────────────── */
+  .sync-badge {
+    font-size: 0.72rem; color: var(--tdg-muted);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .sync-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--tdg-green); display: inline-block;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- ── Hero ──────────────────────────────────────────────────────────────── -->
+<div class="dp-hero d-flex justify-content-between align-items-start flex-wrap gap-2">
+  <div>
+    <h1><i class="bi bi-file-earmark-check me-2" style="color:var(--tdg-gold)"></i>Document Pipeline</h1>
+    <div class="sub">Live status of every DocuSign envelope across all TDG document types</div>
+  </div>
+  <div class="sync-badge mt-1">
+    <span class="sync-dot"></span>
+    {% if last_sync %}
+      Last synced {{ last_sync.strftime('%-m/%-d %-I:%M %p') }} UTC
+    {% else %}
+      Not yet synced — run sync script to populate
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Stage summary cards ─────────────────────────────────────────────── -->
+<div class="stage-cards">
+  {% set stage_icon = {
+    'form_received':              'bi-inbox',
+    'sent_to_docusign':           'bi-send',
+    'awaiting_agent_signature':   'bi-pen',
+    'awaiting_client_signature':  'bi-people',
+    'completed':                  'bi-check-circle',
+    'voided':                     'bi-slash-circle',
+    'declined':                   'bi-x-circle',
+  } %}
+  {% for stage, label in stage_labels.items() %}
+  {% set is_active = (q_stage == stage) %}
+  <a href="{{ url_for('docs.doc_pipeline',
+       doc_type=q_type, period=q_period, search=q_search,
+       stage=('' if is_active else stage)) }}"
+     class="stage-card sc-{{ stage }} {% if is_active %}active{% endif %}">
+    <div class="sc-icon"><i class="bi {{ stage_icon[stage] }}"></i></div>
+    <div class="sc-count">{{ stage_counts[stage] }}</div>
+    <div class="sc-label">{{ label }}</div>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- ── Filters ─────────────────────────────────────────────────────────── -->
+<form method="get" id="filterForm">
+  <input type="hidden" name="stage" value="{{ q_stage }}">
+  <div class="filter-bar">
+    <!-- Search -->
+    <div class="f-grp f-grp-search">
+      <label class="form-label">Search</label>
+      <input class="form-control" name="search" value="{{ q_search }}"
+             placeholder="Name, address, company…" id="searchInput">
+    </div>
+    <!-- Doc type -->
+    <div class="f-grp">
+      <label class="form-label">Document Type</label>
+      <select class="form-select" name="doc_type" onchange="this.form.submit()">
+        <option value="" {% if not q_type %}selected{% endif %}>All Types</option>
+        {% for key, label in doc_type_labels.items() %}
+        <option value="{{ key }}" {% if q_type == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <!-- Period -->
+    <div class="f-grp">
+      <label class="form-label">Time Period</label>
+      <select class="form-select" name="period" onchange="this.form.submit()">
+        <option value="7"  {% if q_period=='7'  %}selected{% endif %}>Last 7 days</option>
+        <option value="14" {% if q_period=='14' %}selected{% endif %}>Last 14 days</option>
+        <option value="30" {% if q_period=='30' %}selected{% endif %}>Last 30 days</option>
+        <option value="60" {% if q_period=='60' %}selected{% endif %}>Last 60 days</option>
+        <option value="90" {% if q_period=='90' %}selected{% endif %}>Last 90 days</option>
+        <option value=""   {% if q_period==''   %}selected{% endif %}>All time</option>
+      </select>
+    </div>
+    <!-- Submit / Clear -->
+    <div class="f-grp justify-content-end">
+      <label class="form-label">&nbsp;</label>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-sm" style="background:var(--tdg-gold);color:#fff;border:none">
+          <i class="bi bi-search me-1"></i>Search
+        </button>
+        <a href="{{ url_for('docs.doc_pipeline') }}" class="btn btn-sm btn-outline-secondary">
+          Clear
+        </a>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- ── Count line ───────────────────────────────────────────────────────── -->
+<div class="d-flex justify-content-between align-items-center mb-2 px-1">
+  <span style="font-size:0.8rem;color:var(--tdg-muted)">
+    Showing <strong>{{ total }}</strong> envelope{{ 's' if total != 1 else '' }}
+    {% if q_search %} matching "<em>{{ q_search }}</em>"{% endif %}
+    {% if q_type %} · {{ doc_type_labels.get(q_type, q_type) }}{% endif %}
+    {% if q_stage %} · {{ stage_labels.get(q_stage, q_stage) }}{% endif %}
+  </span>
+</div>
+
+<!-- ── Main table ──────────────────────────────────────────────────────── -->
+<div class="dp-table-wrap">
+  {% if envelopes %}
+  <table class="table table-hover" id="dpTable">
+    <thead>
+      <tr>
+        <th>Doc Type</th>
+        <th>Address / Party</th>
+        <th>Agent</th>
+        <th>Signers</th>
+        <th>Stage</th>
+        <th>Sent</th>
+        <th>Completed</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for env in envelopes %}
+      {% set badge_cls, badge_icon = stage_badge.get(env.stage, ('bg-secondary','bi-question')) %}
+      <tr>
+        <!-- Doc Type -->
+        <td>
+          <span class="dtype-chip dt-{{ env.doc_type }}">
+            {{ doc_type_labels.get(env.doc_type, env.doc_type) }}
+          </span>
+        </td>
+
+        <!-- Address / Party -->
+        <td style="max-width:220px;">
+          {% if env.property_address %}
+            <div style="font-weight:500; font-size:0.82rem; line-height:1.3;">
+              {{ env.property_address }}
+            </div>
+          {% elif env.party_label %}
+            <div style="font-weight:500; font-size:0.82rem;">{{ env.party_label }}</div>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+          {% if env.subject %}
+            <div style="font-size:0.7rem;color:var(--tdg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px;"
+                 title="{{ env.subject }}">
+              {{ env.subject }}
+            </div>
+          {% endif %}
+        </td>
+
+        <!-- Agent -->
+        <td>
+          <div style="font-weight:500">{{ env.agent_name or '—' }}</div>
+          {% if env.agent_email %}
+            <div style="font-size:0.7rem;color:var(--tdg-muted)">{{ env.agent_email }}</div>
+          {% endif %}
+        </td>
+
+        <!-- Signers progress -->
+        <td style="min-width:160px;">
+          <div class="signer-line">
+            <!-- Agent -->
+            {% set ag_dot = 'completed' if env.agent_status == 'completed'
+               else 'delivered' if env.agent_status == 'delivered'
+               else 'sent' if env.agent_status in ('sent','created')
+               else 'declined' if env.agent_status == 'declined'
+               else 'pending' %}
+            <div>
+              <span class="dot dot-{{ ag_dot }}"></span>
+              <strong>Agent:</strong> {{ env.agent_name or '—' }}
+              <span style="color:var(--tdg-muted)">({{ (env.agent_status or 'pending') | title }})</span>
+            </div>
+
+            <!-- Client / receiving party -->
+            {% if env.party_name %}
+              {% set p1_dot = 'completed' if env.party_status == 'completed'
+                 else 'delivered' if env.party_status == 'delivered'
+                 else 'sent' if env.party_status in ('sent','created')
+                 else 'declined' if env.party_status == 'declined'
+                 else 'pending' %}
+              <div>
+                <span class="dot dot-{{ p1_dot }}"></span>
+                <strong>{{ 'Buyer 1' if env.has_two_clients else 'Client' }}:</strong> {{ env.party_name }}
+                <span style="color:var(--tdg-muted)">({{ (env.party_status or 'pending') | title }})</span>
+              </div>
+            {% endif %}
+
+            <!-- Buyer 2 (if present) -->
+            {% if env.has_two_clients and env.party2_name %}
+              {% set p2_dot = 'completed' if env.party2_status == 'completed'
+                 else 'delivered' if env.party2_status == 'delivered'
+                 else 'sent' if env.party2_status in ('sent','created')
+                 else 'declined' if env.party2_status == 'declined'
+                 else 'pending' %}
+              <div>
+                <span class="dot dot-{{ p2_dot }}"></span>
+                <strong>Buyer 2:</strong> {{ env.party2_name }}
+                <span style="color:var(--tdg-muted)">({{ (env.party2_status or 'pending') | title }})</span>
+              </div>
+            {% endif %}
+
+            <!-- Broker (MR: Laith) -->
+            {% if env.broker_name %}
+              {% set br_dot = 'completed' if env.broker_status == 'completed'
+                 else 'delivered' if env.broker_status == 'delivered'
+                 else 'sent' if env.broker_status in ('sent','created')
+                 else 'na' %}
+              <div>
+                <span class="dot dot-{{ br_dot }}"></span>
+                <strong>Broker:</strong> {{ env.broker_name }}
+                <span style="color:var(--tdg-muted)">({{ (env.broker_status or '—') | title }})</span>
+              </div>
+            {% endif %}
+          </div>
+        </td>
+
+        <!-- Stage -->
+        <td>
+          <span class="stage-badge {{ badge_cls }}">
+            <i class="bi {{ badge_icon }}"></i>
+            {{ stage_labels.get(env.stage, env.stage or '—') }}
+          </span>
+        </td>
+
+        <!-- Sent -->
+        <td style="white-space:nowrap; font-size:0.8rem;">
+          {% if env.sent_at %}
+            {{ env.sent_at.strftime('%-m/%-d/%y') }}<br>
+            <span style="color:var(--tdg-muted)">{{ env.sent_at.strftime('%-I:%M %p') }}</span>
+          {% elif env.created_at %}
+            {{ env.created_at.strftime('%-m/%-d/%y') }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+
+        <!-- Completed -->
+        <td style="white-space:nowrap; font-size:0.8rem;">
+          {% if env.completed_at %}
+            {{ env.completed_at.strftime('%-m/%-d/%y') }}<br>
+            <span style="color:var(--tdg-muted)">{{ env.completed_at.strftime('%-I:%M %p') }}</span>
+          {% else %}
+            <span style="color:var(--tdg-muted)">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% else %}
+  <!-- Empty state -->
+  <div class="dp-empty">
+    <i class="bi bi-file-earmark-x"></i>
+    {% if q_search or q_type or q_stage %}
+      No envelopes match your filters. <a href="{{ url_for('docs.doc_pipeline') }}">Clear filters</a>
+    {% else %}
+      No envelopes synced yet.<br>
+      <span style="font-size:0.8rem;">Run the sync script on the Mac to populate this dashboard.</span>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- search → submit on Enter -->
+<script>
+document.getElementById('searchInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('filterForm').submit(); }
+});
+</script>
+{% endblock %}

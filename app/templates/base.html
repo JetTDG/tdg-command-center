@@ -615,6 +615,15 @@
       </nav>
 
       <hr class="divider my-2">
+      <hr>
+      <div class="sidebar-section-label">Document Pipeline</div>
+      <nav class="nav flex-column">
+        <a class="nav-link {% if 'doc_pipeline' in request.endpoint %}active{% endif %}"
+           href="{{ url_for('docs.doc_pipeline') }}">
+          <i class="bi bi-file-earmark-check"></i> Document Pipeline
+        </a>
+      </nav>
+      <hr>
       <div class="sidebar-section-label">Admin</div>
       <nav class="nav flex-column">
         {% if current_user.is_admin %}
