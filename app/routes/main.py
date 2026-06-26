@@ -1063,40 +1063,51 @@ def delete_lead_gen(lid):
 
 def _build_leaderboard(year, statuses, transaction_types=None, month=None):
     """Return agents ranked by agent GCI (primary_agent_gci = agent's split only)
-    for given year and list of statuses. Optionally filter by transaction_types and month."""
+    for given year and list of statuses. Optionally filter by transaction_types and month.
+    Only includes currently Active agents — former agents and duplicates from NULL
+    primary_agent_id are excluded."""
     filters = [
         Transaction.year == year,
         Transaction.status.in_(statuses),
+        Transaction.archived == False,
         Transaction.primary_agent_name.isnot(None),
-        Transaction.primary_agent_name != ''
+        Transaction.primary_agent_name != '',
     ]
     if transaction_types:
         filters.append(Transaction.transaction_type.in_(transaction_types))
     if month:
         filters.append(Transaction.month == month)
+
+    # Group by name ONLY — dropping primary_agent_id from GROUP BY eliminates
+    # duplicates caused by the same agent having NULL id on old imports and a
+    # real id on newer ones.
     rows = db.session.query(
         Transaction.primary_agent_name,
         func.sum(Transaction.primary_agent_gci).label('gci'),
         func.count(Transaction.id).label('units'),
         func.sum(Transaction.sale_price).label('volume'),
-        Transaction.primary_agent_id
-    ).filter(*filters).group_by(Transaction.primary_agent_name, Transaction.primary_agent_id).all()
+    ).filter(*filters).group_by(Transaction.primary_agent_name).all()
 
-    # Build name→agent_id map from Agent table for names missing primary_agent_id
+    # Build Active-only name→id map (normalised to lowercase+stripped)
     from app.models import Agent as AgentModel
-    agent_name_map = {a.name.lower(): a.id for a in AgentModel.query.all()}
+    active_agents = AgentModel.query.filter_by(status='Active').all()
+    active_name_map = {a.name.strip().lower(): a.id for a in active_agents}
 
-    result = sorted([
-        {
-            'name': r[0],
-            'gci': float(r[1] or 0),
-            'units': int(r[2] or 0),
-            'volume': float(r[3] or 0),
-            'agent_id': r[4] or agent_name_map.get((r[0] or '').lower()),
-        }
-        for r in rows
-    ], key=lambda x: x['gci'], reverse=True)
-    return result
+    result = []
+    for r in rows:
+        name_key = (r[0] or '').strip().lower()
+        # Skip anyone not in the Active agent roster
+        if name_key not in active_name_map:
+            continue
+        result.append({
+            'name': r[0].strip(),
+            'gci':      float(r[1] or 0),
+            'units':    int(r[2] or 0),
+            'volume':   float(r[3] or 0),
+            'agent_id': active_name_map[name_key],
+        })
+
+    return sorted(result, key=lambda x: x['gci'], reverse=True)
 
 
 @bp.route('/leaderboard')
