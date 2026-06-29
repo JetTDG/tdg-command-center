@@ -275,7 +275,13 @@ def sync_envelopes():
             rec.ds_status        = env.get('ds_status', '')
             rec.stage            = env.get('stage', '')
             rec.source           = env.get('source', 'api')
-            rec.division         = env.get('division', 'Residential')
+            # Division from payload if provided; otherwise derive from doc_type.
+            # Rule: CRE = nda | commercial_pa | cre_listing. Everything else Residential.
+            # Never infer from subject keywords — LLC in a buyer name ≠ CRE deal.
+            _CRE_TYPES = {'nda', 'commercial_pa', 'cre_listing'}
+            rec.division = env.get('division') or (
+                'CRE' if rec.doc_type in _CRE_TYPES else 'Residential'
+            )
             rec.property_address = env.get('property_address', '')
             rec.party_label      = env.get('party_label', '')
             rec.agent_name       = env.get('agent_name', '')

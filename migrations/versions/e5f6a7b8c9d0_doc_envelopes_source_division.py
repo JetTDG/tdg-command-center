@@ -29,20 +29,12 @@ def upgrade():
         sa.Column('division', sa.String(20), nullable=False,
                   server_default='Residential'))
 
-    # Backfill CRE division for existing rows based on subject keywords
+    # Backfill CRE division based on doc_type only — not subject keywords.
+    # Division is a property of the document type, not the buyer/seller name.
     op.execute("""
         UPDATE doc_envelopes
         SET division = 'CRE'
-        WHERE
-            subject ILIKE '%commercial%'
-            OR subject ILIKE '%CRE%'
-            OR subject ILIKE '%NDA%'
-            OR subject ILIKE '% LLC%'
-            OR subject ILIKE '%Land Parcel%'
-            OR subject ILIKE '%Industrial%'
-            OR subject ILIKE '%Warehouse%'
-            OR subject ILIKE '%Gratiot%'
-            OR doc_type IN ('nda', 'commercial_pa', 'cre_listing')
+        WHERE doc_type IN ('nda', 'commercial_pa', 'cre_listing')
     """)
 
 
