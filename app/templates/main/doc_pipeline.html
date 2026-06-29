@@ -451,4 +451,65 @@ document.getElementById('searchInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') { e.preventDefault(); document.getElementById('filterForm').submit(); }
 });
 </script>
+
+<!-- ── Live Stats Bar (updates as rows filter/sort) ───────────────────── -->
+<div id="dp-totals-bar" style="
+  background:#1a1a2e;color:#fff;border-radius:0 0 8px 8px;
+  padding:10px 18px;margin-top:-2px;display:flex;flex-wrap:wrap;gap:6px 18px;
+  align-items:center;font-size:0.82rem;border-top:2px solid var(--tdg-gold);
+">
+  <span style="font-weight:700;color:var(--tdg-gold);font-size:.85rem">SELECTED</span>
+  <div class="dp-tot-pill">
+    <span class="dp-tot-lbl">Envelopes</span>
+    <span class="dp-tot-val" id="dp-tot-count">0</span>
+  </div>
+  <div class="dp-tot-pill">
+    <span class="dp-tot-lbl">✅ Completed</span>
+    <span class="dp-tot-val" id="dp-tot-completed" style="color:#4ade80">0</span>
+  </div>
+  <div class="dp-tot-pill">
+    <span class="dp-tot-lbl">⏳ Awaiting Sig</span>
+    <span class="dp-tot-val" id="dp-tot-awaiting" style="color:#fbbf24">0</span>
+  </div>
+  <div class="dp-tot-pill">
+    <span class="dp-tot-lbl">📤 In DocuSign</span>
+    <span class="dp-tot-val" id="dp-tot-sent">0</span>
+  </div>
+  <div class="dp-tot-pill">
+    <span class="dp-tot-lbl">🚫 Voided/Declined</span>
+    <span class="dp-tot-val" id="dp-tot-dead" style="color:#f87171">0</span>
+  </div>
+</div>
+
+<style>
+.dp-tot-pill { display:flex;flex-direction:column;align-items:center;background:rgba(255,255,255,.07);border-radius:6px;padding:4px 12px;min-width:90px; }
+.dp-tot-lbl  { font-size:0.68rem;color:#aaa;text-transform:uppercase;letter-spacing:.04em;margin-bottom:1px; }
+.dp-tot-val  { font-size:1rem;font-weight:700; }
+</style>
+
+<script>
+(function() {
+  function dpUpdateStats() {
+    var rows = document.querySelectorAll('#dpTable tbody tr');
+    var count = 0, completed = 0, awaiting = 0, sent = 0, dead = 0;
+    rows.forEach(function(r) {
+      if (r.style.display === 'none') return;
+      count++;
+      var badge = r.querySelector('.stage-badge');
+      var stageText = badge ? badge.textContent.trim().toLowerCase() : '';
+      if (stageText.includes('completed'))                                       completed++;
+      else if (stageText.includes('awaiting'))                                   awaiting++;
+      else if (stageText.includes('sent') || stageText.includes('form'))        sent++;
+      else if (stageText.includes('void') || stageText.includes('declin'))      dead++;
+    });
+    document.getElementById('dp-tot-count').textContent     = count;
+    document.getElementById('dp-tot-completed').textContent = completed;
+    document.getElementById('dp-tot-awaiting').textContent  = awaiting;
+    document.getElementById('dp-tot-sent').textContent      = sent;
+    document.getElementById('dp-tot-dead').textContent      = dead;
+  }
+  dpUpdateStats();
+  window.dpUpdateStats = dpUpdateStats;
+})();
+</script>
 {% endblock %}
