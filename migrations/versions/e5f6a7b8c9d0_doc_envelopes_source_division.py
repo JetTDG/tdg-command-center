@@ -21,13 +21,21 @@ branch_labels = None
 depends_on = None
 
 
+def _col_exists(table, column):
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    return column in [c['name'] for c in insp.get_columns(table)]
+
+
 def upgrade():
-    op.add_column('doc_envelopes',
-        sa.Column('source', sa.String(20), nullable=False,
-                  server_default='api'))
-    op.add_column('doc_envelopes',
-        sa.Column('division', sa.String(20), nullable=False,
-                  server_default='Residential'))
+    if not _col_exists('doc_envelopes', 'source'):
+        op.add_column('doc_envelopes',
+            sa.Column('source', sa.String(20), nullable=False,
+                      server_default='api'))
+    if not _col_exists('doc_envelopes', 'division'):
+        op.add_column('doc_envelopes',
+            sa.Column('division', sa.String(20), nullable=False,
+                      server_default='Residential'))
 
     # Backfill CRE division based on doc_type only — not subject keywords.
     # Division is a property of the document type, not the buyer/seller name.
@@ -35,6 +43,7 @@ def upgrade():
         UPDATE doc_envelopes
         SET division = 'CRE'
         WHERE doc_type IN ('nda', 'commercial_pa', 'cre_listing')
+          AND division != 'CRE'
     """)
 
 
