@@ -41,8 +41,14 @@ PHONE_MAP = {
     "south-lyon-industrial":      ("(248) 970-9231", "12489702319"),
     "independence-twp-industrial": ("(248) 970-9231", "12489702319"),
     # Oakland County Retail
-    "oakland-retail":             ("(248) 629-2036", "12486292036"),
+    "west-bloomfield-industrial": ("(248) 970-9231", "12489702319"),
+    "royal-oak-industrial":       ("(248) 970-9231", "12489702319"),
+    "milford-industrial":         ("(248) 970-9231", "12489702319"),
+    "ferndale-industrial":        ("(248) 970-9231", "12489702319"),
+    "clarkston-industrial":       ("(248) 970-9231", "12489702319"),
+    # Oakland County Retail
     "highland-retail":            ("(248) 629-2036", "12486292036"),
+    "oakland-retail":             ("(248) 629-2036", "12486292036"),
     # Wayne County Industrial
     "wayne-industrial":           ("(313) 474-5937", "13134745937"),
     "taylor-industrial":          ("(313) 474-5937", "13134745937"),
@@ -51,6 +57,11 @@ PHONE_MAP = {
     "dearborn-heights-industrial": ("(313) 474-5937", "13134745937"),
     "brownstown-twp-industrial":  ("(313) 474-5937", "13134745937"),
     "northville-industrial":      ("(313) 474-5937", "13134745937"),
+    "woodhaven-industrial":       ("(313) 474-5937", "13134745937"),
+    "trenton-industrial":         ("(313) 474-5937", "13134745937"),
+    "southgate-industrial":       ("(313) 474-5937", "13134745937"),
+    "allen-park-industrial":      ("(313) 474-5937", "13134745937"),
+    "dearborn-hts-industrial":    ("(313) 474-5937", "13134745937"),
     # Genesee County Industrial
     "flint-industrial":           ("(810) 207-6329", "18102076329"),
     "genesee-industrial":         ("(810) 207-6329", "18102076329"),
@@ -60,6 +71,7 @@ PHONE_MAP = {
     # Washtenaw County
     "washtenaw-industrial":       ("(734) 821-3877", "17348213877"),
     "dexter-industrial":          ("(734) 821-3877", "17348213877"),
+    "ypsilanti-industrial":       ("(734) 821-3877", "17348213877"),
     # Livingston County
     "livingston-industrial":      ("(517) 618-9157", "15176189157"),
 }
@@ -98,6 +110,17 @@ SLUG_INBOX = {
     "dearborn-heights-industrial": 53,
     "brownstown-twp-industrial": 53,
     "northville-industrial": 53,
+    "woodhaven-industrial":       53,
+    "trenton-industrial":         53,
+    "southgate-industrial":       53,
+    "allen-park-industrial":      53,
+    "dearborn-hts-industrial":    53,
+    "west-bloomfield-industrial": 43,
+    "royal-oak-industrial":       43,
+    "milford-industrial":         43,
+    "ferndale-industrial":        43,
+    "clarkston-industrial":       43,
+    "ypsilanti-industrial":       51,
 }
 
 # Slug → FUB CRE Group ID (form submission — round-robin across live members)
@@ -121,6 +144,17 @@ SLUG_GROUP = {
     "independence-twp-industrial": 22,
     "washtenaw-industrial":  24,
     "dexter-industrial":     24,
+    "ypsilanti-industrial":  24,
+    "woodhaven-industrial":  26,
+    "trenton-industrial":    26,
+    "southgate-industrial":  26,
+    "allen-park-industrial": 26,
+    "dearborn-hts-industrial": 26,
+    "west-bloomfield-industrial": 22,
+    "royal-oak-industrial":  22,
+    "milford-industrial":    22,
+    "ferndale-industrial":   22,
+    "clarkston-industrial":  22,
 }
 
 # Non-agent pond IDs — eligible for reassignment (VA Support etc.)
@@ -604,15 +638,63 @@ def dashboard():
 
     # ── County map ────────────────────────────────────────────────────────────
     COUNTY_MAP = {
-        "fraser":      "Macomb",
-        "macomb":      "Macomb",
-        "highland":    "Oakland",
-        "oakland":     "Oakland",
-        "flint":       "Genesee",
-        "genesee":     "Genesee",
-        "wayne":       "Wayne",
-        "washtenaw":   "Washtenaw",
-        "livingston":  "Livingston",
+        # Macomb
+        "fraser":                  "Macomb",
+        "macomb":                  "Macomb",
+        "roseville":               "Macomb",
+        "chesterfield":            "Macomb",
+        # Oakland
+        "highland":                "Oakland",
+        "oak":                     "Oakland",
+        "hazel":                   "Oakland",
+        "waterford":               "Oakland",
+        "commerce":                "Oakland",
+        "springfield":             "Oakland",
+        "south":                   "Oakland",
+        "independence":            "Oakland",
+        "west":                    "Oakland",
+        "royal":                   "Oakland",
+        "milford":                 "Oakland",
+        "ferndale":                "Oakland",
+        "clarkston":               "Oakland",
+        "madison":                 "Oakland",
+        "farmington":              "Oakland",
+        "wixom":                   "Oakland",
+        "novi":                    "Oakland",
+        "auburn":                  "Oakland",
+        "pontiac":                 "Oakland",
+        "lapeer":                  "Oakland",
+        "oakland":                 "Oakland",
+        # Wayne
+        "wayne":                   "Wayne",
+        "taylor":                  "Wayne",
+        "wyandotte":               "Wayne",
+        "dearborn":                "Wayne",
+        "brownstown":              "Wayne",
+        "northville":              "Wayne",
+        "woodhaven":               "Wayne",
+        "trenton":                 "Wayne",
+        "southgate":               "Wayne",
+        "allen":                   "Wayne",
+        "livonia":                 "Wayne",
+        "plymouth":                "Wayne",
+        "canton":                  "Wayne",
+        "westland":                "Wayne",
+        "romulus":                 "Wayne",
+        # Genesee
+        "flint":                   "Genesee",
+        "genesee":                 "Genesee",
+        # Washtenaw
+        "washtenaw":               "Washtenaw",
+        "dexter":                  "Washtenaw",
+        "ypsilanti":               "Washtenaw",
+        "ann":                     "Washtenaw",
+        "saline":                  "Washtenaw",
+        "scio":                    "Washtenaw",
+        # Livingston
+        "livingston":              "Livingston",
+        "brighton":                "Livingston",
+        "howell":                  "Livingston",
     }
 
     # ── Date bounds ───────────────────────────────────────────────────────────
@@ -902,17 +984,58 @@ def gl_analytics():
     from collections import defaultdict
     slug_events = defaultdict(lambda: defaultdict(int))
     COUNTY_MAP_GL = {
-        "fraser":              "Macomb",
-        "roseville":           "Macomb",
-        "chesterfield":        "Macomb",
-        "highland":            "Oakland",
-        "white":               "Oakland",
-        "waterford":           "Oakland",
-        "commerce":            "Oakland",
-        "oak":                 "Oakland",
-        "hazel":               "Oakland",
-        "taylor":              "Wayne",
-        "wyandotte":           "Wayne",
+        # Macomb
+        "fraser":       "Macomb",
+        "roseville":    "Macomb",
+        "chesterfield": "Macomb",
+        # Oakland
+        "highland":     "Oakland",
+        "white":        "Oakland",
+        "waterford":    "Oakland",
+        "commerce":     "Oakland",
+        "oak":          "Oakland",
+        "hazel":        "Oakland",
+        "springfield":  "Oakland",
+        "south":        "Oakland",
+        "independence": "Oakland",
+        "west":         "Oakland",
+        "royal":        "Oakland",
+        "milford":      "Oakland",
+        "ferndale":     "Oakland",
+        "clarkston":    "Oakland",
+        "madison":      "Oakland",
+        "farmington":   "Oakland",
+        "wixom":        "Oakland",
+        "novi":         "Oakland",
+        # Wayne
+        "taylor":       "Wayne",
+        "wyandotte":    "Wayne",
+        "dearborn":     "Wayne",
+        "brownstown":   "Wayne",
+        "northville":   "Wayne",
+        "woodhaven":    "Wayne",
+        "trenton":      "Wayne",
+        "southgate":    "Wayne",
+        "allen":        "Wayne",
+        "livonia":      "Wayne",
+        "plymouth":     "Wayne",
+        "canton":       "Wayne",
+        "westland":     "Wayne",
+        "romulus":      "Wayne",
+        # Washtenaw
+        "washtenaw":    "Washtenaw",
+        "dexter":       "Washtenaw",
+        "ypsilanti":    "Washtenaw",
+        "ann":          "Washtenaw",
+        "saline":       "Washtenaw",
+        "scio":         "Washtenaw",
+        # Genesee
+        "flint":        "Genesee",
+        "genesee":      "Genesee",
+        # Livingston
+        "livingston":   "Livingston",
+        "brighton":     "Livingston",
+        "howell":       "Livingston",
     }
 
     slugs_meta  = {}
@@ -925,13 +1048,8 @@ def gl_analytics():
     # ── Pull city rows from GL Tracker for the batch table ───────────────────
     # Only rows for our 11 generated cities (rows 60–70 in tracker)
     # Columns: B=County, C=City, D=Vertical, G=Letters, S=Mail Date
-    BATCH_CITIES = {
-        "fraser", "roseville", "chesterfield", "highland",
-        "white lake", "waterford", "commerce township",
-        "oak park", "hazel park", "taylor", "wyandotte",
-    }
-
-    # Correct letter counts from regen (actual PDF page counts)
+    # All tracker cities are included dynamically — no hardcoded filter needed.
+    # Correct letter counts from regen (actual PDF page counts) — update as new cities are printed.
     LETTER_COUNTS = {
         "fraser-industrial":            179,
         "roseville-industrial":         217,
@@ -944,6 +1062,24 @@ def gl_analytics():
         "hazel-park-industrial":         97,
         "taylor-industrial":            185,
         "wyandotte-industrial":          57,
+        "dearborn-industrial":          183,
+        "dearborn-heights-industrial":   48,
+        "dearborn-hts-industrial":       48,
+        "taylor-industrial":            185,
+        "woodhaven-industrial":           9,
+        "west-bloomfield-industrial":     4,
+        "trenton-industrial":            45,
+        "springfield-twp-industrial":     2,
+        "south-lyon-industrial":         24,
+        "independence-twp-industrial":    1,
+        "southgate-industrial":          18,
+        "royal-oak-industrial":         139,
+        "northville-industrial":         39,
+        "milford-industrial":            48,
+        "ferndale-industrial":          145,
+        "clarkston-industrial":           2,
+        "allen-park-industrial":         23,
+        "ypsilanti-industrial":         129,
     }
 
     # Pull tracker rows
@@ -988,11 +1124,18 @@ def gl_analytics():
         _vertical = _r[2].strip() if len(_r) > 2 else ""
         _letters  = _r[5].strip() if len(_r) > 5 else ""
         _maildate = _cre_norm_date(_r[17].strip() if len(_r) > 17 else "")
-        _slug_key = f"{_city.lower().replace(' ','-')}-{_vertical.lower()}"
-        if _city.lower() in BATCH_CITIES and _slug_key not in seen_batch:
+        # Skip blank rows and header-like rows
+        if not _city or _city.lower() in ("city", "county", ""):
+            continue
+        # Skip rows that look like section headers or totals
+        if len(_city) < 2 or _city.isdigit():
+            continue
+        _slug_key = f"{_city.lower().replace(' ', '-')}-{_vertical.lower()}"
+        if _slug_key not in seen_batch:
             seen_batch.add(_slug_key)
             # Use regen count if available, else tracker
-            _count = LETTER_COUNTS.get(_slug_key, int(_letters) if _letters.isdigit() else 0)
+            _letters_clean = _letters.replace(",", "").split()[0] if _letters else ""
+            _count = LETTER_COUNTS.get(_slug_key, int(_letters_clean) if _letters_clean.isdigit() else 0)
             batch_rows.append({
                 "city":      _city,
                 "vertical":  _vertical,
