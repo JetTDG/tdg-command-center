@@ -665,7 +665,7 @@ def my_business():
         selected_type=type_filter,
         selected_lead_source=lead_source_filter,
         selected_admin=admin_filter,
-        years=list(range(2020, current_year()+1))
+        years=list(range(2020, current_year()+2))
     )
 
 @bp.route('/my-business/add', methods=['GET', 'POST'])
@@ -1047,7 +1047,7 @@ def lead_gen():
         selected_year=year,
         selected_month=month,
         selected_agent=agent_id,
-        years=list(range(2020, current_year()+1))
+        years=list(range(2020, current_year()+2))
     )
 
 @bp.route('/lead-gen/add', methods=['GET', 'POST'])
@@ -1262,7 +1262,7 @@ def leaderboard():
         selected_month=month,
         selected_category=category,
         months=months,
-        years=list(range(2020, current_year()+1))
+        years=list(range(2020, current_year()+2))
     )
 
 # ─── AUDIT LOG ──────────────────────────────────────────────────────────────
@@ -1813,7 +1813,7 @@ def ceo_summary():
         lg_buyer_set=lg[4] or 0,
         lg_buyer_held=lg[5] or 0,
         lg_buyers_signed=lg[6] or 0,
-        years=list(range(2020, current_year()+1))
+        years=list(range(2020, current_year()+2))
     )
 
 # ─── BUSINESS PLAN ──────────────────────────────────────────────────────────
@@ -1844,7 +1844,7 @@ def business_plan():
     return render_template('main/business_plan.html',
         board=board,
         year=year,
-        years=list(range(2020, current_year()+1))
+        years=list(range(2020, current_year()+2))
     )
 
 @bp.route('/business-plan/add', methods=['GET', 'POST'])
