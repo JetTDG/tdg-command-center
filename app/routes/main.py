@@ -622,7 +622,9 @@ def my_business():
         # Active = current status regardless of year (a listing active today is active)
         'active_listings': Transaction.query.filter_by(transaction_type='Listing', status='Active', archived=False).count(),
         'active_buyers':   Transaction.query.filter_by(transaction_type='Buyer',   status='Active', archived=False).count(),
-        'pending':         Transaction.query.filter(Transaction.archived==False, Transaction.status=='Pending',  year_filter(Transaction)).count(),
+        'pending':         Transaction.query.filter(Transaction.archived==False, Transaction.status=='Pending',
+                              Transaction.projected_close_date.isnot(None),
+                              extract('year', Transaction.projected_close_date) == year).count(),
         'closed':          Transaction.query.filter(Transaction.archived==False, Transaction.status=='Closed',   year_filter(Transaction)).count(),
         # Pipeline = Pre-Signed (signed but not yet under contract)
         'pipeline':        Transaction.query.filter(Transaction.archived==False, Transaction.status=='Pre-Signed', year_filter(Transaction)).count(),
