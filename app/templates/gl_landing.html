@@ -121,6 +121,11 @@
     .form-heading { font-size: 18px; font-weight: 800; color: #111; margin-bottom: 6px; }
     .form-sub { font-size: 13px; color: #888; margin-bottom: 24px; line-height: 1.5; }
 
+    /* Address-only emphasis */
+    .address-field label { font-size: 13px; font-weight: 800; color: #333; text-transform: none; letter-spacing: 0; margin-bottom: 8px; }
+    .address-field input { font-size: 16px; padding: 16px 14px; border-width: 2px; }
+    .address-field input:focus { border-color: #c9a84c; box-shadow: 0 0 0 3px rgba(201,168,76,0.12); }
+
     .cta-sms {
       display: flex; align-items: center; justify-content: center; gap: 10px;
       width: 100%; background: #c9a84c; color: #ffffff;
@@ -212,32 +217,24 @@
 
     <div class="right-panel">
       <p class="form-heading">Get Your Free Evaluation</p>
-      <p class="form-sub">Takes 30 seconds. We'll reach out within one business day.</p>
+      <p class="form-sub">Enter your property address and we'll have a valuation ready for you — no obligation.</p>
 
       <a href="sms:{{ phone_raw }}?body=Hi%2C%20I%20received%20your%20letter%20and%20I%27m%20interested%20in%20a%20free%20property%20evaluation%20%5B{{ city }}%20{{ vertical }}%5D." class="cta-sms">
         <span class="sms-icon">💬</span>
         Tap to Text for Free Property Evaluation
       </a>
 
-      <div class="or-row">or leave your info</div>
+      <div class="or-row">or submit your address</div>
 
       <form id="evalForm" method="POST" action="/gl/{{ slug }}/submit">
         <input type="hidden" name="city" value="{{ city }}" />
         <input type="hidden" name="vertical" value="{{ vertical }}" />
         <input type="hidden" name="slug" value="{{ slug }}" />
-        <div class="field">
-          <label>Your Name</label>
-          <input type="text" name="name" placeholder="John Smith" autocomplete="name" />
+        <div class="field address-field">
+          <label>Property Address</label>
+          <input type="text" name="address" id="addressInput" placeholder="123 Main St, {{ city }}, MI" autocomplete="street-address" required />
         </div>
-        <div class="field">
-          <label>Phone Number</label>
-          <input type="tel" name="phone" placeholder="(555) 555-5555" autocomplete="tel" required />
-        </div>
-        <div class="field">
-          <label>Property Address <span style="color:#bbb;font-weight:400;">(optional)</span></label>
-          <input type="text" name="address" placeholder="123 Main St, {{ city }}, MI" />
-        </div>
-        <button type="submit" class="cta-form">Request Free Property Evaluation →</button>
+        <button type="submit" id="submitBtn" class="cta-form" disabled style="opacity:.5;cursor:not-allowed;">Enter your address above →</button>
       </form>
 
       <div class="success-msg" id="successMsg">
@@ -270,6 +267,20 @@
       msg.style.display = 'block';
       msg.scrollIntoView({behavior: 'smooth', block: 'center'});
     }
+
+    // Enable submit button only when address has content
+    var addrInput = document.getElementById('addressInput');
+    var submitBtn = document.getElementById('submitBtn');
+    if (addrInput && submitBtn) {
+      addrInput.addEventListener('input', function() {
+        var hasVal = this.value.trim().length > 3;
+        submitBtn.disabled = !hasVal;
+        submitBtn.style.opacity = hasVal ? '1' : '.5';
+        submitBtn.style.cursor = hasVal ? 'pointer' : 'not-allowed';
+        submitBtn.textContent = hasVal ? 'Request Free Property Evaluation \u2192' : 'Enter your address above \u2192';
+      });
+    }
+
     // Beacon SMS tap event for tracking
     document.querySelector('.cta-sms').addEventListener('click', function() {
       var slug = window.location.pathname.split('/gl/')[1] || '';

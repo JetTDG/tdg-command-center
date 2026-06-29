@@ -203,12 +203,104 @@ def _apply_ap(person_id, headers: dict):
         log.warning(f"GL: AP apply exception: {e}")
 
 
+def _normalize_address(addr: str) -> str:
+    """
+    Normalize an address string for fuzzy comparison.
+    Lowercases, expands common abbreviations, strips unit/suite/apt suffixes,
+    strips state + zip from the tail, and collapses whitespace.
+    """
+    import re
+    a = addr.lower().strip()
+    # Expand abbreviations
+    abbrevs = {
+        r'\bst\b\.?':   'street',
+        r'\bave\b\.?':  'avenue',
+        r'\bblvd\b\.?': 'boulevard',
+        r'\bdr\b\.?':   'drive',
+        r'\brd\b\.?':   'road',
+        r'\bln\b\.?':   'lane',
+        r'\bct\b\.?':   'court',
+        r'\bpl\b\.?':   'place',
+        r'\bpkwy\b\.?': 'parkway',
+        r'\bhwy\b\.?':  'highway',
+        r'\bsq\b\.?':   'square',
+        r'\bter\b\.?':  'terrace',
+        r'\bcir\b\.?':  'circle',
+    }
+    for pattern, replacement in abbrevs.items():
+        a = re.sub(pattern, replacement, a)
+    # Strip unit/suite/apt
+    a = re.sub(r'\b(suite|ste|unit|apt|#)\s*[\w-]+', '', a)
+    # Strip state abbreviation + zip from tail (e.g. ", MI 48306" or "MI 48306")
+    a = re.sub(r',?\s+[a-z]{2}\s+\d{5}(-\d{4})?$', '', a)
+    # Collapse whitespace + punctuation
+    a = re.sub(r'[,]+', ' ', a)
+    a = re.sub(r'\s+', ' ', a).strip()
+    return a
+
+
+def _fub_find_by_address(address: str, headers: dict) -> dict | None:
+    """
+    Search FUB for an existing contact by address.
+    Normalizes both the query address and stored addresses for comparison.
+    Returns the first matching person dict, or None.
+    """
+    import re
+    norm_query = _normalize_address(address)
+    # Extract street number to anchor the match
+    street_num_match = re.match(r'^(\d+)', norm_query)
+    street_num = street_num_match.group(1) if street_num_match else None
+
+    # Search FUB by street (first word chunk before any comma)
+    search_term = norm_query.split()[0:3]  # "123 main street" → first 3 tokens
+    try:
+        r = http.get(f"{FUB_BASE}/people",
+                     params={"q": " ".join(search_term), "limit": 10},
+                     headers=headers, timeout=15)
+        if r.status_code != 200:
+            return None
+        people = r.json().get("people", [])
+    except Exception as e:
+        log.warning(f"GL: address FUB search error: {e}")
+        return None
+
+    for person in people:
+        stored_addrs = person.get("addresses", [])
+        if not stored_addrs:
+            continue
+        for addr_obj in stored_addrs:
+            raw = addr_obj.get("street") or addr_obj.get("value") or ""
+            if not raw:
+                continue
+            norm_stored = _normalize_address(raw)
+            # Must share street number AND enough of the normalized string
+            if street_num and not norm_stored.startswith(street_num):
+                continue
+            # Check at least 80% token overlap
+            q_tokens = set(norm_query.split())
+            s_tokens = set(norm_stored.split())
+            if q_tokens and len(q_tokens & s_tokens) / len(q_tokens) >= 0.8:
+                log.info(f"GL: address match — query='{norm_query}' stored='{norm_stored}' personId={person.get('id')}")
+                return person
+    return None
+
+
 def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertical: str):
     """
     Push a CRE GL form lead to FUB with full routing logic:
-    - New contact → round-robin assign from CRE group → apply AP 259
-    - Existing in non-agent pond → reassign via round-robin → apply AP 259
-    - Existing with real agent → tag only, NO reassignment, NO AP (agent owns it)
+
+    Dedup order:
+      1. Phone match (if phone provided)
+      2. Address match (normalized fuzzy — always attempted)
+
+    Routing rules (in order of priority):
+      A. Real agent assigned, NOT in a pond  → tag + AP only. Never touch assignment.
+      B. Real agent assigned, IN a pond      → keep same agent, clear pond (assignedPondId=0), apply AP.
+      C. No real agent / pond-only           → round-robin assign from county group, clear pond, apply AP.
+      D. No match found                      → create new contact, round-robin assign, apply AP.
+      E. Empty address submitted             → caller guards this; returns early.
+
+    RULE: NEVER move a contact from one real agent to another real agent.
     Returns (fub_id, status)
     """
     try:
@@ -252,10 +344,8 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
             idx = _get_rr_index(group_id, len(group_members))
             return group_members[idx]
 
-        # ── Check for existing FUB record by phone ───────────────────────────
-        existing_id = None
-        existing_assigned_id = None
-        existing_assigned_to = None
+        # ── Step 1: Dedup by phone ───────────────────────────────────────────
+        existing = None
         if phone:
             clean_phone = ''.join(c for c in phone if c.isdigit())
             r_check = http.get(f"{FUB_BASE}/people",
@@ -264,18 +354,37 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
             if r_check.status_code == 200:
                 people = r_check.json().get("people", [])
                 if people:
-                    p = people[0]
-                    existing_id = p.get("id")
-                    existing_assigned_id = p.get("assignedUserId") or p.get("assignedTo", {}).get("id") if isinstance(p.get("assignedTo"), dict) else None
-                    existing_assigned_to = p.get("assignedTo") if isinstance(p.get("assignedTo"), str) else (p.get("assignedTo") or {}).get("name", "")
-                    log.info(f"GL: Found existing FUB {existing_id} assigned to '{existing_assigned_to}' (id={existing_assigned_id})")
+                    existing = people[0]
+                    log.info(f"GL: Phone match → FUB {existing.get('id')}")
 
-        # ── EXISTING CONTACT ─────────────────────────────────────────────────
-        if existing_id:
-            has_real_agent = _is_real_agent(existing_assigned_id, existing_assigned_to)
+        # ── Step 2: Dedup by address (if no phone match) ─────────────────────
+        if not existing and address:
+            existing = _fub_find_by_address(address, headers)
+            if existing:
+                log.info(f"GL: Address match → FUB {existing.get('id')}")
 
-            if has_real_agent:
-                # Real agent owns this — tag only, no reassign, but ALWAYS apply AP
+        # ── Helper: extract assignment from a FUB person dict ────────────────
+        def _parse_assignment(person: dict):
+            assigned_to_raw = person.get("assignedTo")
+            assigned_id = (
+                person.get("assignedUserId")
+                or (assigned_to_raw.get("id") if isinstance(assigned_to_raw, dict) else None)
+            )
+            assigned_name = (
+                assigned_to_raw if isinstance(assigned_to_raw, str)
+                else ((assigned_to_raw or {}).get("name", "") if isinstance(assigned_to_raw, dict) else "")
+            )
+            pond_id = person.get("assignedPondId") or None
+            return assigned_id, assigned_name, pond_id
+
+        # ── Existing contact routing ─────────────────────────────────────────
+        if existing:
+            existing_id = existing.get("id")
+            assigned_id, assigned_name, pond_id = _parse_assignment(existing)
+            has_real_agent = _is_real_agent(assigned_id, assigned_name)
+
+            if has_real_agent and not pond_id:
+                # Rule A: Real agent owns it, not in any pond — tag + AP only, never touch
                 http.put(f"{FUB_BASE}/people/{existing_id}",
                          json={"tags": [FUB_TAG, city_vertical_tag]},
                          headers=headers, timeout=15)
@@ -283,12 +392,37 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
                 http.post(f"{FUB_BASE}/notes",
                           json={"personId": existing_id, "body": note_text},
                           headers=headers, timeout=15)
-                log.info(f"GL: Existing real-agent contact {existing_id} — tagged + AP applied, no reassign")
+                log.info(f"GL: Rule A — existing real-agent contact {existing_id} ('{assigned_name}') — tagged + AP, no reassign")
                 return str(existing_id), "tagged_existing_agent"
+
+            elif has_real_agent and pond_id:
+                # Rule B: Real agent assigned BUT sitting in a pond — keep agent, clear pond
+                update = {
+                    "tags": [FUB_TAG, city_vertical_tag],
+                    "assignedUserId": assigned_id,   # same agent, explicit re-set
+                    "assignedPondId": 0,              # clear pond
+                }
+                if address:
+                    update["addresses"] = [{"street": address, "type": "property"}]
+                r = http.put(f"{FUB_BASE}/people/{existing_id}",
+                             json=update, headers=headers, timeout=15)
+                if r.status_code in (200, 201):
+                    _apply_ap(existing_id, headers)
+                    http.post(f"{FUB_BASE}/notes",
+                              json={"personId": existing_id, "body": note_text},
+                              headers=headers, timeout=15)
+                    log.info(f"GL: Rule B — contact {existing_id} pond-cleared, kept with agent '{assigned_name}' ({assigned_id}) + AP")
+                    return str(existing_id), "pond_cleared_kept_agent"
+                log.warning(f"GL: Rule B update failed {r.status_code}: {r.text[:200]}")
+                return str(existing_id), "update_failed"
+
             else:
-                # Pond/VA/unassigned — reassign via round-robin + AP
+                # Rule C: No real agent / pond-only — round-robin assign, clear pond
                 next_agent = pick_next_agent()
-                update = {"tags": [FUB_TAG, city_vertical_tag]}
+                update = {
+                    "tags": [FUB_TAG, city_vertical_tag],
+                    "assignedPondId": 0,
+                }
                 if next_agent:
                     update["assignedUserId"] = next_agent
                 if phone:
@@ -307,12 +441,12 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
                     http.post(f"{FUB_BASE}/notes",
                               json={"personId": existing_id, "body": note_text},
                               headers=headers, timeout=15)
-                    log.info(f"GL: Pond contact {existing_id} reassigned to agent {next_agent} + AP applied")
+                    log.info(f"GL: Rule C — pond contact {existing_id} reassigned to agent {next_agent} + AP")
                     return str(existing_id), "reassigned"
-                log.warning(f"GL: Reassign failed {r.status_code}: {r.text[:200]}")
+                log.warning(f"GL: Rule C update failed {r.status_code}: {r.text[:200]}")
                 return str(existing_id), "update_failed"
 
-        # ── NEW CONTACT ──────────────────────────────────────────────────────
+        # ── Rule D: New contact — create with round-robin assignment ─────────
         next_agent = pick_next_agent()
         inbox_id = SLUG_INBOX.get(slug)
 
@@ -343,7 +477,7 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
                 http.post(f"{FUB_BASE}/notes",
                           json={"personId": fub_id, "body": note_text},
                           headers=headers, timeout=15)
-            log.info(f"GL: Created FUB {fub_id} assigned to agent {next_agent} + AP applied")
+            log.info(f"GL: Rule D — created FUB {fub_id} assigned to agent {next_agent} + AP")
             return str(fub_id) if fub_id else None, "created"
         elif r.status_code == 409:
             dup_id = r.json().get("id")
@@ -422,10 +556,13 @@ def submit(slug):
     city     = request.form.get("city", slug.split("-")[0].title())
     vertical = request.form.get("vertical", "Commercial")
 
-    # Push to FUB as long as we have at least something useful
-    fub_id, fub_status = None, None
-    if name or phone or address:
-        fub_id, fub_status = _fub_push(name, phone, address, slug, city, vertical)
+    # Guard: address is required — never write a blank record
+    if not address:
+        log.warning(f"[GL SUBMIT] {slug} — blank address submitted, ignoring")
+        return redirect(f"/gl/{slug}")
+
+    # Push to FUB
+    fub_id, fub_status = _fub_push(name, phone, address, slug, city, vertical)
 
     _log_event(slug, city, vertical, event_type="form_submit",
                name=name, phone=phone, address=address,

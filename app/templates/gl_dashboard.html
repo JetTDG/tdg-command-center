@@ -246,7 +246,7 @@
   {% endif %}
 
   <!-- SUMMARY CARDS -->
-  <div class="cards">
+    <div class="cards">
     <div class="card gold">
       <div class="label">QR Scans</div>
       <div class="value">{{ totals.scans }}</div>
@@ -256,7 +256,7 @@
       <div class="value">{{ totals.sms_taps }}</div>
     </div>
     <div class="card green">
-      <div class="label">Form Submits</div>
+      <div class="label">Addr Submits</div>
       <div class="value">{{ totals.form_submits }}</div>
     </div>
     <div class="card purple">
@@ -295,7 +295,7 @@
           <th>County</th>
           <th class="right sorted" title="Sort by QR Scans">QR Scans <span class="sort-arrow">↓</span></th>
           <th class="right">SMS Taps</th>
-          <th class="right">Form Submits</th>
+          <th class="right">Addr Submits</th>
           <th class="right">Conversion</th>
           <th class="right">Calls In</th>
           <th class="right">Calls Out</th>
@@ -393,7 +393,7 @@
   </div>
 
   <div class="note">
-    <strong>Conversion Rate</strong> = Form Submits ÷ QR Scans &nbsp;·&nbsp;
+    <strong>Conversion Rate</strong> = Address Submits ÷ QR Scans &nbsp;·&nbsp;
     <strong>Days Live</strong> = days since first scan recorded &nbsp;·&nbsp;
     <strong>Calls/Texts</strong> = all FUB activity on tracked phone numbers (not date-filtered — FUB API counts totals per number) &nbsp;·&nbsp;
     <strong>Email tracking</strong> coming soon
