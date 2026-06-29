@@ -2,18 +2,20 @@
 docs.py — Document Pipeline dashboard for TDG Command Center.
 
 Routes:
-  GET  /doc-pipeline          — main dashboard (filter by type, period, search)
+  GET  /doc-pipeline          — main dashboard (filter by type, year/month, search, sort)
   POST /api/doc-pipeline/sync — receive sync payload from Mac-side cron (HMAC-protected)
 """
 from __future__ import annotations
 
+import calendar as _cal
 import hashlib
 import hmac
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, render_template, request
 from flask_login import login_required
+from sqlalchemy import extract
 
 from app import db
 from app.models import DocEnvelope
@@ -77,20 +79,73 @@ STAGE_BADGE = {
 
 
 # ── Dashboard route ───────────────────────────────────────────────────────────
+VALID_SORT_COLS = {'sent', 'completed', 'agent', 'doc_type', 'stage'}
+
 @bp.route('/doc-pipeline')
 @login_required
 def doc_pipeline():
     q_type    = request.args.get('doc_type', '')
-    q_period  = request.args.get('period', '30')   # days; '' = all time
     q_search  = (request.args.get('search', '') or '').strip()
     q_stage   = request.args.get('stage', '')
 
+    # ── Year / Month / date-range filter (same pattern as My Business) ────────
+    current_yr = datetime.utcnow().year
+    q_year     = int(request.args.get('year', current_yr))
+    q_month    = request.args.get('month', '')      # '' = all months
+    q_date_from = request.args.get('date_from', '')
+    q_date_to   = request.args.get('date_to', '')
+
+    # ── Sort ──────────────────────────────────────────────────────────────────
+    q_sort = request.args.get('sort', 'sent')
+    q_dir  = request.args.get('dir', 'desc')
+    if q_sort not in VALID_SORT_COLS:
+        q_sort = 'sent'
+    if q_dir not in ('asc', 'desc'):
+        q_dir = 'desc'
+
     query = DocEnvelope.query
 
-    # Period filter
-    if q_period and q_period.isdigit():
-        cutoff = datetime.utcnow() - timedelta(days=int(q_period))
-        query = query.filter(DocEnvelope.created_at >= cutoff)
+    # Year filter — applied to sent_at, falling back to created_at
+    from sqlalchemy import extract as sa_extract, or_ as sa_or_, and_ as sa_and_
+    query = query.filter(
+        sa_or_(
+            sa_extract('year', DocEnvelope.sent_at)    == q_year,
+            sa_and_(DocEnvelope.sent_at == None,
+                    sa_extract('year', DocEnvelope.created_at) == q_year),
+        )
+    )
+
+    # Month filter
+    if q_month and q_month.isdigit():
+        m = int(q_month)
+        if q_date_from and q_date_to:
+            try:
+                dt_from = datetime.strptime(q_date_from, '%Y-%m-%d')
+                dt_to   = datetime.strptime(q_date_to,   '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+                query = query.filter(
+                    sa_or_(
+                        sa_and_(DocEnvelope.sent_at    >= dt_from, DocEnvelope.sent_at    <= dt_to),
+                        sa_and_(DocEnvelope.sent_at    == None,
+                                DocEnvelope.created_at >= dt_from, DocEnvelope.created_at <= dt_to),
+                    )
+                )
+            except ValueError:
+                # bad date format — fall back to month-only
+                query = query.filter(
+                    sa_or_(
+                        sa_extract('month', DocEnvelope.sent_at)    == m,
+                        sa_and_(DocEnvelope.sent_at == None,
+                                sa_extract('month', DocEnvelope.created_at) == m),
+                    )
+                )
+        else:
+            query = query.filter(
+                sa_or_(
+                    sa_extract('month', DocEnvelope.sent_at)    == m,
+                    sa_and_(DocEnvelope.sent_at == None,
+                            sa_extract('month', DocEnvelope.created_at) == m),
+                )
+            )
 
     # Doc type filter
     if q_type:
@@ -114,23 +169,40 @@ def doc_pipeline():
             )
         )
 
-    envelopes = query.order_by(DocEnvelope.created_at.desc()).all()
+    # ── Sort ──────────────────────────────────────────────────────────────────
+    sort_col_map = {
+        'sent':     DocEnvelope.sent_at,
+        'completed': DocEnvelope.completed_at,
+        'agent':    DocEnvelope.agent_name,
+        'doc_type': DocEnvelope.doc_type,
+        'stage':    DocEnvelope.stage,
+    }
+    sort_col = sort_col_map.get(q_sort, DocEnvelope.sent_at)
+    if q_dir == 'asc':
+        query = query.order_by(sort_col.asc().nullslast())
+    else:
+        query = query.order_by(sort_col.desc().nullslast())
 
-    # Summary counts by stage (full unfiltered period)
+    envelopes = query.all()
+
+    # Summary counts by stage (same year filter applied, no month/search restriction)
     stage_counts: dict[str, int] = {}
     for stage in STAGE_ORDER:
-        base = DocEnvelope.query
-        if q_period and q_period.isdigit():
-            cutoff = datetime.utcnow() - timedelta(days=int(q_period))
-            base = base.filter(DocEnvelope.created_at >= cutoff)
+        base = DocEnvelope.query.filter(
+            sa_or_(
+                sa_extract('year', DocEnvelope.sent_at)    == q_year,
+                sa_and_(DocEnvelope.sent_at == None,
+                        sa_extract('year', DocEnvelope.created_at) == q_year),
+            )
+        )
         stage_counts[stage] = base.filter(DocEnvelope.stage == stage).count()
-
-    # Doc type breakdown
-    all_types = [r[0] for r in db.session.query(DocEnvelope.doc_type).distinct().all() if r[0]]
 
     # Last sync time
     latest = DocEnvelope.query.order_by(DocEnvelope.last_synced_at.desc()).first()
     last_sync = latest.last_synced_at if latest else None
+
+    month_names = [(str(i), _cal.month_name[i]) for i in range(1, 13)]
+    years = list(range(2023, current_yr + 1))
 
     return render_template(
         'main/doc_pipeline.html',
@@ -139,11 +211,17 @@ def doc_pipeline():
         stage_labels=STAGE_LABELS,
         stage_badge=STAGE_BADGE,
         doc_type_labels=DOC_TYPE_LABELS,
-        all_types=all_types,
         q_type=q_type,
-        q_period=q_period,
         q_search=q_search,
         q_stage=q_stage,
+        q_year=q_year,
+        q_month=q_month,
+        q_date_from=q_date_from,
+        q_date_to=q_date_to,
+        q_sort=q_sort,
+        q_dir=q_dir,
+        month_names=month_names,
+        years=years,
         last_sync=last_sync,
         total=len(envelopes),
     )

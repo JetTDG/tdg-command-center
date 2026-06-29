@@ -132,6 +132,14 @@
     width: 7px; height: 7px; border-radius: 50%;
     background: var(--tdg-green); display: inline-block;
   }
+
+  /* ── Sortable column headers ─────────────────────────────────────────────── */
+  .sort-link {
+    color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  }
+  .sort-link:hover { color: var(--tdg-gold); }
+  .sort-link .sort-icon { font-size: 0.65rem; opacity: 0.5; }
+  .sort-link.active-sort .sort-icon { opacity: 1; color: var(--tdg-gold); }
 </style>
 {% endblock %}
 
@@ -166,7 +174,7 @@
   {% for stage, label in stage_labels.items() %}
   {% set is_active = (q_stage == stage) %}
   <a href="{{ url_for('docs.doc_pipeline',
-       doc_type=q_type, period=q_period, search=q_search,
+       doc_type=q_type, year=q_year, month=q_month, date_from=q_date_from, date_to=q_date_to, search=q_search,
        stage=('' if is_active else stage)) }}"
      class="stage-card sc-{{ stage }} {% if is_active %}active{% endif %}">
     <div class="sc-icon"><i class="bi {{ stage_icon[stage] }}"></i></div>
@@ -179,6 +187,8 @@
 <!-- ── Filters ─────────────────────────────────────────────────────────── -->
 <form method="get" id="filterForm">
   <input type="hidden" name="stage" value="{{ q_stage }}">
+  <input type="hidden" name="sort"  value="{{ q_sort }}">
+  <input type="hidden" name="dir"   value="{{ q_dir }}">
   <div class="filter-bar">
     <!-- Search -->
     <div class="f-grp f-grp-search">
@@ -196,17 +206,38 @@
         {% endfor %}
       </select>
     </div>
-    <!-- Period -->
+    <!-- Year -->
     <div class="f-grp">
-      <label class="form-label">Time Period</label>
-      <select class="form-select" name="period" onchange="this.form.submit()">
-        <option value="7"  {% if q_period=='7'  %}selected{% endif %}>Last 7 days</option>
-        <option value="14" {% if q_period=='14' %}selected{% endif %}>Last 14 days</option>
-        <option value="30" {% if q_period=='30' %}selected{% endif %}>Last 30 days</option>
-        <option value="60" {% if q_period=='60' %}selected{% endif %}>Last 60 days</option>
-        <option value="90" {% if q_period=='90' %}selected{% endif %}>Last 90 days</option>
-        <option value=""   {% if q_period==''   %}selected{% endif %}>All time</option>
+      <label class="form-label">Year</label>
+      <select class="form-select" name="year" onchange="dpMonthChanged()">
+        {% for y in years %}
+        <option value="{{ y }}" {% if y == q_year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
       </select>
+    </div>
+    <!-- Month -->
+    <div class="f-grp">
+      <label class="form-label">Month</label>
+      <select class="form-select" name="month" id="dp-month-select" onchange="dpMonthChanged()">
+        <option value="" {% if not q_month %}selected{% endif %}>All Months</option>
+        {% for num, name in month_names %}
+        <option value="{{ num }}" {% if q_month == num %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <!-- Date range — shown only when a month is selected -->
+    <div class="f-grp" id="dp-date-range-wrap"
+         style="display:{% if q_month %}flex{% else %}none{% endif %};align-items:flex-end;gap:4px;">
+      <div style="display:flex;flex-direction:column;">
+        <label class="form-label">From</label>
+        <input type="date" name="date_from" class="form-control form-control-sm" style="height:34px;font-size:0.82rem;"
+               value="{{ q_date_from }}" id="dp-date-from">
+      </div>
+      <div style="display:flex;flex-direction:column;">
+        <label class="form-label">To</label>
+        <input type="date" name="date_to" class="form-control form-control-sm" style="height:34px;font-size:0.82rem;"
+               value="{{ q_date_to }}" id="dp-date-to">
+      </div>
     </div>
     <!-- Submit / Clear -->
     <div class="f-grp justify-content-end">
@@ -223,6 +254,18 @@
   </div>
 </form>
 
+<script>
+function dpMonthChanged() {
+  var m = document.getElementById('dp-month-select').value;
+  var wrap = document.getElementById('dp-date-range-wrap');
+  wrap.style.display = m ? 'flex' : 'none';
+  if (!m) {
+    document.getElementById('dp-date-from').value = '';
+    document.getElementById('dp-date-to').value   = '';
+  }
+}
+</script>
+
 <!-- ── Count line ───────────────────────────────────────────────────────── -->
 <div class="d-flex justify-content-between align-items-center mb-2 px-1">
   <span style="font-size:0.8rem;color:var(--tdg-muted)">
@@ -230,6 +273,7 @@
     {% if q_search %} matching "<em>{{ q_search }}</em>"{% endif %}
     {% if q_type %} · {{ doc_type_labels.get(q_type, q_type) }}{% endif %}
     {% if q_stage %} · {{ stage_labels.get(q_stage, q_stage) }}{% endif %}
+    {% if q_month %} · {{ month_names[q_month|int - 1][1] }} {{ q_year }}{% else %} · {{ q_year }}{% endif %}
   </span>
 </div>
 
@@ -239,13 +283,22 @@
   <table class="table table-hover" id="dpTable">
     <thead>
       <tr>
-        <th>Doc Type</th>
+        {% macro sort_th(col, label) %}
+          {% set is_active = (q_sort == col) %}
+          {% set next_dir  = 'asc' if (is_active and q_dir == 'desc') else 'desc' %}
+          {% set icon = 'bi-arrow-up' if (is_active and q_dir == 'asc') else 'bi-arrow-down' if (is_active and q_dir == 'desc') else 'bi-arrow-down-up' %}
+          <a href="{{ url_for('docs.doc_pipeline', doc_type=q_type, year=q_year, month=q_month, date_from=q_date_from, date_to=q_date_to, search=q_search, stage=q_stage, sort=col, dir=next_dir) }}"
+             class="sort-link {% if is_active %}active-sort{% endif %}">
+            {{ label }}<i class="bi {{ icon }} sort-icon"></i>
+          </a>
+        {% endmacro %}
+        <th>{{ sort_th('doc_type', 'Doc Type') }}</th>
         <th>Address / Party</th>
-        <th>Agent</th>
+        <th>{{ sort_th('agent', 'Agent') }}</th>
         <th>Signers</th>
-        <th>Stage</th>
-        <th>Sent</th>
-        <th>Completed</th>
+        <th>{{ sort_th('stage', 'Stage') }}</th>
+        <th>{{ sort_th('sent', 'Sent') }}</th>
+        <th>{{ sort_th('completed', 'Completed') }}</th>
       </tr>
     </thead>
     <tbody>
