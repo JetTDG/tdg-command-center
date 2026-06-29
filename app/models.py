@@ -343,7 +343,9 @@ class DocEnvelope(db.Model):
     __tablename__ = 'doc_envelopes'
     id               = db.Column(db.Integer, primary_key=True)
     envelope_id      = db.Column(db.String(100), unique=True, nullable=False, index=True)
-    doc_type         = db.Column(db.String(50), index=True)   # mutual_release | nda | buyer | listing | buyer_addendum | seller_addendum | offers_out | unknown
+    doc_type         = db.Column(db.String(50), index=True)   # mutual_release | nda | buyer | listing | cre_listing | commercial_pa | seller_counter | offers_out | addendum | unknown
+    source           = db.Column(db.String(20), nullable=False, default='api')           # 'api' | 'personal'
+    division         = db.Column(db.String(20), nullable=False, default='Residential')   # 'Residential' | 'CRE'
     subject          = db.Column(db.String(400))
     ds_status        = db.Column(db.String(30), index=True)   # sent | delivered | completed | voided | declined
     stage            = db.Column(db.String(60), index=True)   # awaiting_agent_signature | awaiting_client_signature | completed | voided | declined

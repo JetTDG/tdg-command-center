@@ -110,11 +110,28 @@
   .dt-nda               { background: #f3e8ff; color: #7c3aed; }
   .dt-buyer             { background: #dcfce7; color: #166534; }
   .dt-listing           { background: #fef9c3; color: #854d0e; }
-  .dt-buyer_addendum    { background: #dcfce7; color: #166534; }
-  .dt-seller_addendum   { background: #fef9c3; color: #854d0e; }
+  .dt-cre_listing       { background: #fde68a; color: #92400e; }
+  .dt-commercial_pa     { background: #e0e7ff; color: #3730a3; }
+  .dt-seller_counter    { background: #fce7f3; color: #9d174d; }
   .dt-offers_out        { background: #fee2e2; color: #991b1b; }
   .dt-addendum          { background: #fff7ed; color: #9a3412; }
   .dt-unknown           { background: #f1f5f9; color: #64748b; }
+
+  /* ── Division pill ──────────────────────────────────────────────────────── */
+  .div-pill {
+    display: inline-block; font-size: 0.67rem; font-weight: 700;
+    padding: 1px 7px; border-radius: 3px; white-space: nowrap; letter-spacing: .02em;
+  }
+  .div-res { background: #dcfce7; color: #166534; }
+  .div-cre { background: #e0e7ff; color: #3730a3; }
+
+  /* ── Source badge ───────────────────────────────────────────────────────── */
+  .src-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 0.67rem; font-weight: 600; padding: 1px 6px; border-radius: 3px; white-space: nowrap;
+  }
+  .src-api      { background: #dcfce7; color: #166534; }
+  .src-personal { background: #fef9c3; color: #854d0e; }
 
   /* ── Empty state ────────────────────────────────────────────────────────── */
   .dp-empty {
@@ -174,7 +191,8 @@
   {% for stage, label in stage_labels.items() %}
   {% set is_active = (q_stage == stage) %}
   <a href="{{ url_for('docs.doc_pipeline',
-       doc_type=q_type, year=q_year, month=q_month, date_from=q_date_from, date_to=q_date_to, search=q_search,
+       doc_type=q_type, division=q_division, source=q_source,
+       year=q_year, month=q_month, date_from=q_date_from, date_to=q_date_to, search=q_search,
        stage=('' if is_active else stage)) }}"
      class="stage-card sc-{{ stage }} {% if is_active %}active{% endif %}">
     <div class="sc-icon"><i class="bi {{ stage_icon[stage] }}"></i></div>
@@ -196,6 +214,15 @@
       <input class="form-control" name="search" value="{{ q_search }}"
              placeholder="Name, address, company…" id="searchInput">
     </div>
+    <!-- Division -->
+    <div class="f-grp">
+      <label class="form-label">Division</label>
+      <select class="form-select" name="division" onchange="this.form.submit()">
+        <option value="" {% if not q_division %}selected{% endif %}>All</option>
+        <option value="Residential" {% if q_division == 'Residential' %}selected{% endif %}>Residential</option>
+        <option value="CRE" {% if q_division == 'CRE' %}selected{% endif %}>CRE</option>
+      </select>
+    </div>
     <!-- Doc type -->
     <div class="f-grp">
       <label class="form-label">Document Type</label>
@@ -204,6 +231,15 @@
         {% for key, label in doc_type_labels.items() %}
         <option value="{{ key }}" {% if q_type == key %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
+      </select>
+    </div>
+    <!-- Source -->
+    <div class="f-grp">
+      <label class="form-label">Source</label>
+      <select class="form-select" name="source" onchange="this.form.submit()">
+        <option value="" {% if not q_source %}selected{% endif %}>All</option>
+        <option value="api"      {% if q_source == 'api' %}selected{% endif %}>API Account</option>
+        <option value="personal" {% if q_source == 'personal' %}selected{% endif %}>Personal Account</option>
       </select>
     </div>
     <!-- Year -->
@@ -301,6 +337,8 @@ function dpMonthChanged() {
     <thead>
       <tr>
         <th class="dp-col-hdr" data-col="0"><div class="dp-hdr-inner"><span class="dp-hdr-label">Doc Type</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
+        <th class="dp-col-hdr" data-col="7"><div class="dp-hdr-inner"><span class="dp-hdr-label">Division</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span></span></div></th>
+        <th class="dp-col-hdr" data-col="8"><div class="dp-hdr-inner"><span class="dp-hdr-label">Source</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span></span></div></th>
         <th class="dp-col-hdr" data-col="1"><div class="dp-hdr-inner"><span class="dp-hdr-label">Address / Party</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
         <th class="dp-col-hdr" data-col="2"><div class="dp-hdr-inner"><span class="dp-hdr-label">Agent</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
         <th>Signers</th>
@@ -321,6 +359,23 @@ function dpMonthChanged() {
           <span class="dtype-chip dt-{{ env.doc_type }}">
             {{ doc_type_labels.get(env.doc_type, env.doc_type) }}
           </span>
+        </td>
+
+        <!-- Division -->
+        <td data-col="7" data-val="{{ env.division or 'Residential' }}">
+          {% set div_val = env.division or 'Residential' %}
+          <span class="div-pill {% if div_val == 'CRE' %}div-cre{% else %}div-res{% endif %}">
+            {{ div_val }}
+          </span>
+        </td>
+
+        <!-- Source -->
+        <td data-col="8" data-val="{{ env.source or 'api' }}">
+          {% if (env.source or 'api') == 'personal' %}
+            <span class="src-badge src-personal"><i class="bi bi-person-fill"></i> Personal</span>
+          {% else %}
+            <span class="src-badge src-api"><i class="bi bi-plug-fill"></i> API</span>
+          {% endif %}
         </td>
 
         <!-- Address / Party -->

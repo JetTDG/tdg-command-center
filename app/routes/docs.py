@@ -59,9 +59,10 @@ DOC_TYPE_LABELS = {
     'mutual_release':    'Mutual Release',
     'nda':               'Commercial NDA',
     'buyer':             'Buyer Docs',
-    'listing':           'Listing Docs',
-    'buyer_addendum':    'Buyer Addendum',
-    'seller_addendum':   'Seller Addendum',
+    'listing':           'Listing Docs (Res)',
+    'cre_listing':       'CRE Listing Agreement',
+    'commercial_pa':     'Commercial PA',
+    'seller_counter':    'Seller Signed Offer Docs',
     'offers_out':        'Offers Out',
     'addendum':          'Addendum',
     'unknown':           'Other',
@@ -84,9 +85,11 @@ VALID_SORT_COLS = {'sent', 'completed', 'agent', 'doc_type', 'stage'}
 @bp.route('/doc-pipeline')
 @login_required
 def doc_pipeline():
-    q_type    = request.args.get('doc_type', '')
-    q_search  = (request.args.get('search', '') or '').strip()
-    q_stage   = request.args.get('stage', '')
+    q_type     = request.args.get('doc_type', '')
+    q_search   = (request.args.get('search', '') or '').strip()
+    q_stage    = request.args.get('stage', '')
+    q_division = request.args.get('division', '')   # '' | 'Residential' | 'CRE'
+    q_source   = request.args.get('source', '')     # '' | 'api' | 'personal'
 
     # ── Year / Month / date-range filter (same pattern as My Business) ────────
     current_yr = datetime.utcnow().year
@@ -151,6 +154,14 @@ def doc_pipeline():
     if q_type:
         query = query.filter(DocEnvelope.doc_type == q_type)
 
+    # Division filter
+    if q_division:
+        query = query.filter(DocEnvelope.division == q_division)
+
+    # Source filter
+    if q_source:
+        query = query.filter(DocEnvelope.source == q_source)
+
     # Stage filter
     if q_stage:
         query = query.filter(DocEnvelope.stage == q_stage)
@@ -214,6 +225,8 @@ def doc_pipeline():
         q_type=q_type,
         q_search=q_search,
         q_stage=q_stage,
+        q_division=q_division,
+        q_source=q_source,
         q_year=q_year,
         q_month=q_month,
         q_date_from=q_date_from,
@@ -261,6 +274,8 @@ def sync_envelopes():
             rec.subject          = env.get('subject', '')
             rec.ds_status        = env.get('ds_status', '')
             rec.stage            = env.get('stage', '')
+            rec.source           = env.get('source', 'api')
+            rec.division         = env.get('division', 'Residential')
             rec.property_address = env.get('property_address', '')
             rec.party_label      = env.get('party_label', '')
             rec.agent_name       = env.get('agent_name', '')
