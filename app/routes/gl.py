@@ -1299,15 +1299,33 @@ def gl_analytics():
                                params={"limit": 1, "sharedInboxId": _iid},
                                headers=_fub_hdrs, timeout=15)
                 if _rc.status_code == 200:
-                    _calls = _rc.json().get("_metadata", {}).get("total", 0)
+                    # Count only inbound calls (property owners calling in)
+                    # Must paginate — metadata total includes outbound
+                    _call_params = {"limit": 200, "sharedInboxId": _iid}
+                    _next = None
+                    while True:
+                        if _next:
+                            _call_params["next"] = _next
+                        _rcp = http.get(f"{FUB_BASE}/calls", params=_call_params,
+                                        headers=_fub_hdrs, timeout=15)
+                        if _rcp.status_code != 200:
+                            break
+                        _cd = _rcp.json()
+                        _calls += sum(1 for c in _cd.get("calls", [])
+                                      if c.get("isIncoming"))
+                        _next = _cd.get("_metadata", {}).get("next")
+                        if not _next:
+                            break
             except Exception:
                 pass
             try:
                 _rt = http.get(f"{FUB_BASE}/textMessages",
-                               params={"limit": 1, "sharedInboxId": _iid},
+                               params={"limit": 200, "sharedInboxId": _iid},
                                headers=_fub_hdrs, timeout=15)
                 if _rt.status_code == 200:
-                    _texts = _rt.json().get("_metadata", {}).get("total", 0)
+                    # FUB returns key as lowercase "textmessages"
+                    _texts = sum(1 for t in _rt.json().get("textmessages", [])
+                                 if t.get("isInbound", t.get("isIncoming", False)))
             except Exception:
                 pass
             inbox_activity[_iid] = {"calls": _calls, "texts": _texts}
