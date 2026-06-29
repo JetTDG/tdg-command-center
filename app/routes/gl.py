@@ -496,11 +496,17 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
             payload["phones"] = [{"value": phone, "type": "mobile"}]
         if address:
             payload["addresses"] = [{"street": address, "type": "property"}]
+
+        # FUB requires at least one identifier — use placeholder when no name/phone
+        # so address-only submissions (skip-trace workflow) still get created.
         if name:
             parts = name.strip().split(None, 1)
             payload["firstName"] = parts[0]
             if len(parts) > 1:
                 payload["lastName"] = parts[1]
+        else:
+            payload["firstName"] = "Property"
+            payload["lastName"] = "Owner"
 
         r = http.post(f"{FUB_BASE}/people", json=payload, headers=headers, timeout=15)
         if r.status_code in (200, 201):
