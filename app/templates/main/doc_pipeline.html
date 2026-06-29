@@ -278,16 +278,19 @@ function dpMonthChanged() {
 </div>
 
 <!-- ── Filter dropdown (shared, hidden until triggered) ──────────────── -->
-<div id="dp-fdd" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);min-width:220px;max-width:300px;padding:10px;">
-  <input id="dp-fdd-search" type="text" class="form-control form-control-sm mb-2" placeholder="Search…" autocomplete="off">
-  <div id="dp-fdd-boxes" style="max-height:260px;overflow-y:auto;font-size:0.82rem;"></div>
-  <div class="d-flex gap-1 mt-2" style="font-size:0.75rem;">
-    <a href="#" id="dp-fdd-all"   style="color:var(--tdg-muted)">All</a> ·
-    <a href="#" id="dp-fdd-none"  style="color:var(--tdg-muted)">None</a>
+<div id="dp-fdd" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #dee2e6;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);min-width:210px;max-width:280px;padding:8px;">
+  <input id="dp-fdd-search" type="text" class="form-control form-control-sm mb-1" placeholder="Search…" style="font-size:0.8rem" autocomplete="off">
+  <div class="d-flex gap-2 mb-2" style="font-size:0.78rem">
+    <a href="#" id="dp-fdd-all"   style="color:var(--tdg-gold);text-decoration:none">Select All</a>
+    <span style="color:#ccc">|</span>
+    <a href="#" id="dp-fdd-blank" style="color:var(--tdg-gold);text-decoration:none">Blank Only</a>
+    <span style="color:#ccc">|</span>
+    <a href="#" id="dp-fdd-none"  style="color:#aaa;text-decoration:none">None</a>
   </div>
-  <div class="d-flex gap-2 mt-2">
-    <button id="dp-fdd-apply" class="btn btn-sm flex-grow-1" style="background:var(--tdg-gold);color:#fff;border:none">Apply</button>
-    <button id="dp-fdd-clear" class="btn btn-sm btn-outline-secondary">Clear</button>
+  <div id="dp-fdd-boxes" style="max-height:220px;overflow-y:auto;font-size:0.82rem;"></div>
+  <div class="d-flex gap-1 mt-2">
+    <button id="dp-fdd-apply" class="btn btn-sm btn-gold w-50">Apply</button>
+    <button id="dp-fdd-clear" class="btn btn-sm btn-outline-secondary w-50">Clear</button>
   </div>
 </div>
 
@@ -704,8 +707,9 @@ document.getElementById('searchInput').addEventListener('keydown', function(e) {
     dd.style.display = 'none';
   });
 
-  document.getElementById('dp-fdd-all').addEventListener('click',  e => { e.preventDefault(); fddBoxes.querySelectorAll('input').forEach(i => i.checked = true); });
-  document.getElementById('dp-fdd-none').addEventListener('click', e => { e.preventDefault(); fddBoxes.querySelectorAll('input').forEach(i => i.checked = false); });
+  document.getElementById('dp-fdd-all').addEventListener('click',   e => { e.preventDefault(); fddBoxes.querySelectorAll('input').forEach(i => i.checked = true); });
+  document.getElementById('dp-fdd-blank').addEventListener('click', e => { e.preventDefault(); fddBoxes.querySelectorAll('input').forEach(i => { i.checked = i.value === ''; }); });
+  document.getElementById('dp-fdd-none').addEventListener('click',  e => { e.preventDefault(); fddBoxes.querySelectorAll('input').forEach(i => i.checked = false); });
 
   // Close on outside click
   document.addEventListener('click', e => {
