@@ -564,7 +564,7 @@ def my_business_csv():
         ('Bonus',           lambda t: fmt_num(t.bonus)),
         ('Tx Fee',          lambda t: fmt_num(t.transaction_fee)),
         ('Broker Split',    lambda t: fmt_num(t.broker_split)),
-        ('Franchise',       lambda t: fmt_num(t.franchise_fee)),
+        ('Franchise',       lambda t: fmt_num(t.franchise_split)),
         ('Referral',        lambda t: fmt_num(t.referral_fee)),
         ('Primary Agent',   lambda t: t.primary_agent_name or ''),
         ('Pri%',            lambda t: f"{t.primary_agent_pct*100:.1f}" if t.primary_agent_pct else ''),
