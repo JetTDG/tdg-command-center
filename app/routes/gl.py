@@ -330,7 +330,7 @@ def _batchdata_enrich(address: str) -> dict:
         import sys as _sys
         _sys.path.insert(0, "/Users/edentdg/.hermes/scripts")
         from vault_cache_reader import read_credential as _rc
-        bd_key = os.environ.get("BATCHDATA_API_KEY") or _rc(
+        bd_key = os.environ.get("BATCHDATA_API_KEY") or os.environ.get("EDEN_JET_SHARE__BATCH_DATA_API__CREDENTIAL") or _rc(
             "Eden + Jet Share", "Batch Data API", "credential")
         if not bd_key:
             log.warning("GL: BatchData key not found — skipping pre-enrichment")
