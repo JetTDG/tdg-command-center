@@ -1636,8 +1636,25 @@ def ceo_summary():
             - (t.eo_fee or 0)
         )
 
-    all_closed  = Transaction.query.filter_by(year=year, status='Closed', archived=False).all()
-    all_pending = Transaction.query.filter_by(year=year, status='Pending', archived=False).all()
+    # Use the same year-matching logic as My Business so CEO Summary always agrees:
+    # Closed/non-pending: year column OR (year IS NULL AND close_date year) OR (year IS NULL AND close_date IS NULL AND signed_date year)
+    # Pending: projected_close_date year (a deal signed last year can close this year)
+    _year_col_filter = or_(
+        Transaction.year == year,
+        and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
+        and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year),
+    )
+    all_closed = Transaction.query.filter(
+        Transaction.archived == False,
+        Transaction.status == 'Closed',
+        _year_col_filter,
+    ).all()
+    all_pending = Transaction.query.filter(
+        Transaction.archived == False,
+        Transaction.status == 'Pending',
+        Transaction.projected_close_date.isnot(None),
+        extract('year', Transaction.projected_close_date) == year,
+    ).all()
 
     # Same-day cutoff for prior-year comparison
     # e.g. if today is Jun 12 2026, compare vs Jan 1 – Jun 12 2025
