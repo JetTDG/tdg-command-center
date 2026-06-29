@@ -1257,12 +1257,57 @@ def gl_analytics():
     total_batch = sum(r["letters"] for r in batch_rows)
 
 
-    # ── FUB Calls + Texts per GL inbox ───────────────────────────────────────
-    # Each GL phone number has a dedicated FUB shared inbox. We query calls and
-    # textMessages per inbox to get inbound engagement counts.
-    # Note: multiple slugs share one inbox (county-level granularity), so per-city
-    # columns show the county total and are flagged with a shared-inbox indicator.
+    # ── FUB Calls + Texts per GL inbox — filtered to since mail date ─────────
+    # FUB API has no server-side date filter on calls/textMessages, so we fetch
+    # all records per inbox (volume is small, ~100 max) and filter client-side
+    # by created >= earliest mail date among slugs using that inbox.
+    # Inboxes with no mailed slugs are skipped entirely (letters not sent yet).
     import base64 as _b64_fub, sys as _sys_fub
+    from datetime import datetime as _dt, timezone as _tz
+    import re as _re_dt
+
+    def _parse_mail_date_to_dt(date_str):
+        """Parse 'M/D/YY' or 'M/D/YYYY' → UTC-aware datetime. Returns None on fail."""
+        if not date_str:
+            return None
+        # Extract the first M/D/YY(YY) token (ignore ' & ' multi-date strings — use earliest)
+        tokens = _re_dt.findall(r'\d{1,2}/\d{1,2}(?:/\d{2,4})?', date_str)
+        best = None
+        for tok in tokens:
+            parts = tok.split('/')
+            try:
+                mo, dy = int(parts[0]), int(parts[1])
+                yr = int(parts[2]) if len(parts) > 2 else 26
+                if yr < 100:
+                    yr += 2000
+                candidate = _dt(yr, mo, dy, tzinfo=_tz.utc)
+                if best is None or candidate < best:
+                    best = candidate
+            except (ValueError, IndexError):
+                pass
+        return best
+
+    # Build slug → mail_date_dt from batch_rows (already parsed earlier in this route)
+    _slug_mail_dt = {}
+    for _br in batch_rows:
+        _md = _br.get("mail_date")
+        if not _md:
+            continue
+        _city_part  = _br["city"].lower().replace(" ", "-")
+        _vert_part  = _br["vertical"].lower()
+        _slug_key   = f"{_city_part}-{_vert_part}"
+        _parsed     = _parse_mail_date_to_dt(_md)
+        if _parsed:
+            _slug_mail_dt[_slug_key] = _parsed
+
+    # inbox_id → earliest mail date (min across all mailed slugs sharing that inbox)
+    _inbox_mail_dt = {}
+    for _sl, _iid in SLUG_INBOX.items():
+        _md_dt = _slug_mail_dt.get(_sl)
+        if _md_dt:
+            if _iid not in _inbox_mail_dt or _md_dt < _inbox_mail_dt[_iid]:
+                _inbox_mail_dt[_iid] = _md_dt
+
     _fub_key = os.environ.get("FUB_API_KEY", "")
     if not _fub_key:
         try:
@@ -1272,7 +1317,7 @@ def gl_analytics():
         except Exception:
             pass
 
-    # inbox_id → {calls, texts}
+    # inbox_id → {calls, texts} — only for mailed inboxes, only since mail date
     inbox_activity = {}
     if _fub_key:
         _fub_auth = _b64_fub.b64encode(f"{_fub_key}:".encode()).decode()
@@ -1282,27 +1327,47 @@ def gl_analytics():
             "X-System": "TDG-GL-Analytics",
             "X-System-Key": _fub_key,
         }
-        # Unique inbox IDs across all GL slugs
-        _all_inbox_ids = set(SLUG_INBOX.values())
-        for _iid in _all_inbox_ids:
-            _calls = _texts = 0
-            try:
-                _rc = http.get(f"{FUB_BASE}/calls",
-                               params={"limit": 1, "sharedInboxId": _iid},
-                               headers=_fub_hdrs, timeout=15)
-                if _rc.status_code == 200:
-                    _calls = _rc.json().get("_metadata", {}).get("total", 0)
-            except Exception:
-                pass
-            try:
-                _rt = http.get(f"{FUB_BASE}/textMessages",
-                               params={"limit": 1, "sharedInboxId": _iid},
-                               headers=_fub_hdrs, timeout=15)
-                if _rt.status_code == 200:
-                    _texts = _rt.json().get("_metadata", {}).get("total", 0)
-            except Exception:
-                pass
-            inbox_activity[_iid] = {"calls": _calls, "texts": _texts}
+
+        def _fetch_since(endpoint, inbox_id, since_dt):
+            """Fetch all records for an inbox and count those created >= since_dt."""
+            count = 0
+            params = {"limit": 200, "sharedInboxId": inbox_id}
+            next_token = None
+            while True:
+                if next_token:
+                    params["next"] = next_token
+                try:
+                    r = http.get(f"{FUB_BASE}/{endpoint}", params=params,
+                                 headers=_fub_hdrs, timeout=15)
+                    if r.status_code != 200:
+                        break
+                    data = r.json()
+                    key  = "calls" if endpoint == "calls" else "textMessages"
+                    for rec in data.get(key, []):
+                        created_str = rec.get("created", "")
+                        if created_str:
+                            try:
+                                rec_dt = _dt.fromisoformat(
+                                    created_str.replace("Z", "+00:00"))
+                                if rec_dt >= since_dt:
+                                    count += 1
+                            except ValueError:
+                                pass
+                    next_token = data.get("_metadata", {}).get("next")
+                    if not next_token:
+                        break
+                except Exception:
+                    break
+            return count
+
+        for _iid, _since in _inbox_mail_dt.items():
+            _calls = _fetch_since("calls", _iid, _since)
+            _texts = _fetch_since("textMessages", _iid, _since)
+            inbox_activity[_iid] = {
+                "calls": _calls,
+                "texts": _texts,
+                "since": _since.strftime("%b %-d, %Y"),
+            }
 
     # Reverse map: inbox_id → list of slugs (to detect shared inboxes)
     from collections import defaultdict as _dd
@@ -1323,6 +1388,7 @@ def gl_analytics():
         _act         = inbox_activity.get(_iid, {"calls": 0, "texts": 0}) if _iid else {"calls": 0, "texts": 0}
         _inbox_calls = _act["calls"]
         _inbox_texts = _act["texts"]
+        _inbox_since = _act.get("since", "")
         _shared      = len(_inbox_to_slugs.get(_iid, [])) > 1 if _iid else False
         city_stats.append({
             "slug":         slug,
@@ -1335,6 +1401,7 @@ def gl_analytics():
             "sms":          sms,
             "inbox_calls":  _inbox_calls,
             "inbox_texts":  _inbox_texts,
+            "inbox_since":  _inbox_since,
             "inbox_shared": _shared,   # True = other cities share this phone number
             "scan_pct":     round(scans / letters * 100, 1) if letters else 0,
             "form_pct":     round(forms / letters * 100, 1) if letters else 0,
