@@ -1191,6 +1191,7 @@ def gl_analytics():
     }
 
     # Pull tracker rows
+    _gsvc = None
     try:
         from googleapiclient.discovery import build as goog_build
         from google.oauth2.credentials import Credentials as GCreds
@@ -1256,32 +1257,103 @@ def gl_analytics():
     total_batch = sum(r["letters"] for r in batch_rows)
 
 
+    # ── FUB Calls + Texts per GL inbox ───────────────────────────────────────
+    # Each GL phone number has a dedicated FUB shared inbox. We query calls and
+    # textMessages per inbox to get inbound engagement counts.
+    # Note: multiple slugs share one inbox (county-level granularity), so per-city
+    # columns show the county total and are flagged with a shared-inbox indicator.
+    import base64 as _b64_fub, sys as _sys_fub
+    _fub_key = os.environ.get("FUB_API_KEY", "")
+    if not _fub_key:
+        try:
+            _sys_fub.path.insert(0, "/Users/edentdg/.hermes/scripts")
+            from vault_cache_reader import read_credential as _rc_fub
+            _fub_key = _rc_fub("Jet-Automations", "Jet FUb Key 6.3.26", "API Key")
+        except Exception:
+            pass
+
+    # inbox_id → {calls, texts}
+    inbox_activity = {}
+    if _fub_key:
+        _fub_auth = _b64_fub.b64encode(f"{_fub_key}:".encode()).decode()
+        _fub_hdrs = {
+            "Authorization": f"Basic {_fub_auth}",
+            "Content-Type": "application/json",
+            "X-System": "TDG-GL-Analytics",
+            "X-System-Key": _fub_key,
+        }
+        # Unique inbox IDs across all GL slugs
+        _all_inbox_ids = set(SLUG_INBOX.values())
+        for _iid in _all_inbox_ids:
+            _calls = _texts = 0
+            try:
+                _rc = http.get(f"{FUB_BASE}/calls",
+                               params={"limit": 1, "sharedInboxId": _iid},
+                               headers=_fub_hdrs, timeout=15)
+                if _rc.status_code == 200:
+                    _calls = _rc.json().get("_metadata", {}).get("total", 0)
+            except Exception:
+                pass
+            try:
+                _rt = http.get(f"{FUB_BASE}/textMessages",
+                               params={"limit": 1, "sharedInboxId": _iid},
+                               headers=_fub_hdrs, timeout=15)
+                if _rt.status_code == 200:
+                    _texts = _rt.json().get("_metadata", {}).get("total", 0)
+            except Exception:
+                pass
+            inbox_activity[_iid] = {"calls": _calls, "texts": _texts}
+
+    # Reverse map: inbox_id → list of slugs (to detect shared inboxes)
+    from collections import defaultdict as _dd
+    _inbox_to_slugs = _dd(list)
+    for _sl, _iid in SLUG_INBOX.items():
+        _inbox_to_slugs[_iid].append(_sl)
+
     # ── Build per-slug stats ──────────────────────────────────────────────────
     city_stats = []
     for slug, meta in sorted(slugs_meta.items(), key=lambda x: x[0]):
-        events = slug_events[slug]
+        events  = slug_events[slug]
         letters = LETTER_COUNTS.get(slug, 0)
         scans   = events.get("scan", 0)
         forms   = events.get("form_submit", 0)
         sms     = events.get("sms_tap", 0)
+        # Attach inbox calls/texts for this slug's county group
+        _iid         = SLUG_INBOX.get(slug)
+        _act         = inbox_activity.get(_iid, {"calls": 0, "texts": 0}) if _iid else {"calls": 0, "texts": 0}
+        _inbox_calls = _act["calls"]
+        _inbox_texts = _act["texts"]
+        _shared      = len(_inbox_to_slugs.get(_iid, [])) > 1 if _iid else False
         city_stats.append({
-            "slug":     slug,
-            "city":     meta["city"],
-            "vertical": meta["vertical"],
-            "county":   meta.get("county", ""),
-            "letters":  letters,
-            "scans":    scans,
-            "forms":    forms,
-            "sms":      sms,
-            "scan_pct":  round(scans / letters * 100, 1) if letters else 0,
-            "form_pct":  round(forms / letters * 100, 1) if letters else 0,
-            "sms_pct":   round(sms   / letters * 100, 1) if letters else 0,
+            "slug":         slug,
+            "city":         meta["city"],
+            "vertical":     meta["vertical"],
+            "county":       meta.get("county", ""),
+            "letters":      letters,
+            "scans":        scans,
+            "forms":        forms,
+            "sms":          sms,
+            "inbox_calls":  _inbox_calls,
+            "inbox_texts":  _inbox_texts,
+            "inbox_shared": _shared,   # True = other cities share this phone number
+            "scan_pct":     round(scans / letters * 100, 1) if letters else 0,
+            "form_pct":     round(forms / letters * 100, 1) if letters else 0,
+            "sms_pct":      round(sms   / letters * 100, 1) if letters else 0,
             "response_pct": round((forms + sms) / letters * 100, 1) if letters else 0,
         })
 
     # ── Totals ────────────────────────────────────────────────────────────────
     total_letters = sum(s["letters"] for s in city_stats)
     total_scans   = sum(s["scans"]   for s in city_stats)
+    # True totals: sum inbox activity once per inbox (not once per slug)
+    _seen_inboxes  = set()
+    total_calls    = 0
+    total_texts    = 0
+    for _iid, _act in inbox_activity.items():
+        if _iid not in _seen_inboxes:
+            _seen_inboxes.add(_iid)
+            total_calls += _act["calls"]
+            total_texts += _act["texts"]
     total_forms   = sum(s["forms"]   for s in city_stats)
     total_sms     = sum(s["sms"]     for s in city_stats)
     total_responses = total_forms + total_sms
@@ -1319,10 +1391,14 @@ def gl_analytics():
         total_scans=total_scans,
         total_forms=total_forms,
         total_sms=total_sms,
+        total_calls=total_calls,
+        total_texts=total_texts,
         total_responses=total_responses,
         scan_pct  =round(total_scans/total_letters*100,1) if total_letters else 0,
         form_pct  =round(total_forms/total_letters*100,1) if total_letters else 0,
         sms_pct   =round(total_sms/total_letters*100,1)   if total_letters else 0,
+        calls_pct =round(total_calls/total_letters*100,1) if total_letters else 0,
+        texts_pct =round(total_texts/total_letters*100,1) if total_letters else 0,
         resp_pct  =round(total_responses/total_letters*100,1) if total_letters else 0,
         chart_labels=chart_labels,
         chart_scans=chart_scans,
