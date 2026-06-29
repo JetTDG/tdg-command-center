@@ -1416,9 +1416,12 @@ def api_ask():
     schema = """
 DB: PostgreSQL. Tables:
 - transactions(id, primary_agent_name, transaction_type, status, client_name, address,
-  sale_price, list_price, gci, signed_date, close_date, projected_close_date, year, month,
+  sale_price, list_price, gci, signed_date, mls_live_date, expiry_date, under_contract_date,
+  close_date, projected_close_date, year, month,
   lead_source, primary_agent_gci, secondary_agent_name, secondary_agent_gci,
   referral_fee, transaction_fee, franchise_split, broker_split, notes, archived)
+  NOTE: "under_contract_date" is the date a deal went under contract (was pended). Use this
+  field for any question about "pended", "went pending", "U/C date", or "under contract date".
 - agents(id, name, status, role)
 - lead_gen_log(id, agent_id, log_date, listing_appts_set, listing_appts_held,
   listings_signed, buyer_appts_set, buyer_appts_held, buyers_signed, contacts)
@@ -1439,6 +1442,13 @@ CRITICAL QUERY RULES:
 3. For "how many active listings/buyers" (current pipeline): WHERE transaction_type=X AND status='Active' AND archived=FALSE.
 4. For year-comparison questions ("which year had more closes"), query ALL years with GROUP BY EXTRACT(YEAR FROM close_date). No archived filter.
 5. NEVER say you lack data — always run the query and return actual results.
+6. For "pended last week", "U/C date last week Mon-Sun", or "how many went pending last week":
+   Use under_contract_date with date_trunc/interval math. Example:
+   WHERE under_contract_date >= date_trunc('week', CURRENT_DATE - INTERVAL '7 days')
+     AND under_contract_date < date_trunc('week', CURRENT_DATE)
+   (This gives Mon–Sun of the previous calendar week.)
+   DO NOT filter by status for U/C date queries — use under_contract_date as the signal.
+7. For "pended this month" or "U/C date this month": WHERE under_contract_date >= date_trunc('month', CURRENT_DATE) AND under_contract_date < CURRENT_DATE + 1.
 Agent name matching: use ILIKE '%name%'
 """
 
