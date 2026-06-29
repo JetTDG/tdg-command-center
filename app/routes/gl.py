@@ -533,10 +533,12 @@ def _make_qr(slug: str) -> bytes:
 def landing(slug):
     phone, phone_raw, city, vertical = _lookup(slug)
     _log_event(slug, city, vertical, event_type="scan")
+    maps_key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
     return render_template(
         "gl_landing.html",
         slug=slug, city=city, vertical=vertical,
         phone=phone, phone_raw=phone_raw,
+        maps_key=maps_key,
     )
 
 

@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Free Property Evaluation | TDG Commercial</title>
+  {% if maps_key %}
+  <script src="https://maps.googleapis.com/maps/api/js?key={{ maps_key }}&libraries=places&callback=initAutocomplete" async defer></script>
+  {% endif %}
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -257,7 +260,7 @@
   </footer>
 
   <script>
-    // Show success if redirected back after form submit
+    // ── Success state ──────────────────────────────────────────────────────────
     if (window.location.search.includes('submitted=1')) {
       document.getElementById('evalForm').style.display = 'none';
       document.querySelector('.cta-sms').style.display = 'none';
@@ -267,20 +270,47 @@
       msg.scrollIntoView({behavior: 'smooth', block: 'center'});
     }
 
-    // Enable submit button only when address has content
-    var addrInput = document.getElementById('addressInput');
-    var submitBtn = document.getElementById('submitBtn');
-    if (addrInput && submitBtn) {
-      addrInput.addEventListener('input', function() {
-        var hasVal = this.value.trim().length > 3;
-        submitBtn.disabled = !hasVal;
-        submitBtn.style.opacity = hasVal ? '1' : '.5';
-        submitBtn.style.cursor = hasVal ? 'pointer' : 'not-allowed';
-        submitBtn.textContent = hasVal ? 'Request Free Property Evaluation \u2192' : 'Enter your address above \u2192';
+    // ── Google Places Autocomplete ─────────────────────────────────────────────
+    function initAutocomplete() {
+      var input = document.getElementById('addressInput');
+      if (!input || typeof google === 'undefined') return;
+      var ac = new google.maps.places.Autocomplete(input, {
+        types: ['address'],
+        componentRestrictions: { country: 'us' },
+        fields: ['formatted_address']
+      });
+      ac.addListener('place_changed', function() {
+        var place = ac.getPlace();
+        if (place && place.formatted_address) {
+          input.value = place.formatted_address;
+        }
+        enableBtn(input.value);
       });
     }
 
-    // Beacon SMS tap event for tracking
+    // ── Button enable/disable ──────────────────────────────────────────────────
+    function enableBtn(val) {
+      var btn = document.getElementById('submitBtn');
+      var on = val.trim().length > 3;
+      btn.disabled = !on;
+      btn.style.opacity = on ? '1' : '.5';
+      btn.style.cursor = on ? 'pointer' : 'not-allowed';
+      btn.textContent = on ? 'Request Free Property Evaluation \u2192' : 'Enter your address above \u2192';
+    }
+
+    var addrInput = document.getElementById('addressInput');
+    if (addrInput) {
+      addrInput.addEventListener('input', function() { enableBtn(this.value); });
+    }
+
+    // Init autocomplete once Maps script loads (async)
+    if (typeof google !== 'undefined') {
+      initAutocomplete();
+    } else {
+      window.initAutocomplete = initAutocomplete;
+    }
+
+    // ── SMS beacon ────────────────────────────────────────────────────────────
     document.querySelector('.cta-sms').addEventListener('click', function() {
       var slug = window.location.pathname.split('/gl/')[1] || '';
       fetch('/gl/' + slug + '/sms', {method:'GET', keepalive:true}).catch(function(){});
