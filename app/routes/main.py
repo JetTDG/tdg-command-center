@@ -125,11 +125,21 @@ def home():
         )
 
     def pending_count_q(division_filter=None):
-        q = Transaction.query.filter(Transaction.archived == False, Transaction.status == 'Pending', mb_year_filter())
+        q = Transaction.query.filter(
+            Transaction.archived == False,
+            Transaction.status == 'Pending',
+            Transaction.projected_close_date.isnot(None),
+            extract('year', Transaction.projected_close_date) == year,
+        )
         return _div_filter(q, division_filter).count()
 
     def pending_gci_q(division_filter=None):
-        q = db.session.query(func.sum(Transaction.gci)).filter(Transaction.archived == False, Transaction.status == 'Pending', mb_year_filter())
+        q = db.session.query(func.sum(Transaction.gci)).filter(
+            Transaction.archived == False,
+            Transaction.status == 'Pending',
+            Transaction.projected_close_date.isnot(None),
+            extract('year', Transaction.projected_close_date) == year,
+        )
         return float(_div_filter(q, division_filter).scalar() or 0)
 
     pending_count = pending_count_q()
@@ -345,7 +355,7 @@ def home():
                 Transaction.archived == False,
                 Transaction.status == 'Pending',
                 Transaction.projected_close_date.isnot(None),
-                mb_year_filter(),
+                extract('year', Transaction.projected_close_date) == year,
                 extract('month', Transaction.projected_close_date) == m,
             )
             pending_q = _div_filter(pending_q, division_filter)
@@ -374,7 +384,7 @@ def home():
                 Transaction.archived == False,
                 Transaction.status == 'Pending',
                 Transaction.projected_close_date.isnot(None),
-                mb_year_filter(),
+                extract('year', Transaction.projected_close_date) == year,
                 extract('month', Transaction.projected_close_date) == m,
             )
             pending_q = _div_filter(pending_q, division_filter)
@@ -436,12 +446,21 @@ def home():
 
 def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter, type_filter, lead_source_filter, admin_filter):
     """Shared query builder for My Business — used by both view and CSV export."""
+    # Pending uses projected_close_date year — not the year column — so that deals
+    # originally signed in a prior year but projected to close this year are included.
+    # Closed / all other statuses continue to use the year column (same as before).
     query = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(
         Transaction.archived == False,
         or_(
-            Transaction.year == year,
-            and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
-            and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year)
+            and_(Transaction.status == 'Pending',
+                 Transaction.projected_close_date.isnot(None),
+                 extract('year', Transaction.projected_close_date) == year),
+            and_(Transaction.status != 'Pending',
+                 or_(
+                     Transaction.year == year,
+                     and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
+                     and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year)
+                 ))
         )
     )
     if month_filter:
