@@ -216,15 +216,7 @@
     </div>
 
     <div class="right-panel">
-      <p class="form-heading">Get Your Free Evaluation</p>
-      <p class="form-sub">Enter your property address and we'll have a valuation ready for you — no obligation.</p>
-
-      <a href="sms:{{ phone_raw }}?body=Hi%2C%20I%20received%20your%20letter%20and%20I%27m%20interested%20in%20a%20free%20property%20evaluation%20%5B{{ city }}%20{{ vertical }}%5D." class="cta-sms">
-        <span class="sms-icon">💬</span>
-        Tap to Text for Free Property Evaluation
-      </a>
-
-      <div class="or-row">or submit your address</div>
+      <p class="form-heading">Get Your Free Property Evaluation Now</p>
 
       <form id="evalForm" method="POST" action="/gl/{{ slug }}/submit">
         <input type="hidden" name="city" value="{{ city }}" />
@@ -236,6 +228,13 @@
         </div>
         <button type="submit" id="submitBtn" class="cta-form" disabled style="opacity:.5;cursor:not-allowed;">Enter your address above →</button>
       </form>
+
+      <div class="or-row" style="margin-top:20px;">or text us directly</div>
+
+      <a href="sms:{{ phone_raw }}?body=Hi%2C%20I%20received%20your%20letter%20and%20I%27m%20interested%20in%20a%20free%20property%20evaluation%20%5B{{ city }}%20{{ vertical }}%5D." class="cta-sms" style="margin-bottom:0;">
+        <span class="sms-icon">💬</span>
+        Tap to Text for Free Property Evaluation
+      </a>
 
       <div class="success-msg" id="successMsg">
         <div class="check">✅</div>
