@@ -491,8 +491,7 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
         }
         if next_agent:
             payload["assignedUserId"] = next_agent
-        if inbox_id:
-            payload["sharedInboxId"] = inbox_id
+        # Note: sharedInboxId is not supported on people create — removed
         if phone:
             payload["phones"] = [{"value": phone, "type": "mobile"}]
         if address:
