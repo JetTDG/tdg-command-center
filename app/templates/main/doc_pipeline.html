@@ -269,12 +269,26 @@ function dpMonthChanged() {
 <!-- ── Count line ───────────────────────────────────────────────────────── -->
 <div class="d-flex justify-content-between align-items-center mb-2 px-1">
   <span style="font-size:0.8rem;color:var(--tdg-muted)">
-    Showing <strong>{{ total }}</strong> envelope{{ 's' if total != 1 else '' }}
+    Showing <strong id="dp-count-line">{{ total }}</strong> envelope{{ 's' if total != 1 else '' }}
     {% if q_search %} matching "<em>{{ q_search }}</em>"{% endif %}
     {% if q_type %} · {{ doc_type_labels.get(q_type, q_type) }}{% endif %}
     {% if q_stage %} · {{ stage_labels.get(q_stage, q_stage) }}{% endif %}
     {% if q_month %} · {{ month_names[q_month|int - 1][1] }} {{ q_year }}{% else %} · {{ q_year }}{% endif %}
   </span>
+</div>
+
+<!-- ── Filter dropdown (shared, hidden until triggered) ──────────────── -->
+<div id="dp-fdd" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);min-width:220px;max-width:300px;padding:10px;">
+  <input id="dp-fdd-search" type="text" class="form-control form-control-sm mb-2" placeholder="Search…" autocomplete="off">
+  <div id="dp-fdd-boxes" style="max-height:260px;overflow-y:auto;font-size:0.82rem;"></div>
+  <div class="d-flex gap-1 mt-2" style="font-size:0.75rem;">
+    <a href="#" id="dp-fdd-all"   style="color:var(--tdg-muted)">All</a> ·
+    <a href="#" id="dp-fdd-none"  style="color:var(--tdg-muted)">None</a>
+  </div>
+  <div class="d-flex gap-2 mt-2">
+    <button id="dp-fdd-apply" class="btn btn-sm flex-grow-1" style="background:var(--tdg-gold);color:#fff;border:none">Apply</button>
+    <button id="dp-fdd-clear" class="btn btn-sm btn-outline-secondary">Clear</button>
+  </div>
 </div>
 
 <!-- ── Main table ──────────────────────────────────────────────────────── -->
@@ -283,37 +297,31 @@ function dpMonthChanged() {
   <table class="table table-hover" id="dpTable">
     <thead>
       <tr>
-        {% macro sort_th(col, label) %}
-          {% set is_active = (q_sort == col) %}
-          {% set next_dir  = 'asc' if (is_active and q_dir == 'desc') else 'desc' %}
-          {% set icon = 'bi-arrow-up' if (is_active and q_dir == 'asc') else 'bi-arrow-down' if (is_active and q_dir == 'desc') else 'bi-arrow-down-up' %}
-          <a href="{{ url_for('docs.doc_pipeline', doc_type=q_type, year=q_year, month=q_month, date_from=q_date_from, date_to=q_date_to, search=q_search, stage=q_stage, sort=col, dir=next_dir) }}"
-             class="sort-link {% if is_active %}active-sort{% endif %}">
-            {{ label }}<i class="bi {{ icon }} sort-icon"></i>
-          </a>
-        {% endmacro %}
-        <th>{{ sort_th('doc_type', 'Doc Type') }}</th>
-        <th>Address / Party</th>
-        <th>{{ sort_th('agent', 'Agent') }}</th>
+        <th class="dp-col-hdr" data-col="0"><div class="dp-hdr-inner"><span class="dp-hdr-label">Doc Type</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
+        <th class="dp-col-hdr" data-col="1"><div class="dp-hdr-inner"><span class="dp-hdr-label">Address / Party</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
+        <th class="dp-col-hdr" data-col="2"><div class="dp-hdr-inner"><span class="dp-hdr-label">Agent</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
         <th>Signers</th>
-        <th>{{ sort_th('stage', 'Stage') }}</th>
-        <th>{{ sort_th('sent', 'Sent') }}</th>
-        <th>{{ sort_th('completed', 'Completed') }}</th>
+        <th class="dp-col-hdr" data-col="4"><div class="dp-hdr-inner"><span class="dp-hdr-label">Stage</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
+        <th class="dp-col-hdr" data-col="5"><div class="dp-hdr-inner"><span class="dp-hdr-label">Sent</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
+        <th class="dp-col-hdr" data-col="6"><div class="dp-hdr-inner"><span class="dp-hdr-label">Completed</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
       </tr>
     </thead>
-    <tbody>
+    <tbody id="dp-tbody">
       {% for env in envelopes %}
       {% set badge_cls, badge_icon = stage_badge.get(env.stage, ('bg-secondary','bi-question')) %}
-      <tr>
+      {% set sent_iso = env.sent_at.strftime('%Y-%m-%d') if env.sent_at else (env.created_at.strftime('%Y-%m-%d') if env.created_at else '') %}
+      {% set sent_disp = env.sent_at.strftime('%-m/%-d/%y') if env.sent_at else (env.created_at.strftime('%-m/%-d/%y') if env.created_at else '') %}
+      {% set comp_iso  = env.completed_at.strftime('%Y-%m-%d') if env.completed_at else '' %}
+      <tr data-row>
         <!-- Doc Type -->
-        <td>
+        <td data-col="0" data-val="{{ doc_type_labels.get(env.doc_type, env.doc_type) }}">
           <span class="dtype-chip dt-{{ env.doc_type }}">
             {{ doc_type_labels.get(env.doc_type, env.doc_type) }}
           </span>
         </td>
 
         <!-- Address / Party -->
-        <td style="max-width:220px;">
+        <td data-col="1" data-val="{{ env.property_address or env.party_label or '' }}" style="max-width:220px;">
           {% if env.property_address %}
             <div style="font-weight:500; font-size:0.82rem; line-height:1.3;">
               {{ env.property_address }}
@@ -332,17 +340,16 @@ function dpMonthChanged() {
         </td>
 
         <!-- Agent -->
-        <td>
+        <td data-col="2" data-val="{{ env.agent_name or '' }}">
           <div style="font-weight:500">{{ env.agent_name or '—' }}</div>
           {% if env.agent_email %}
             <div style="font-size:0.7rem;color:var(--tdg-muted)">{{ env.agent_email }}</div>
           {% endif %}
         </td>
 
-        <!-- Signers progress -->
+        <!-- Signers progress (no filter) -->
         <td style="min-width:160px;">
           <div class="signer-line">
-            <!-- Agent -->
             {% set ag_dot = 'completed' if env.agent_status == 'completed'
                else 'delivered' if env.agent_status == 'delivered'
                else 'sent' if env.agent_status in ('sent','created')
@@ -354,7 +361,6 @@ function dpMonthChanged() {
               <span style="color:var(--tdg-muted)">({{ (env.agent_status or 'pending') | title }})</span>
             </div>
 
-            <!-- Client / receiving party -->
             {% if env.party_name %}
               {% set p1_dot = 'completed' if env.party_status == 'completed'
                  else 'delivered' if env.party_status == 'delivered'
@@ -368,7 +374,6 @@ function dpMonthChanged() {
               </div>
             {% endif %}
 
-            <!-- Buyer 2 (if present) -->
             {% if env.has_two_clients and env.party2_name %}
               {% set p2_dot = 'completed' if env.party2_status == 'completed'
                  else 'delivered' if env.party2_status == 'delivered'
@@ -382,7 +387,6 @@ function dpMonthChanged() {
               </div>
             {% endif %}
 
-            <!-- Broker (MR: Laith) -->
             {% if env.broker_name %}
               {% set br_dot = 'completed' if env.broker_status == 'completed'
                  else 'delivered' if env.broker_status == 'delivered'
@@ -398,7 +402,7 @@ function dpMonthChanged() {
         </td>
 
         <!-- Stage -->
-        <td>
+        <td data-col="4" data-val="{{ stage_labels.get(env.stage, env.stage or '') }}">
           <span class="stage-badge {{ badge_cls }}">
             <i class="bi {{ badge_icon }}"></i>
             {{ stage_labels.get(env.stage, env.stage or '—') }}
@@ -406,7 +410,7 @@ function dpMonthChanged() {
         </td>
 
         <!-- Sent -->
-        <td style="white-space:nowrap; font-size:0.8rem;">
+        <td data-col="5" data-val="{{ sent_iso }}" style="white-space:nowrap; font-size:0.8rem;">
           {% if env.sent_at %}
             {{ env.sent_at.strftime('%-m/%-d/%y') }}<br>
             <span style="color:var(--tdg-muted)">{{ env.sent_at.strftime('%-I:%M %p') }}</span>
@@ -418,7 +422,7 @@ function dpMonthChanged() {
         </td>
 
         <!-- Completed -->
-        <td style="white-space:nowrap; font-size:0.8rem;">
+        <td data-col="6" data-val="{{ comp_iso }}" style="white-space:nowrap; font-size:0.8rem;">
           {% if env.completed_at %}
             {{ env.completed_at.strftime('%-m/%-d/%y') }}<br>
             <span style="color:var(--tdg-muted)">{{ env.completed_at.strftime('%-I:%M %p') }}</span>
@@ -450,6 +454,268 @@ function dpMonthChanged() {
 document.getElementById('searchInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') { e.preventDefault(); document.getElementById('filterForm').submit(); }
 });
+</script>
+
+<style>
+/* ── Column header filter+sort ───────────────────────────────────────────── */
+.dp-col-hdr { cursor:pointer; user-select:none; }
+.dp-hdr-inner { display:flex; align-items:center; justify-content:space-between; gap:4px; white-space:nowrap; }
+.dp-hdr-label { flex:1; }
+.dp-hdr-btns  { display:flex; gap:3px; flex-shrink:0; }
+.dp-fbtn, .dp-sbtn { font-size:0.72rem; padding:1px 4px; border-radius:3px; cursor:pointer; color:#888; }
+.dp-fbtn:hover, .dp-sbtn:hover { color:var(--tdg-gold); }
+.dp-col-hdr.dp-filtered .dp-fbtn { color:var(--tdg-gold); font-weight:700; }
+.dp-col-hdr.dp-sorted   .dp-sbtn { color:var(--tdg-gold); font-weight:700; }
+</style>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── Data ──────────────────────────────────────────────────────────────────
+  const activeFilters = {};   // colIdx → Set of allowed values
+  let   sortColIdx = -1, sortDir = 1;   // 1=asc, -1=desc
+
+  const dd       = document.getElementById('dp-fdd');
+  const fddBoxes = document.getElementById('dp-fdd-boxes');
+  const fddSearch= document.getElementById('dp-fdd-search');
+  let curTh = null, curCol = -1;
+
+  function getAllRows() {
+    return [...document.querySelectorAll('#dp-tbody tr[data-row]')];
+  }
+
+  // Map data-col → td positional index (handles col 3 = Signers having no data-col)
+  const COL_TO_TD = {};
+  document.querySelectorAll('#dpTable thead th').forEach((th, i) => {
+    const c = th.dataset.col;
+    if (c !== undefined) COL_TO_TD[parseInt(c)] = i;
+  });
+
+  function getCellVal(row, colIdx) {
+    const tdIdx = COL_TO_TD[colIdx];
+    if (tdIdx === undefined) return '';
+    const td = row.querySelectorAll('td')[tdIdx];
+    return td ? (td.dataset.val || '').trim() : '';
+  }
+
+  // ── Date columns (Sent=5, Completed=6): month→date hierarchy ─────────────
+  const DATE_COLS = new Set([5, 6]);
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function isoDate(v) {
+    if (!v) return '';
+    const m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? v.slice(0,10) : '';
+  }
+
+  function buildDateFilter(colIdx, active) {
+    const groups = {};
+    const blanks = new Set();
+    getAllRows().forEach(row => {
+      const raw = getCellVal(row, colIdx);
+      const iso = isoDate(raw);
+      if (!iso) { blanks.add(raw); return; }
+      const ym = iso.slice(0,7);
+      (groups[ym] = groups[ym] || new Set()).add(raw);
+    });
+    const months = Object.keys(groups).sort();
+    let html = '';
+    months.forEach(ym => {
+      const [y, mm] = ym.split('-');
+      const label = MONTH_NAMES[parseInt(mm)-1] + ' ' + y;
+      const raws = [...groups[ym]].sort();
+      const allChk = !active || raws.every(r => active.has(r));
+      html += `<div class="dt-month" style="margin-bottom:2px">
+        <label class="d-flex align-items-center gap-1" style="font-size:.8rem;font-weight:600;cursor:pointer;background:#f3f3f3;padding:2px 4px;border-radius:3px">
+          <input type="checkbox" class="dt-month-chk" data-ym="${ym}" ${allChk?'checked':''}><span style="flex:1">${label}</span>
+          <span class="dt-toggle" data-ym="${ym}" style="color:#888;font-size:.7rem">▸</span>
+        </label>
+        <div class="dt-days" data-ym="${ym}" style="display:none;padding-left:16px">`;
+      raws.forEach(r => {
+        const chk = !active || active.has(r);
+        html += `<label class="d-flex align-items-center gap-1 mb-1" style="font-size:.78rem;cursor:pointer">
+          <input type="checkbox" class="dt-day" data-ym="${ym}" value="${r}" ${chk?'checked':''}> ${r||'(Blank)'}
+        </label>`;
+      });
+      html += `</div></div>`;
+    });
+    if (blanks.size) {
+      const chk = !active || [...blanks].every(b => active.has(b));
+      html += `<label class="d-flex align-items-center gap-1 mb-1" style="font-size:.8rem;cursor:pointer">
+        <input type="checkbox" class="dt-day" data-ym="__blank" value="" ${chk?'checked':''}> <em style="color:#aaa">(Blank)</em>
+      </label>`;
+    }
+    fddBoxes.innerHTML = html;
+    fddBoxes.querySelectorAll('.dt-toggle').forEach(t => t.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      const days = fddBoxes.querySelector('.dt-days[data-ym="'+t.dataset.ym+'"]');
+      const open = days.style.display === 'block';
+      days.style.display = open ? 'none' : 'block';
+      t.textContent = open ? '▸' : '▾';
+    }));
+    fddBoxes.querySelectorAll('.dt-month-chk').forEach(mc => mc.addEventListener('change', () => {
+      fddBoxes.querySelectorAll('.dt-day[data-ym="'+mc.dataset.ym+'"]').forEach(d => d.checked = mc.checked);
+    }));
+    fddBoxes.querySelectorAll('.dt-day').forEach(d => d.addEventListener('change', () => {
+      const mc = fddBoxes.querySelector('.dt-month-chk[data-ym="'+d.dataset.ym+'"]');
+      if (mc) {
+        const days = [...fddBoxes.querySelectorAll('.dt-day[data-ym="'+d.dataset.ym+'"]')];
+        mc.checked = days.every(x => x.checked);
+      }
+    }));
+  }
+
+  function openDD(th, colIdx, e) {
+    curTh = th; curCol = colIdx;
+    const active = activeFilters[colIdx] || null;
+    fddSearch.value = '';
+    fddBoxes.innerHTML = '';
+
+    if (DATE_COLS.has(colIdx)) {
+      buildDateFilter(colIdx, active);
+    } else {
+      const vals = [...new Set(getAllRows().map(r => getCellVal(r, colIdx)))].sort();
+      fddBoxes.innerHTML = vals.map(v => {
+        const chk = !active || active.has(v);
+        const disp = v || '<em style="color:#aaa">(Blank)</em>';
+        return `<label class="d-flex align-items-center gap-1 mb-1" style="cursor:pointer">
+          <input type="checkbox" value="${v}" ${chk?'checked':''}> ${disp}
+        </label>`;
+      }).join('');
+    }
+
+    const rect = th.getBoundingClientRect();
+    dd.style.top  = (rect.bottom + 2) + 'px';
+    dd.style.left = Math.min(rect.left, window.innerWidth - 310) + 'px';
+    dd.style.display = 'block';
+    fddSearch.focus();
+    e.stopPropagation();
+  }
+
+  // ── Header click: filter (▾) or sort (⇅) ─────────────────────────────────
+  document.querySelectorAll('.dp-col-hdr').forEach(th => {
+    th.addEventListener('click', function(e) {
+      const tgt = e.target;
+      if (tgt.classList.contains('dp-sbtn') || tgt.closest('.dp-sbtn')) {
+        dd.style.display = 'none';
+        const colIdx = parseInt(th.dataset.col);
+        if (sortColIdx === colIdx) { sortDir *= -1; } else { sortColIdx = colIdx; sortDir = 1; }
+        document.querySelectorAll('.dp-col-hdr').forEach(h => h.classList.remove('dp-sorted'));
+        document.querySelectorAll('.dp-sbtn').forEach(b => b.textContent = '⇅');
+        th.classList.add('dp-sorted');
+        th.querySelector('.dp-sbtn').textContent = sortDir === 1 ? '↑' : '↓';
+        sortByCol(colIdx, sortDir);
+        return;
+      }
+      if (tgt.classList.contains('dp-fbtn') || tgt.closest('.dp-fbtn')) {
+        if (dd.style.display === 'block' && curTh === th) { dd.style.display = 'none'; return; }
+        openDD(th, parseInt(th.dataset.col), e);
+        return;
+      }
+    });
+  });
+
+  // ── Sort ──────────────────────────────────────────────────────────────────
+  function parseVal(v) {
+    if (!v || !v.trim()) return null;
+    if (/^\d{4}-\d{2}-\d{2}/.test(v)) return new Date(v).getTime();
+    const n = parseFloat(v.replace(/[$,]/g,''));
+    if (!isNaN(n)) return n;
+    return v.toLowerCase();
+  }
+
+  function sortByCol(colIdx, dir) {
+    const tbody = document.getElementById('dp-tbody');
+    const rows = getAllRows();
+    rows.sort((a, b) => {
+      const av = parseVal(getCellVal(a, colIdx));
+      const bv = parseVal(getCellVal(b, colIdx));
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+      return String(av).localeCompare(String(bv), undefined, {sensitivity:'base', numeric:true}) * dir;
+    });
+    rows.forEach(r => tbody.appendChild(r));
+    applyFilters();
+  }
+
+  // ── Apply filters ─────────────────────────────────────────────────────────
+  function applyFilters() {
+    const visibleRows = [];
+    getAllRows().forEach(row => {
+      let show = true;
+      for (const [ci, allowed] of Object.entries(activeFilters)) {
+        if (!allowed.has(getCellVal(row, parseInt(ci)))) { show = false; break; }
+      }
+      row.style.display = show ? '' : 'none';
+      if (show) visibleRows.push(row);
+    });
+    // update count line
+    const cl = document.getElementById('dp-count-line');
+    if (cl) cl.textContent = visibleRows.length + ' envelope' + (visibleRows.length !== 1 ? 's' : '');
+    // update stats bar
+    if (window.dpUpdateStats) dpUpdateStats();
+  }
+
+  // ── Dropdown search ───────────────────────────────────────────────────────
+  fddSearch.addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    if (DATE_COLS.has(curCol)) {
+      fddBoxes.querySelectorAll('.dt-month').forEach(mo => {
+        let any = false;
+        mo.querySelectorAll('.dt-days label').forEach(l => {
+          const hit = !q || l.textContent.toLowerCase().includes(q);
+          l.style.display = hit ? '' : 'none';
+          if (hit) any = true;
+        });
+        mo.style.display = (q === '' || any) ? '' : 'none';
+        if (q !== '' && any) mo.querySelector('.dt-days').style.display = 'block';
+      });
+    } else {
+      fddBoxes.querySelectorAll('label').forEach(l => {
+        l.style.display = (!q || l.textContent.toLowerCase().includes(q)) ? '' : 'none';
+      });
+    }
+  });
+
+  // ── Apply / Clear buttons ─────────────────────────────────────────────────
+  document.getElementById('dp-fdd-apply').addEventListener('click', function() {
+    const inputSel = DATE_COLS.has(curCol) ? 'input.dt-day' : 'input';
+    const checked = [...fddBoxes.querySelectorAll(inputSel+':checked')].map(i => i.value);
+    const all     = [...fddBoxes.querySelectorAll(inputSel)].map(i => i.value);
+    if (checked.length === all.length) {
+      delete activeFilters[curCol];
+      if (curTh) curTh.classList.remove('dp-filtered');
+    } else {
+      activeFilters[curCol] = new Set(checked);
+      if (curTh) curTh.classList.add('dp-filtered');
+    }
+    applyFilters();
+    dd.style.display = 'none';
+  });
+
+  document.getElementById('dp-fdd-clear').addEventListener('click', function() {
+    delete activeFilters[curCol];
+    if (curTh) curTh.classList.remove('dp-filtered');
+    fddBoxes.querySelectorAll('input').forEach(i => i.checked = true);
+    applyFilters();
+    dd.style.display = 'none';
+  });
+
+  document.getElementById('dp-fdd-all').addEventListener('click',  e => { e.preventDefault(); fddBoxes.querySelectorAll('input').forEach(i => i.checked = true); });
+  document.getElementById('dp-fdd-none').addEventListener('click', e => { e.preventDefault(); fddBoxes.querySelectorAll('input').forEach(i => i.checked = false); });
+
+  // Close on outside click
+  document.addEventListener('click', e => {
+    if (!dd.contains(e.target) && !e.target.closest('.dp-col-hdr')) dd.style.display = 'none';
+  });
+
+  // Seed stats on load
+  if (window.dpUpdateStats) dpUpdateStats();
+
+})();
 </script>
 
 <!-- ── Live Stats Bar (updates as rows filter/sort) ───────────────────── -->
