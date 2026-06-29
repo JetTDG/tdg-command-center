@@ -113,6 +113,17 @@
 
     </div>
   </div>
+
+  {# ── 7th card: Avg Commission % (rolling 12 months, primary deals, no Referral) ── #}
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card text-center py-3 px-2 h-100" style="border-top:3px solid var(--tdg-gold);">
+      <div class="text-muted mb-1" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.05em;">Avg Comm% · 12 Mo</div>
+      <div class="fw-bold" style="font-size:1.25rem;color:var(--tdg-gold);">
+        {{ "%.2f"|format(avg_comm_pct) }}%
+      </div>
+      <div class="text-muted mt-1" style="font-size:0.72rem;">{{ avg_comm_units }} deal{{ 's' if avg_comm_units != 1 else '' }} · GCI ÷ Volume</div>
+    </div>
+  </div>
 </div>
 
 {# ── Self-Gen Progress + Lead Type KPIs ───────────────────────────────────── #}

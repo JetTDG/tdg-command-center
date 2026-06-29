@@ -120,8 +120,9 @@
         <span id="chart-title">GCI Trend — Full Year {{ year }} — Combined</span>
         <!-- Metric-only toggle here; segment controlled globally above -->
         <div class="btn-group btn-group-sm" role="group">
-          <button type="button" class="btn btn-gold active" id="btn-gci" onclick="setMetric('gci')">GCI</button>
-          <button type="button" class="btn btn-outline-secondary" id="btn-vol" onclick="setMetric('vol')">Volume</button>
+          <button type="button" class="btn btn-outline-secondary" id="btn-gci" onclick="setMetric('gci')">GCI</button>
+          <button type="button" class="btn btn-gold active" id="btn-vol" onclick="setMetric('vol')">Volume</button>
+          <button type="button" class="btn btn-outline-secondary" id="btn-units" onclick="setMetric('units')">Units</button>
         </div>
       </div>
       <div class="card-body">
@@ -207,10 +208,15 @@ const data = {
     res:      { closed: trend.map(r => r.vol_closed_res),  pending: trend.map(r => r.vol_pending_res)  },
     comm:     { closed: trend.map(r => r.vol_closed_comm), pending: trend.map(r => r.vol_pending_comm) },
     combined: { closed: trend.map(r => r.vol_closed_res + r.vol_closed_comm), pending: trend.map(r => r.vol_pending_res + r.vol_pending_comm) }
+  },
+  units: {
+    res:      { closed: trend.map(r => r.units_closed_res),  pending: trend.map(r => r.units_pending_res)  },
+    comm:     { closed: trend.map(r => r.units_closed_comm), pending: trend.map(r => r.units_pending_comm) },
+    combined: { closed: trend.map(r => r.units_closed_res + r.units_closed_comm), pending: trend.map(r => r.units_pending_res + r.units_pending_comm) }
   }
 };
 
-let metric  = 'gci';
+let metric  = 'vol';
 let segment = 'combined';
 
 const GOLD       = 'rgba(212,160,23,0.85)';
@@ -233,7 +239,7 @@ const chart = new Chart(ctx, {
     responsive: true,
     plugins: {
       legend: { display:true, position:'bottom', labels:{ color:'#555', boxWidth:12, padding:12, font:{size:11} } },
-      tooltip: { callbacks: { label: c => ` ${c.dataset.label}: $` + fmt(c.parsed.y) } },
+      tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ` + (metric === 'units' ? c.parsed.y : '$' + fmt(c.parsed.y)) } },
       datalabels: {
         // 'auto' lets the plugin hide any label that would overlap a neighbour
         display: function(c) {
@@ -248,12 +254,13 @@ const chart = new Chart(ctx, {
         formatter: function(v,c) {
           const pi=c.dataIndex, ds=c.chart.data.datasets;
           const total=(ds[0].data[pi]||0)+(ds[1].data[pi]||0);
-          return total===0?'':'$'+fmt(total);
+          if (total===0) return '';
+          return metric === 'units' ? total : '$'+fmt(total);
         }
       }
     },
     scales: {
-      y: { stacked:true, beginAtZero:true, ticks:{color:'#8b949e', maxTicksLimit:4, callback:v=>'$'+fmt(v)}, grid:{color:'#eee'} },
+      y: { stacked:true, beginAtZero:true, ticks:{color:'#8b949e', maxTicksLimit:4, callback:v=> metric==='units' ? v : '$'+fmt(v)}, grid:{color:'#eee'} },
       x: { stacked:true, ticks:{color:'#8b949e', autoSkip:false, maxRotation:45, minRotation:45, font:{size: window.innerWidth < 600 ? 9 : 11}}, grid:{display:false} }
     },
     maxBarThickness: 44,
@@ -273,10 +280,19 @@ function refreshChart() {
   const d = data[metric][segment];
   chart.data.datasets[0].data = d.closed;
   chart.data.datasets[1].data = d.pending;
-  const mLabel = metric==='gci' ? 'GCI' : 'Volume';
+  const mLabel = metric==='gci' ? 'GCI' : metric==='vol' ? 'Volume' : 'Units';
   const sLabel = segment==='combined' ? 'Combined' : segment==='res' ? 'Residential' : 'Commercial';
   document.getElementById('chart-title').textContent = `${mLabel} Trend — Full Year {{ year }} — ${sLabel}`;
+  chart.options.scales.y.ticks.callback = v => metric==='units' ? v : '$'+fmt(v);
   chart.update();
+}
+
+function setMetric(m) {
+  metric = m;
+  document.getElementById('btn-gci').className   = 'btn btn-' + (m==='gci'   ? 'gold active' : 'outline-secondary');
+  document.getElementById('btn-vol').className   = 'btn btn-' + (m==='vol'   ? 'gold active' : 'outline-secondary');
+  document.getElementById('btn-units').className = 'btn btn-' + (m==='units' ? 'gold active' : 'outline-secondary');
+  refreshChart();
 }
 
 function refreshKPI() {
@@ -337,13 +353,6 @@ function refreshRecent() {
       </td>
     </tr>`;
   }).join('');
-}
-
-function setMetric(m) {
-  metric = m;
-  document.getElementById('btn-gci').className = 'btn btn-sm ' + (m==='gci' ? 'btn-gold active' : 'btn-outline-secondary');
-  document.getElementById('btn-vol').className = 'btn btn-sm ' + (m==='vol' ? 'btn-gold active' : 'btn-outline-secondary');
-  refreshChart();
 }
 
 function setSegment(s) {

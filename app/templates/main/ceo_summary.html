@@ -110,9 +110,10 @@
       <div class="d-flex gap-2 flex-wrap">
         <!-- Metric toggle -->
         <div class="btn-group btn-group-sm" id="metric-group" role="group">
-          <button type="button" class="btn btn-outline-secondary active" onclick="setMetric('gci',this)">GCI</button>
-          <button type="button" class="btn btn-outline-secondary" onclick="setMetric('volume',this)">Volume</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="setMetric('gci',this)">GCI</button>
+          <button type="button" class="btn btn-outline-secondary active" onclick="setMetric('volume',this)">Volume</button>
           <button type="button" class="btn btn-outline-secondary" onclick="setMetric('co',this)">Company $</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="setMetric('units',this)">Units</button>
         </div>
       </div>
     </div>
@@ -190,11 +191,13 @@ let data = {
   gci:    { closed: monthly.map(m=>m.closed_gci),    pending: monthly.map(m=>m.pending_gci) },
   volume: { closed: monthly.map(m=>m.closed_volume), pending: monthly.map(m=>m.pending_volume) },
   co:     { closed: monthly.map(m=>m.closed_co),     pending: monthly.map(m=>m.pending_co) },
+  units:  { closed: monthly.map(m=>m.closed_units),  pending: monthly.map(m=>m.pending_units) },
 };
 
 const fmt = v => v >= 1e6 ? '$' + (v/1e6).toFixed(1)+'M' : v >= 1e3 ? '$' + (v/1e3).toFixed(0)+'K' : '$'+v.toFixed(0);
+const fmtMetric = (v, metric) => metric === 'units' ? v : fmt(v);
 
-let currentMetric = 'gci';
+let currentMetric = 'volume';
 
 const ctx = document.getElementById('ceoChart').getContext('2d');
 const chart = new Chart(ctx, {
@@ -204,14 +207,14 @@ const chart = new Chart(ctx, {
     datasets: [
       {
         label: 'Closed',
-        data: data.gci.closed,
+        data: data.volume.closed,
         backgroundColor: '#C9A84C',
         borderRadius: 4,
         stack: 'a',
       },
       {
         label: 'Pending',
-        data: data.gci.pending,
+        data: data.volume.pending,
         backgroundColor: '#e8d49a',
         borderRadius: 4,
         stack: 'a',
@@ -224,7 +227,7 @@ const chart = new Chart(ctx, {
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: ctx => ' ' + ctx.dataset.label + ': ' + fmt(ctx.parsed.y)
+          label: ctx => ' ' + ctx.dataset.label + ': ' + fmtMetric(ctx.parsed.y, currentMetric)
         }
       },
       datalabels: {
@@ -240,7 +243,7 @@ const chart = new Chart(ctx, {
         formatter: (val, ctx) => {
           const total = ctx.chart.data.datasets[0].data[ctx.dataIndex]
                       + ctx.chart.data.datasets[1].data[ctx.dataIndex];
-          return fmt(total);
+          return fmtMetric(total, currentMetric);
         },
         color: '#555',
         font: { size: 10, weight: '600' },
@@ -250,7 +253,7 @@ const chart = new Chart(ctx, {
       x: { stacked: true, grid: { display: false } },
       y: {
         stacked: true,
-        ticks: { callback: v => fmt(v) },
+        ticks: { callback: v => fmtMetric(v, currentMetric) },
         grid: { color: '#f0f0f0' }
       }
     }
@@ -263,6 +266,7 @@ function setMetric(metric, btn) {
   btn.classList.add('active');
   chart.data.datasets[0].data = data[metric].closed;
   chart.data.datasets[1].data = data[metric].pending;
+  chart.options.scales.y.ticks.callback = v => fmtMetric(v, currentMetric);
   chart.update();
 }
 
@@ -336,9 +340,11 @@ function setSegment(s, btn) {
     gci:    { closed: monthly.map(m=>m.closed_gci),    pending: monthly.map(m=>m.pending_gci) },
     volume: { closed: monthly.map(m=>m.closed_volume), pending: monthly.map(m=>m.pending_volume) },
     co:     { closed: monthly.map(m=>m.closed_co),     pending: monthly.map(m=>m.pending_co) },
+    units:  { closed: monthly.map(m=>m.closed_units),  pending: monthly.map(m=>m.pending_units) },
   };
   chart.data.datasets[0].data = data[currentMetric].closed;
   chart.data.datasets[1].data = data[currentMetric].pending;
+  chart.options.scales.y.ticks.callback = v => fmtMetric(v, currentMetric);
   chart.update();
 }
 </script>

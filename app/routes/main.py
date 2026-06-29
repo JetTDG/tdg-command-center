@@ -398,16 +398,49 @@ def home():
                 return pending_sum
             return 0.0
 
+        def mcount(status_list, division_filter=None):
+            closed_q = Transaction.query.filter(
+                Transaction.archived == False,
+                Transaction.status == 'Closed',
+                Transaction.close_date.isnot(None),
+                mb_year_filter(),
+                extract('month', Transaction.close_date) == m,
+            )
+            closed_q = _div_filter(closed_q, division_filter)
+            closed_count = closed_q.count()
+
+            pending_q = Transaction.query.filter(
+                Transaction.archived == False,
+                Transaction.status == 'Pending',
+                Transaction.projected_close_date.isnot(None),
+                extract('year', Transaction.projected_close_date) == year,
+                extract('month', Transaction.projected_close_date) == m,
+            )
+            pending_q = _div_filter(pending_q, division_filter)
+            pending_count = pending_q.count()
+
+            if 'Closed' in status_list and 'Pending' in status_list:
+                return closed_count + pending_count
+            elif 'Closed' in status_list:
+                return closed_count
+            elif 'Pending' in status_list:
+                return pending_count
+            return 0
+
         monthly_trend.append({
             'month': calendar.month_abbr[m],
-            'gci_closed_res':   msum(['Closed'], division_filter='Residential'),
-            'gci_closed_comm':  msum(['Closed'], division_filter='Commercial'),
-            'gci_pending_res':  msum(['Pending'], division_filter='Residential'),
-            'gci_pending_comm': msum(['Pending'], division_filter='Commercial'),
-            'vol_closed_res':   mvolume(['Closed'], division_filter='Residential'),
-            'vol_closed_comm':  mvolume(['Closed'], division_filter='Commercial'),
-            'vol_pending_res':  mvolume(['Pending'], division_filter='Residential'),
-            'vol_pending_comm': mvolume(['Pending'], division_filter='Commercial'),
+            'gci_closed_res':    msum(['Closed'],   division_filter='Residential'),
+            'gci_closed_comm':   msum(['Closed'],   division_filter='Commercial'),
+            'gci_pending_res':   msum(['Pending'],  division_filter='Residential'),
+            'gci_pending_comm':  msum(['Pending'],  division_filter='Commercial'),
+            'vol_closed_res':    mvolume(['Closed'],  division_filter='Residential'),
+            'vol_closed_comm':   mvolume(['Closed'],  division_filter='Commercial'),
+            'vol_pending_res':   mvolume(['Pending'], division_filter='Residential'),
+            'vol_pending_comm':  mvolume(['Pending'], division_filter='Commercial'),
+            'units_closed_res':  mcount(['Closed'],   division_filter='Residential'),
+            'units_closed_comm': mcount(['Closed'],   division_filter='Commercial'),
+            'units_pending_res': mcount(['Pending'],  division_filter='Residential'),
+            'units_pending_comm':mcount(['Pending'],  division_filter='Commercial'),
         })
 
     return render_template('main/home.html',
@@ -2080,6 +2113,22 @@ def scorecard(agent_id):
         co_inc_pct   = _lm_pct(team_income_val,   _tot_inc),
     )
 
+    # ── Avg Commission % KPI (rolling 12 months, primary agent only, no Referral) ──
+    _comm_rolling_q = Transaction.query.filter(
+        Transaction.primary_agent_name.ilike(f'%{agent.name}%'),
+        Transaction.status == 'Closed',
+        Transaction.close_date >= _rolling_start,
+        Transaction.archived == False,
+        Transaction.transaction_type != 'Referral',
+    )
+    if division != 'all':
+        _comm_rolling_q = _comm_rolling_q.filter(Transaction.division == division)
+    _comm_txns = _comm_rolling_q.all()
+    _total_gci    = sum(t.gci or 0 for t in _comm_txns)
+    _total_volume = sum(t.sale_price or 0 for t in _comm_txns)
+    avg_comm_pct  = round(_total_gci / _total_volume * 100, 2) if _total_volume else 0.0
+    avg_comm_units = len(_comm_txns)
+
     # ── Business plan for this year ───────────────────────────────────────────
     plan = BusinessPlan.query.filter_by(agent_id=agent_id, year=year).first()
 
@@ -2152,6 +2201,8 @@ def scorecard(agent_id):
         self_gen_pct=self_gen_pct,
         self_gen_target=SELF_GEN_TARGET,
         lead_mix=lead_mix,
+        avg_comm_pct=avg_comm_pct,
+        avg_comm_units=avg_comm_units,
     )
 
 @bp.route('/scorecard/<int:agent_id>/business-plan', methods=['GET', 'POST'])
