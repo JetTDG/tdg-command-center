@@ -18,7 +18,7 @@ def log_change(record_id, field_name, old_value, new_value, table_name='transact
         # committed together with the main change
     except Exception:
         pass  # audit failure never blocks the real save
-from app.models import Agent, Transaction, LeadGenLog, BusinessPlan, Pipeline
+from app.models import Agent, Transaction, LeadGenLog, BusinessPlan, Pipeline, TeamGoal
 from app import db
 from datetime import datetime, date
 from sqlalchemy import func, extract, or_, and_
@@ -33,6 +33,16 @@ def current_year():
 
 def current_month():
     return datetime.now().month
+
+def get_team_goal(year):
+    """Return company-level GCI goal for the year. Falls back to 0 if not set."""
+    tg = TeamGoal.query.filter_by(year=year).first()
+    return tg.gci_goal if tg else 0
+
+def get_team_volume_goal(year):
+    """Return company-level volume goal for the year. Falls back to 0 if not set."""
+    tg = TeamGoal.query.filter_by(year=year).first()
+    return tg.volume_goal if tg else 0
 
 # ─── HOME ───────────────────────────────────────────────────────────────────
 
@@ -214,7 +224,7 @@ def home():
     acceptance_rate_ytd = round(offers_accepted_ytd / offers_ytd * 100, 1) if offers_ytd > 0 else 0.0
 
     # ── Goal progress ─────────────────────────────────────────────────────────
-    team_goal = db.session.query(func.sum(BusinessPlan.gci_goal)).filter_by(year=year).scalar() or 0
+    team_goal = get_team_goal(year)
     goal_pct  = (ytd_gci / team_goal * 100) if team_goal > 0 else 0
 
     # ── KPI segments ──────────────────────────────────────────────────────────
@@ -1744,7 +1754,7 @@ def ceo_summary():
         'comm':     build_segment('comm'),
     }
 
-    team_gci_goal = db.session.query(func.sum(BusinessPlan.gci_goal)).filter_by(year=year).scalar() or 0
+    team_gci_goal = get_team_goal(year)
     team_unit_goal = db.session.query(
         func.sum(BusinessPlan.listing_unit_goal) + func.sum(BusinessPlan.buyer_unit_goal)
     ).filter_by(year=year).scalar() or 0
@@ -1781,7 +1791,9 @@ def ceo_summary():
         ls_yoy_pct=c['ls_yoy_pct'],
         bs_yoy_pct=c['bs_yoy_pct'],
         team_gci_goal=team_gci_goal,
+        team_volume_goal=get_team_volume_goal(year),
         team_unit_goal=int(team_unit_goal or 0),
+        current_year=year,
         goal_pct=round(c['ytd_gci'] / team_gci_goal * 100, 1) if team_gci_goal else 0,
         monthly=c['monthly'],
         prior_gci=c['prior_gci'],
@@ -2482,3 +2494,43 @@ def apply_formulas(t, recalc_gci=True,
     i1099 = t.income_1099
     if i1099 is not None and t.taxes:
         t.net_after_taxes = round(i1099 - t.taxes, 2)
+
+
+# ─── TEAM GOALS ──────────────────────────────────────────────────────────────
+
+@bp.route('/api/team-goals', methods=['GET'])
+@login_required
+def api_get_team_goals():
+    """Return team goals for a given year (default: current year)."""
+    year = int(request.args.get('year', current_year()))
+    tg = TeamGoal.query.filter_by(year=year).first()
+    return jsonify({
+        'year':         year,
+        'gci_goal':     tg.gci_goal    if tg else 0,
+        'volume_goal':  tg.volume_goal if tg else 0,
+    })
+
+
+@bp.route('/api/team-goals', methods=['POST'])
+@login_required
+def api_set_team_goals():
+    """Save company-level goals for a year. Admin only."""
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin only'}), 403
+    data = request.get_json(force=True)
+    year = int(data.get('year', current_year()))
+    gci_goal    = float(data.get('gci_goal', 0))
+    volume_goal = float(data.get('volume_goal', 0))
+
+    tg = TeamGoal.query.filter_by(year=year).first()
+    if tg:
+        tg.gci_goal    = gci_goal
+        tg.volume_goal = volume_goal
+        tg.updated_by  = current_user.email
+    else:
+        tg = TeamGoal(year=year, gci_goal=gci_goal, volume_goal=volume_goal,
+                      updated_by=current_user.email)
+        db.session.add(tg)
+    db.session.commit()
+    return jsonify({'ok': True, 'year': year, 'gci_goal': gci_goal, 'volume_goal': volume_goal})
+

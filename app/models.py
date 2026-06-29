@@ -268,6 +268,20 @@ class BusinessPlan(db.Model):
         return f'<BusinessPlan {self.agent.name} {self.year}>'
 
 
+class TeamGoal(db.Model):
+    """Company-level annual goals — set by admin, independent of agent business plans."""
+    __tablename__ = 'team_goals'
+    id          = db.Column(db.Integer, primary_key=True)
+    year        = db.Column(db.Integer, nullable=False, unique=True)
+    gci_goal    = db.Column(db.Float, default=0.0)      # e.g. 3_200_000
+    volume_goal = db.Column(db.Float, default=0.0)      # e.g. 100_000_000
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by  = db.Column(db.String(120))              # email of last editor
+
+    def __repr__(self):
+        return f'<TeamGoal {self.year} gci={self.gci_goal}>'
+
+
 class AuditLog(db.Model):
     """Tracks every change made to transactions — who changed what, when, from→to."""
     __tablename__ = 'audit_log'

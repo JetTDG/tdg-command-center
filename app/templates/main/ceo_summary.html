@@ -27,7 +27,11 @@
       <div class="stat-label">Total GCI</div>
       <div class="stat-value" id="c-ytd-gci">{{ "${:,.0f}".format(ytd_gci) }}</div>
       <div class="stat-sub">+ <span id="c-proj-gci">{{ "${:,.0f}".format(proj_gci) }}</span> pending</div>
-      <div class="stat-sub mt-1">Goal: {{ "${:,.0f}".format(team_gci_goal) }} &nbsp;·&nbsp; <strong id="c-goal-pct">{{ goal_pct }}%</strong></div>
+      <div class="stat-sub mt-1">Goal: <span id="c-gci-goal-display">{{ "${:,.0f}".format(team_gci_goal) }}</span> &nbsp;·&nbsp; <strong id="c-goal-pct">{{ goal_pct }}%</strong>
+        {% if current_user.is_admin %}
+        <button class="btn btn-link btn-sm p-0 ms-1" style="font-size:0.75rem;line-height:1;vertical-align:middle;" onclick="openGoalEditor()" title="Edit goals">✏️</button>
+        {% endif %}
+      </div>
       <div class="progress mt-2"><div class="progress-bar" id="c-goal-bar" style="width:{{ [goal_pct,100]|min }}%"></div></div>
       <div class="stat-sub mt-2">vs {{ "${:,.0f}".format(prior_gci) }} same day 2025 &nbsp;
         {% if gci_yoy_pct >= 0 %}<span class="text-success" id="c-gci-yoy">▲ {{ gci_yoy_pct }}%</span>
@@ -347,5 +351,87 @@ function setSegment(s, btn) {
   chart.options.scales.y.ticks.callback = v => fmtMetric(v, currentMetric);
   chart.update();
 }
+
+{% if current_user.is_admin %}
+// ── Team Goal Editor ─────────────────────────────────────────────────────────
+function openGoalEditor() {
+  // Populate inputs from current displayed values
+  const gciRaw = parseFloat(document.getElementById('c-gci-goal-display').textContent.replace(/[$,]/g, '')) || 0;
+  document.getElementById('goal-edit-gci').value = gciRaw;
+  // volume goal — read from hidden span if available, else 0
+  const volEl = document.getElementById('c-volume-goal-hidden');
+  document.getElementById('goal-edit-volume').value = volEl ? volEl.textContent : '';
+  const modal = new bootstrap.Modal(document.getElementById('goalEditModal'));
+  modal.show();
+}
+
+async function saveTeamGoals() {
+  const gci    = parseFloat(document.getElementById('goal-edit-gci').value) || 0;
+  const volume = parseFloat(document.getElementById('goal-edit-volume').value) || 0;
+  const year   = new Date().getFullYear();
+  const btn    = document.getElementById('goal-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const r = await fetch('/api/team-goals', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({year, gci_goal: gci, volume_goal: volume})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      // Update displayed goal & progress bar
+      const fmt = v => '$' + Number(v).toLocaleString('en-US', {maximumFractionDigits: 0});
+      document.getElementById('c-gci-goal-display').textContent = fmt(d.gci_goal);
+      if (document.getElementById('c-volume-goal-hidden'))
+        document.getElementById('c-volume-goal-hidden').textContent = d.volume_goal;
+      // Recalc goal %
+      const ytdGci = parseFloat(document.getElementById('c-ytd-gci').textContent.replace(/[$,]/g,'')) || 0;
+      const pct = d.gci_goal > 0 ? Math.round(ytdGci / d.gci_goal * 1000) / 10 : 0;
+      document.getElementById('c-goal-pct').textContent = pct + '%';
+      document.getElementById('c-goal-bar').style.width = Math.min(pct, 100) + '%';
+      bootstrap.Modal.getInstance(document.getElementById('goalEditModal')).hide();
+    } else {
+      alert(d.error || 'Save failed');
+    }
+  } catch(e) {
+    alert('Network error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save';
+  }
+}
+{% endif %}
 </script>
+
+{% if current_user.is_admin %}
+<!-- Goal Edit Modal -->
+<div class="modal fade" id="goalEditModal" tabindex="-1" aria-labelledby="goalEditLabel" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content bg-dark text-white border-secondary">
+      <div class="modal-header border-secondary py-2">
+        <h6 class="modal-title" id="goalEditLabel">🎯 Set {{ current_year }} Company Goals</h6>
+        <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small text-secondary">GCI Goal ($)</label>
+          <input type="number" id="goal-edit-gci" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="3200000" step="1000">
+          <div class="form-text text-secondary">e.g. 3200000 for $3.2M</div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small text-secondary">Volume Goal ($)</label>
+          <input type="number" id="goal-edit-volume" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="100000000" step="100000">
+          <div class="form-text text-secondary">e.g. 100000000 for $100M</div>
+        </div>
+      </div>
+      <div class="modal-footer border-secondary py-2">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="goal-save-btn" class="btn btn-sm btn-success" onclick="saveTeamGoals()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+<span id="c-volume-goal-hidden" style="display:none;">{{ team_volume_goal if team_volume_goal is defined else 0 }}</span>
+{% endif %}
 {% endblock %}
