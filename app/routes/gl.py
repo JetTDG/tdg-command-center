@@ -319,9 +319,82 @@ def _fub_find_by_address(address: str, headers: dict) -> dict | None:
     return None
 
 
-def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertical: str):
+def _batchdata_enrich(address: str) -> dict:
     """
-    Push a CRE GL form lead to FUB with full routing logic:
+    Skip-trace an address via BatchData BEFORE creating the FUB contact.
+    Returns dict with keys: name, phones (list), emails (list).
+    Returns empty dict on any failure — caller falls back to form data.
+    Same pattern as gl2_fello_scan_processor.py resi flow.
+    """
+    try:
+        import sys as _sys
+        _sys.path.insert(0, "/Users/edentdg/.hermes/scripts")
+        from vault_cache_reader import read_credential as _rc
+        bd_key = os.environ.get("BATCHDATA_API_KEY") or _rc(
+            "Eden + Jet Share", "Batch Data API", "credential")
+        if not bd_key:
+            log.warning("GL: BatchData key not found — skipping pre-enrichment")
+            return {}
+
+        # Parse address into structured fields for BatchData
+        parts = [p.strip() for p in address.split(",")]
+        street = parts[0] if parts else address
+        city_   = parts[1].strip() if len(parts) > 1 else ""
+        sv      = parts[2].strip().split() if len(parts) > 2 else []
+        state_  = sv[0] if sv else "MI"
+        zip_    = sv[1] if len(sv) > 1 else ""
+
+        body = {"requests": [{"propertyAddress": {
+            "street": street, "city": city_, "state": state_,
+            **({"zip": zip_} if zip_ else {})
+        }}]}
+
+        bd_headers = {"Authorization": f"Bearer {bd_key}", "Content-Type": "application/json"}
+        r = http.post("https://api.batchdata.com/api/v1/property/skip-trace",
+                      json=body, headers=bd_headers, timeout=15)
+        if r.status_code != 200:
+            log.warning(f"GL: BatchData returned {r.status_code}")
+            return {}
+
+        persons = r.json().get("results", {}).get("persons", [])
+        if not persons or persons[0].get("meta", {}).get("error"):
+            log.info(f"GL: BatchData no match for {address}")
+            return {}
+
+        p = persons[0]
+        # Only accept if address was valid (not a made-up address)
+        if not r.json().get("results", {}).get("persons", [{}])[0].get("propertyAddress", {}).get("addressValidity", "Valid") == "Invalid":
+            full_name = p.get("name", {}).get("full", "").strip()
+            phones = [
+                ph.get("number", "") for ph in p.get("phoneNumbers", [])
+                if ph.get("number") and len("".join(d for d in ph.get("number","") if d.isdigit())) >= 10
+            ][:3]
+            emails = [e.get("email", "") for e in p.get("emails", []) if e.get("email")][:2]
+            if full_name or phones:
+                log.info(f"GL: BatchData enriched '{address}' → '{full_name}' | {len(phones)} phones")
+                return {"name": full_name, "phones": phones, "emails": emails}
+
+        return {}
+    except Exception as e:
+        log.warning(f"GL: BatchData pre-enrichment exception: {e}")
+        return {}
+
+
+def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertical: str,
+              skip_trace_result: dict = None):
+    """
+    Push a CRE GL form lead to FUB with full routing logic.
+
+    Pre-enrichment (same as resi GL2 pipeline):
+      Before any FUB call, attempts BatchData skip-trace on the address.
+      If BatchData returns a real name/phones, those are used instead of
+      form data — so the contact lands in FUB fully enriched from the start.
+      Falls back to form-submitted data (or 'Property Owner' placeholder) on miss.
+
+    skip_trace_result: dict returned by _batchdata_enrich (may be empty {}).
+      - Non-empty → skip trace succeeded. Tag: 'COMPLETED Skip Trace CRE GL'
+      - Empty     → skip trace ran but found nothing. Tag: 'FAILED Skip Trace CRE GL'
+                    Note line added so agents know not to re-run it.
 
     Dedup order:
       1. Phone match (if phone provided)
@@ -360,10 +433,32 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
         }
 
         city_vertical_tag = f"CGL - {city} {vertical}"
+
+        # ── Skip trace tags + note line ───────────────────────────────────────
+        # skip_trace_result is None if called without enrichment (legacy path),
+        # non-empty dict = enrichment succeeded, empty dict = ran but no match.
+        st_result = skip_trace_result or {}
+        st_ran = skip_trace_result is not None  # False only if never called
+        if st_ran and st_result:
+            st_tag = "COMPLETED Skip Trace CRE GL"
+            st_note = f"Skip trace ran at submit time — found: {st_result.get('name','') or 'name unknown'} | {len(st_result.get('phones',[]))} phone(s) | {len(st_result.get('emails',[]))} email(s)"
+        elif st_ran and not st_result:
+            st_tag = "FAILED Skip Trace CRE GL"
+            st_note = "Skip trace ran at submit time — no contact info found (likely LLC-owned). Do NOT re-run skip trace manually."
+        else:
+            st_tag = None
+            st_note = None
+
+        all_tags = [FUB_TAG, city_vertical_tag]
+        if st_tag:
+            all_tags.append(st_tag)
+
         note_parts = ["Commercial Golden Letter lead via form submission",
                       f"City/Vertical: {city} {vertical}"]
         if address:
             note_parts.append(f"Property Address: {address}")
+        if st_note:
+            note_parts.append(st_note)
         note_text = " | ".join(note_parts)
 
         # ── Get group members for round-robin ────────────────────────────────
@@ -420,7 +515,7 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
             if has_real_agent and not pond_id:
                 # Rule A: Real agent owns it, not in any pond — tag + AP only, never touch
                 http.put(f"{FUB_BASE}/people/{existing_id}",
-                         json={"tags": [FUB_TAG, city_vertical_tag]},
+                         json={"tags": all_tags},
                          headers=headers, timeout=15)
                 _apply_ap(existing_id, headers)
                 http.post(f"{FUB_BASE}/notes",
@@ -432,7 +527,7 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
             elif has_real_agent and pond_id:
                 # Rule B: Real agent assigned BUT sitting in a pond — keep agent, clear pond
                 update = {
-                    "tags": [FUB_TAG, city_vertical_tag],
+                    "tags": all_tags,
                     "assignedUserId": assigned_id,   # same agent, explicit re-set
                     "assignedPondId": 0,              # clear pond
                 }
@@ -454,7 +549,7 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
                 # Rule C: No real agent / pond-only — round-robin assign, clear pond
                 next_agent = pick_next_agent()
                 update = {
-                    "tags": [FUB_TAG, city_vertical_tag],
+                    "tags": all_tags,
                     "assignedPondId": 0,
                 }
                 if next_agent:
@@ -485,7 +580,7 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
         inbox_id = SLUG_INBOX.get(slug)
 
         payload = {
-            "tags": [FUB_TAG, city_vertical_tag],
+            "tags": all_tags,
             "source": "Commercial Golden Letter",
             "sourceUrl": f"https://gl.tdgcommercialre.com/gl/{slug}",
         }
@@ -522,7 +617,7 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
             dup_id = r.json().get("id")
             if dup_id:
                 http.put(f"{FUB_BASE}/people/{dup_id}",
-                         json={"tags": [FUB_TAG, city_vertical_tag]},
+                         json={"tags": all_tags},
                          headers=headers, timeout=15)
                 return str(dup_id), "updated"
         log.warning(f"GL: FUB create failed {r.status_code}: {r.text[:200]}")
@@ -602,8 +697,16 @@ def submit(slug):
         log.warning(f"[GL SUBMIT] {slug} — blank address submitted, ignoring")
         return redirect(f"/gl/{slug}")
 
-    # Push to FUB
-    fub_id, fub_status = _fub_push(name, phone, address, slug, city, vertical)
+    # ── Pre-enrich via BatchData BEFORE FUB (same as resi GL2 pipeline) ──────
+    enriched = _batchdata_enrich(address)
+    if enriched:
+        # Use BatchData data if form didn't have it
+        name  = name  or enriched.get("name", "")
+        phone = phone or (enriched.get("phones") or [""])[0]
+
+    # Push to FUB (pass skip_trace_result so note + tags are applied correctly)
+    fub_id, fub_status = _fub_push(name, phone, address, slug, city, vertical,
+                                   skip_trace_result=enriched)
 
     _log_event(slug, city, vertical, event_type="form_submit",
                name=name, phone=phone, address=address,
