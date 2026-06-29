@@ -336,8 +336,8 @@ function dpMonthChanged() {
   <table class="table table-hover" id="dpTable">
     <thead>
       <tr>
-        <th class="dp-col-hdr" data-col="0"><div class="dp-hdr-inner"><span class="dp-hdr-label">Doc Type</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
         <th class="dp-col-hdr" data-col="7"><div class="dp-hdr-inner"><span class="dp-hdr-label">Division</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span></span></div></th>
+        <th class="dp-col-hdr" data-col="0"><div class="dp-hdr-inner"><span class="dp-hdr-label">Doc Type</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
         <th class="dp-col-hdr" data-col="8"><div class="dp-hdr-inner"><span class="dp-hdr-label">Source</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span></span></div></th>
         <th class="dp-col-hdr" data-col="1"><div class="dp-hdr-inner"><span class="dp-hdr-label">Address / Party</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
         <th class="dp-col-hdr" data-col="2"><div class="dp-hdr-inner"><span class="dp-hdr-label">Agent</span><span class="dp-hdr-btns"><span class="dp-fbtn" title="Filter">▾</span><span class="dp-sbtn" title="Sort">⇅</span></span></div></th>
@@ -354,18 +354,18 @@ function dpMonthChanged() {
       {% set sent_disp = env.sent_at.strftime('%-m/%-d/%y') if env.sent_at else (env.created_at.strftime('%-m/%-d/%y') if env.created_at else '') %}
       {% set comp_iso  = env.completed_at.strftime('%Y-%m-%d') if env.completed_at else '' %}
       <tr data-row>
-        <!-- Doc Type -->
-        <td data-col="0" data-val="{{ doc_type_labels.get(env.doc_type, env.doc_type) }}">
-          <span class="dtype-chip dt-{{ env.doc_type }}">
-            {{ doc_type_labels.get(env.doc_type, env.doc_type) }}
-          </span>
-        </td>
-
         <!-- Division -->
         <td data-col="7" data-val="{{ env.division or 'Residential' }}">
           {% set div_val = env.division or 'Residential' %}
           <span class="div-pill {% if div_val == 'CRE' %}div-cre{% else %}div-res{% endif %}">
             {{ div_val }}
+          </span>
+        </td>
+
+        <!-- Doc Type -->
+        <td data-col="0" data-val="{{ doc_type_labels.get(env.doc_type, env.doc_type) }}">
+          <span class="dtype-chip dt-{{ env.doc_type }}">
+            {{ doc_type_labels.get(env.doc_type, env.doc_type) }}
           </span>
         </td>
 
