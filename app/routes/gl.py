@@ -1726,17 +1726,20 @@ def gl_residential_analytics():
             raise RuntimeError("Sheets not initialized")
         cte_res = _gsvc.spreadsheets().values().get(
             spreadsheetId=SHEET_ID,
-            range="'Inbound Calls/Texts/Emails'!A:H"
+            range="'Resi Inbound Calls/Texts/Emails'!A:I"
         ).execute()
         cte_rows = cte_res.get("values", [])[1:]
 
         for cr in cte_rows:
             def _c(i): return cr[i].strip() if len(cr) > i else ''
-            call_d  = _c(0)
-            text_d  = _c(1)
-            email_d = _c(2)
-            agent   = _c(4)
-            address = _c(6)
+            # Sheet cols: A(0)=Phone#, B(1)=Call Date, C(2)=Text Date, D(3)=Email Date,
+            #             E(4)=Client Name, F(5)=Agent, G(6)=Subdivision, H(7)=Address, I(8)=Notes
+            call_d  = _c(1)
+            text_d  = _c(2)
+            email_d = _c(3)
+            name    = _c(4)
+            agent   = _c(5)
+            address = _c(7)
 
             # Skip CRE rows
             if '(cre)' in agent.lower():
