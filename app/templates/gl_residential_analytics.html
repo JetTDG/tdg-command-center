@@ -198,10 +198,38 @@
               {% endif %}
             </td>
             <td class="text-end fw-600" style="color:#1a1d23;">{{ s.letters }}</td>
-            <td class="text-end fw-bold" style="color:#2563EB;">{{ s.scans }}</td>
-            <td class="text-end fw-bold" style="color:#16a34a;">{{ s.calls }}</td>
-            <td class="text-end fw-bold" style="color:#c9a84c;">{{ s.texts }}</td>
-            <td class="text-end fw-bold" style="color:#0891b2;">{{ s.emails }}</td>
+            <td class="text-end fw-bold" style="color:#2563EB;">
+              {% if s.scans > 0 %}
+              <a href="#" class="gl-detail-link fw-bold text-decoration-none"
+                 data-type="scans" data-label="QR Scans" data-area="{{ s.area }}"
+                 data-detail-url="/gl/residential-analytics/detail"
+                 style="color:#2563EB;">{{ s.scans }}</a>
+              {% else %}0{% endif %}
+            </td>
+            <td class="text-end fw-bold" style="color:#16a34a;">
+              {% if s.calls > 0 %}
+              <a href="#" class="gl-detail-link fw-bold text-decoration-none"
+                 data-type="calls" data-label="Inbound Calls" data-area="{{ s.area }}"
+                 data-detail-url="/gl/residential-analytics/detail"
+                 style="color:#16a34a;">{{ s.calls }}</a>
+              {% else %}0{% endif %}
+            </td>
+            <td class="text-end fw-bold" style="color:#c9a84c;">
+              {% if s.texts > 0 %}
+              <a href="#" class="gl-detail-link fw-bold text-decoration-none"
+                 data-type="texts" data-label="Inbound Texts" data-area="{{ s.area }}"
+                 data-detail-url="/gl/residential-analytics/detail"
+                 style="color:#c9a84c;">{{ s.texts }}</a>
+              {% else %}0{% endif %}
+            </td>
+            <td class="text-end fw-bold" style="color:#0891b2;">
+              {% if s.emails > 0 %}
+              <a href="#" class="gl-detail-link fw-bold text-decoration-none"
+                 data-type="emails" data-label="Emails" data-area="{{ s.area }}"
+                 data-detail-url="/gl/residential-analytics/detail"
+                 style="color:#0891b2;">{{ s.emails }}</a>
+              {% else %}0{% endif %}
+            </td>
             <td class="text-end">
               <span style="font-size:12px;color:#2563EB;font-weight:600;">{{ s.scan_pct }}%</span>
             </td>
@@ -395,6 +423,109 @@ new Chart(ctx, {
 
   // Apply default sort indicator on load
   setIcons(currentCol, currentDir);
+})();
+</script>
+
+{# ── GL Detail Modal ──────────────────────────────────────────────────────── #}
+<div class="modal fade" id="glDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-content border-0" style="border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
+      <div class="modal-header border-0 pb-0 px-4 pt-4">
+        <div>
+          <h5 class="modal-title fw-bold" id="glDetailModalTitle" style="color:#1a1d23;font-size:16px;"></h5>
+          <div id="glDetailModalSub" style="font-size:12px;color:#9ca3af;margin-top:2px;"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body px-4 pb-4 pt-3">
+        <div id="glDetailSpinner" class="text-center py-5">
+          <div class="spinner-border text-primary" role="status" style="width:2rem;height:2rem;"></div>
+          <div class="mt-2 text-muted" style="font-size:13px;">Loading…</div>
+        </div>
+        <div id="glDetailContent" style="display:none;">
+          <div class="table-responsive">
+            <table class="table align-middle mb-0" style="font-size:13px;">
+              <thead>
+                <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+                  <th class="ps-3 py-2 fw-600" style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Name</th>
+                  <th class="py-2 fw-600" style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Address</th>
+                  <th class="py-2 fw-600" style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Agent</th>
+                  <th class="py-2 fw-600" style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Date</th>
+                  <th class="py-2 fw-600 text-center" style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">FUB</th>
+                </tr>
+              </thead>
+              <tbody id="glDetailTableBody"></tbody>
+            </table>
+          </div>
+          <div id="glDetailEmpty" class="text-center py-4 text-muted" style="display:none;font-size:13px;">
+            No records found yet. New activity will appear after the nightly sync runs.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('.gl-detail-link');
+    if (!link) return;
+    e.preventDefault();
+
+    var type      = link.dataset.type      || 'calls';
+    var label     = link.dataset.label     || type;
+    var area      = link.dataset.area      || '';
+    var detailUrl = link.dataset.detailUrl || '/gl/residential-analytics/detail';
+    var count     = link.textContent.trim();
+
+    document.getElementById('glDetailModalTitle').textContent = label + (area ? ' — ' + area : '') + ' (' + count + ')';
+    document.getElementById('glDetailModalSub').textContent   = 'Individual records from FUB';
+    document.getElementById('glDetailSpinner').style.display  = '';
+    document.getElementById('glDetailContent').style.display  = 'none';
+    document.getElementById('glDetailEmpty').style.display    = 'none';
+
+    var modal = new bootstrap.Modal(document.getElementById('glDetailModal'));
+    modal.show();
+
+    var params = new URLSearchParams({ type: type });
+    if (area) params.set('area', area);
+
+    fetch(detailUrl + '?' + params.toString())
+      .then(function(r) { return r.json(); })
+      .then(function(rows) {
+        var tbody = document.getElementById('glDetailTableBody');
+        tbody.innerHTML = '';
+        document.getElementById('glDetailSpinner').style.display = 'none';
+        document.getElementById('glDetailContent').style.display = '';
+
+        if (!rows || !rows.length) {
+          document.getElementById('glDetailEmpty').style.display = '';
+          return;
+        }
+
+        rows.forEach(function(r) {
+          var tr = document.createElement('tr');
+          tr.style.borderBottom = '1px solid #f3f4f6';
+          var fubCell = r.fub_url
+            ? '<a href="' + r.fub_url + '" target="_blank" class="btn btn-sm" style="background:#f3f4f6;color:#1a1d23;font-size:11px;padding:3px 8px;border-radius:6px;">Open ↗</a>'
+            : '<span style="color:#d1d5db;font-size:11px;">—</span>';
+          tr.innerHTML =
+            '<td class="ps-3 py-2 fw-600" style="color:#1a1d23;">' + (r.name || '—') + '</td>' +
+            '<td class="py-2" style="color:#6b7280;font-size:12px;">' + (r.address || '—') + '</td>' +
+            '<td class="py-2" style="color:#6b7280;font-size:12px;">' + (r.agent || '—') + '</td>' +
+            '<td class="py-2" style="color:#9ca3af;font-size:12px;white-space:nowrap;">' + (r.date || '—') + '</td>' +
+            '<td class="py-2 text-center">' + fubCell + '</td>';
+          tbody.appendChild(tr);
+        });
+      })
+      .catch(function() {
+        document.getElementById('glDetailSpinner').style.display = 'none';
+        document.getElementById('glDetailContent').style.display = '';
+        document.getElementById('glDetailTableBody').innerHTML =
+          '<tr><td colspan="5" class="text-center text-danger py-3">Error loading records.</td></tr>';
+      });
+  });
 })();
 </script>
 

@@ -1420,6 +1420,190 @@ def gl_analytics():
     )
 
 
+# ── Detail drill-down endpoints ─────────────────────────────────────────────
+
+FUB_PROFILE_BASE = "https://poweredbyinfinity.followupboss.com/2/people"
+
+@bp.route("/analytics/detail")
+@login_required
+def gl_analytics_detail():
+    """
+    JSON endpoint: returns individual call/text/email records for CRE GL.
+    Query params:
+      type  = calls | texts | emails
+      inbox = shared inbox ID (for calls/texts) — optional filter
+    """
+    event_type = request.args.get("type", "calls")
+    inbox_id   = request.args.get("inbox", type=int)
+
+    import base64 as _b64d
+    _fub_key_d = os.environ.get("FUB_API_KEY", "")
+    if not _fub_key_d:
+        try:
+            import sys as _sd; _sd.path.insert(0, "/Users/edentdg/.hermes/scripts")
+            from vault_cache_reader import read_credential as _rcd
+            _fub_key_d = _rcd("Jet-Automations", "Jet FUb Key 6.3.26", "API Key")
+        except Exception:
+            pass
+    if not _fub_key_d:
+        return jsonify({"error": "FUB key unavailable"}), 500
+
+    _auth_d  = _b64d.b64encode(f"{_fub_key_d}:".encode()).decode()
+    _hdrs_d  = {"Authorization": f"Basic {_auth_d}",
+                "X-System": "TDG-GL-Detail", "X-System-Key": _fub_key_d}
+
+    results = []
+
+    if event_type == "emails":
+        # People tagged "CRE GL Email"
+        try:
+            r = http.get(f"{FUB_BASE}/people",
+                         params={"tags": "CRE GL Email", "limit": 200,
+                                 "sort": "updated", "direction": "desc"},
+                         headers=_hdrs_d, timeout=20)
+            for p in r.json().get("people", []):
+                pid   = p.get("id")
+                name  = f"{p.get('firstName','')} {p.get('lastName','')}".strip() or "Unknown"
+                addrs = p.get("addresses", [])
+                addr  = ""
+                if addrs and isinstance(addrs[0], dict):
+                    a = addrs[0]
+                    addr = " ".join(filter(None, [a.get("street",""), a.get("city",""), a.get("state","")]))
+                updated = p.get("updated", "")[:10] if p.get("updated") else ""
+                results.append({
+                    "name": name, "address": addr,
+                    "date": updated, "type": "Email",
+                    "fub_id": pid,
+                    "fub_url": f"{FUB_PROFILE_BASE}/{pid}" if pid else ""
+                })
+        except Exception as e:
+            log.warning(f"GL detail emails: {e}")
+    else:
+        # Calls or texts across all CRE inbox IDs
+        from app.routes.gl import PHONE_MAP, SLUG_INBOX
+        # Build unique inbox IDs → phones
+        inbox_phones = {}  # inbox_id → list of phones
+        for slug, (display, e164) in PHONE_MAP.items():
+            iid = SLUG_INBOX.get(slug)
+            if iid:
+                inbox_phones.setdefault(iid, set()).add(e164)
+
+        target_inboxes = {inbox_id: inbox_phones.get(inbox_id, set())} if inbox_id else inbox_phones
+
+        for iid, phones in target_inboxes.items():
+            for phone in phones:
+                endpoint = "calls" if event_type == "calls" else "textMessages"
+                direction_param = "toNumber" if event_type == "calls" else "toNumber"
+                phone_digits = phone.lstrip("1") if len(phone) == 11 else phone
+                try:
+                    r = http.get(f"{FUB_BASE}/{endpoint}",
+                                 params={direction_param: phone_digits, "limit": 100},
+                                 headers=_hdrs_d, timeout=15)
+                    items = r.json().get("calls" if event_type=="calls" else "textmessages", [])
+                    for item in items:
+                        is_in = item.get("isIncoming", item.get("isInbound", False))
+                        if not is_in:
+                            continue
+                        pid    = item.get("personId")
+                        # Get person details
+                        person_name, addr, agent = "Unknown", "", ""
+                        if pid:
+                            try:
+                                rp = http.get(f"{FUB_BASE}/people/{pid}", headers=_hdrs_d, timeout=10)
+                                pp = rp.json()
+                                person_name = f"{pp.get('firstName','')} {pp.get('lastName','')}".strip() or "Unknown"
+                                addrs = pp.get("addresses", [])
+                                if addrs and isinstance(addrs[0], dict):
+                                    a = addrs[0]
+                                    addr = " ".join(filter(None, [a.get("street",""), a.get("city",""), a.get("state","")]))
+                                agent = pp.get("assignedTo", "")
+                            except Exception:
+                                pass
+                        created = item.get("created", "")[:10] if item.get("created") else ""
+                        dur = item.get("duration", 0) or 0
+                        results.append({
+                            "name": person_name, "address": addr, "agent": agent,
+                            "date": created,
+                            "type": f"Call ({dur}s)" if event_type=="calls" else "Text",
+                            "fub_id": pid,
+                            "fub_url": f"{FUB_PROFILE_BASE}/{pid}" if pid else ""
+                        })
+                except Exception as e:
+                    log.warning(f"GL detail {event_type} phone={phone_digits}: {e}")
+
+        # Dedupe by fub_id + date
+        seen = set()
+        deduped = []
+        for r in results:
+            key = (r.get("fub_id"), r.get("date"), r.get("type","")[:4])
+            if key not in seen:
+                seen.add(key)
+                deduped.append(r)
+        results = sorted(deduped, key=lambda x: x.get("date",""), reverse=True)
+
+    return jsonify(results)
+
+
+@bp.route("/residential-analytics/detail")
+@login_required
+def gl_resi_analytics_detail():
+    """
+    JSON endpoint: returns individual call/text/email records for Resi GL.
+    Query params:
+      type = calls | texts | emails | scans
+      area = mailing area name (optional filter)
+    """
+    from sqlalchemy import text as sa_text2
+    event_type = request.args.get("type", "calls")
+    area_filter = request.args.get("area", "")
+
+    # Map sheet event types → res_gl_scans source values
+    # Calls/texts/emails come from gl_nightly; scans from qr_scans/fello_audit
+    if event_type == "scans":
+        source_filter = ("'qr_scans'", "'fello_audit'")
+    else:
+        source_filter = ("'gl_nightly'",)
+
+    # Build query
+    conditions = ["source IN (" + ",".join(source_filter) + ")"]
+    params = {}
+    if area_filter:
+        conditions.append("LOWER(TRIM(area)) = :area")
+        params["area"] = area_filter.lower().strip()
+
+    # For calls vs texts vs emails from gl_nightly, we distinguish by what's in
+    # the Google Sheet — but since we only have source='gl_nightly' for now,
+    # we pull all gl_nightly rows and let the UI show all (future: add event_type col)
+    where_clause = " AND ".join(conditions)
+    sql = f"""
+        SELECT id, scan_date, first_name, last_name, phone, email,
+               area, city, county, agent, fub_id, source, created_at
+        FROM   res_gl_scans
+        WHERE  {where_clause}
+        ORDER  BY scan_date DESC, created_at DESC
+        LIMIT  200
+    """
+    rows = db.session.execute(sa_text2(sql), params).fetchall()
+
+    results = []
+    for row in rows:
+        fub_id = row[10]
+        name = f"{row[2] or ''} {row[3] or ''}".strip() or "Unknown"
+        addr = f"{row[7] or ''}, {row[8] or ''}".strip(", ") if (row[7] or row[8]) else ""
+        results.append({
+            "name": name,
+            "address": f"{addr}",
+            "agent": row[9] or "",
+            "date": str(row[1]) if row[1] else "",
+            "area": row[6] or "",
+            "source": row[11] or "",
+            "fub_id": fub_id,
+            "fub_url": f"{FUB_PROFILE_BASE}/{fub_id}" if fub_id else ""
+        })
+
+    return jsonify(results)
+
+
 # ── Residential GL Analytics ──────────────────────────────────────────────
 
 # Keywords that flag a row in Company Mailings as CRE (not residential)
