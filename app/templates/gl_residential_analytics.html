@@ -59,8 +59,16 @@
 <div class="card border-0 mb-4" style="box-shadow:0 1px 8px rgba(0,0,0,0.07);">
   <div class="card-body p-4">
     <div class="d-flex align-items-center justify-content-between mb-1">
-      <h6 class="fw-bold mb-0" style="font-size:14px;color:#1a1d23;">Weekly QR Scan Activity</h6>
-      <span class="text-muted" style="font-size:11px;">last 16 weeks</span>
+      <h6 class="fw-bold mb-0" style="font-size:14px;color:#1a1d23;">Weekly Activity</h6>
+      <div class="d-flex gap-1">
+        {% for wk, label in [(8,'8W'),(16,'16W'),(26,'6M'),(52,'1Y'),(104,'All')] %}
+        <a href="?weeks={{ wk }}"
+           style="font-size:11px;padding:3px 9px;border-radius:20px;text-decoration:none;
+                  {% if chart_weeks == wk %}background:#1a1d23;color:#fff;{% else %}background:#f3f4f6;color:#6b7280;{% endif %}">
+          {{ label }}
+        </a>
+        {% endfor %}
+      </div>
     </div>
     {% if chart_labels %}
     <div class="d-flex gap-3 flex-wrap mb-3 mt-2">

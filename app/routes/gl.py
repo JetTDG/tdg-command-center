@@ -2122,17 +2122,23 @@ def gl_residential_analytics():
     total_resp_all = total_scans + total_calls + total_texts + total_emails
     unattributed   = total_scans - sum(scans_by_area.values())
 
-    # ── 6. Weekly trend chart (last 16 weeks from res_gl_scans) ──────────
+    # ── 6. Weekly trend chart ──────────────────────────────────────────────
+    try:
+        chart_weeks = int(request.args.get('weeks', 16))
+    except (ValueError, TypeError):
+        chart_weeks = 16
+    chart_weeks = max(4, min(chart_weeks, 104))   # clamp 4w – 2yr
+
     weekly_rows = db.session.execute(sa_text("""
         SELECT DATE_TRUNC('week', scan_date)::date AS week,
                SUM(CASE WHEN event_type = 'scan' THEN 1 ELSE 0 END) AS scans,
                SUM(CASE WHEN event_type = 'call' THEN 1 ELSE 0 END) AS calls,
                SUM(CASE WHEN event_type IN ('text') THEN 1 ELSE 0 END) AS texts
         FROM   res_gl_scans
-        WHERE  scan_date >= NOW() - INTERVAL '16 weeks'
+        WHERE  scan_date >= NOW() - (:weeks * INTERVAL '1 week')
         GROUP  BY 1
         ORDER  BY 1
-    """)).fetchall()
+    """), {'weeks': chart_weeks}).fetchall()
 
     chart_labels = [str(r[0]) for r in weekly_rows]
     chart_scans  = [r[1]      for r in weekly_rows]
@@ -2161,6 +2167,7 @@ def gl_residential_analytics():
         total_emails    = total_emails,
         total_resp_all  = total_resp_all,
         unattributed    = unattributed,
+        chart_weeks     = chart_weeks,
         scan_pct        = round(total_scans / total_letters * 100, 1) if total_letters else 0,
         fello_pct       = round(total_fello  / total_letters * 100, 1) if total_letters else 0,
         calls_pct       = round(total_calls  / total_letters * 100, 1) if total_letters else 0,
