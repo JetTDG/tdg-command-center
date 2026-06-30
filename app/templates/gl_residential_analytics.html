@@ -183,6 +183,18 @@
                 style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;">
               Mail Date <span class="sort-icon" id="icon-mail_date_ts">↓</span></th>
           </tr>
+          {# ── Totals pinned at top ── #}
+          <tr class="totals-row" style="background:#eff6ff;border-bottom:2px solid #bfdbfe;">
+            <td class="ps-4 py-2 fw-bold" style="color:#1a1d23;font-size:12px;letter-spacing:.5px;">TOTALS</td>
+            <td class="text-end fw-bold py-2" style="color:#1a1d23;">{{ total_letters }}</td>
+            <td class="text-end fw-bold py-2" style="color:#2563EB;">{{ total_scans }}</td>
+            <td class="text-end fw-bold py-2" style="color:#16a34a;">{{ total_calls }}</td>
+            <td class="text-end fw-bold py-2" style="color:#c9a84c;">{{ total_texts }}</td>
+            <td class="text-end fw-bold py-2" style="color:#0891b2;">{{ total_emails }}</td>
+            <td class="text-end fw-bold py-2" style="color:#2563EB;">{{ scan_pct }}%</td>
+            <td class="text-end fw-bold py-2" style="color:#ef4444;">{{ resp_pct }}%</td>
+            <td class="text-end pe-4 py-2"></td>
+          </tr>
         </thead>
         <tbody id="areaTableBody">
           {% for s in area_stats %}

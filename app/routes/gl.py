@@ -1991,9 +1991,13 @@ def gl_residential_analytics():
     ).scalar() or 0
 
     # ── 3. Calls/Texts/Emails from historical Google Sheet (VA-entered rows) ───
-    # These are pre-automation entries; we merge them into the per-area counts.
+    # These are pre-automation entries; we merge them into the per-area counts
+    # AND into grand totals (DB event_type='call' rows are 0 — sheet is the source of truth).
     # Sheet cols: A(0)=Phone#, B(1)=Call Date, C(2)=Text Date, D(3)=Email Date,
     #             E(4)=Client Name, F(5)=Agent, G(6)=Subdivision, H(7)=Address, I(8)=Notes
+    sheet_calls = 0
+    sheet_texts = 0
+    sheet_emails = 0
     try:
         if _gsvc is None:
             raise RuntimeError("Sheets not initialized")
@@ -2041,18 +2045,27 @@ def gl_residential_analytics():
                     break
 
             if has_call:
+                sheet_calls += 1
                 # Sheet data adds to area attribution only (totals come from DB)
                 if matched_area:
                     calls_by_area[matched_area] += 1
             if has_text:
+                sheet_texts += 1
                 if matched_area:
                     texts_by_area[matched_area] += 1
             if has_email:
+                sheet_emails += 1
                 if matched_area:
                     emails_by_area[matched_area] += 1
 
     except Exception:
         pass
+
+    # Merge sheet-sourced totals into grand totals
+    # (DB event_type='call'/'text'/'email' rows are typically 0 — sheet is the live source)
+    total_calls  += sheet_calls
+    total_texts  += sheet_texts
+    total_emails += sheet_emails
 
     # ── 4. Build per-area stats table ─────────────────────────────────────
     area_stats = []
