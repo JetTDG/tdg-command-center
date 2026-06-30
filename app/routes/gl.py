@@ -1229,10 +1229,12 @@ def gl_analytics():
     batch_rows = []
     seen_batch = set()
     for _r in _rows[1:]:
-        _city     = _r[1].strip() if len(_r) > 1 else ""
-        _vertical = _r[2].strip() if len(_r) > 2 else ""
-        _letters  = _r[5].strip() if len(_r) > 5 else ""
-        _maildate = _cre_norm_date(_r[17].strip() if len(_r) > 17 else "")
+        # Pad the row so trailing empty cells (which Sheets API omits) don't hide mail date
+        _r = list(_r) + [''] * max(0, 18 - len(_r))
+        _city     = _r[1].strip()
+        _vertical = _r[2].strip()
+        _letters  = _r[5].strip()
+        _maildate = _cre_norm_date(_r[17].strip())
         # Skip blank rows and header-like rows
         if not _city or _city.lower() in ("city", "county", ""):
             continue
@@ -1416,11 +1418,16 @@ def gl_analytics():
                 _seen_cv.add(_key)
                 _deduped.append(_c)
         _mail_dates = sorted(set(c["mail_date"] for c in _deduped if c.get("mail_date")))
+        _co_letters = _cd["letters"]
+        _co_calls   = _cd["calls"]
+        _co_texts   = _cd["texts"]
         county_rows.append({
             "county":     _co,
-            "letters":    _cd["letters"],
-            "calls":      _cd["calls"],
-            "texts":      _cd["texts"],
+            "letters":    _co_letters,
+            "calls":      _co_calls,
+            "calls_pct":  round(_co_calls / _co_letters * 100, 1) if _co_letters else 0,
+            "texts":      _co_texts,
+            "texts_pct":  round(_co_texts / _co_letters * 100, 1) if _co_letters else 0,
             "inbox_id":   _cd["inbox_id"],
             "cities":     _deduped,
             "mail_dates": _mail_dates,

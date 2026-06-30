@@ -273,6 +273,7 @@
                  data-inbox="{{ co.inbox_id or '' }}"
                  onclick="event.stopPropagation()"
                  style="color:#16a34a;font-size:13px;">{{ co.calls }}</a>
+              <span style="color:#16a34a;font-size:11px;"> ({{ co.calls_pct }}%)</span>
               {% else %}
               <span style="color:#d1d5db;font-size:13px;">0</span>
               {% endif %}
@@ -284,6 +285,7 @@
                  data-inbox="{{ co.inbox_id or '' }}"
                  onclick="event.stopPropagation()"
                  style="color:#7c3aed;font-size:13px;">{{ co.texts }}</a>
+              <span style="color:#7c3aed;font-size:11px;"> ({{ co.texts_pct }}%)</span>
               {% else %}
               <span style="color:#d1d5db;font-size:13px;">0</span>
               {% endif %}
