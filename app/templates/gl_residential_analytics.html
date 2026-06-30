@@ -352,6 +352,7 @@ new Chart(ctx, {
         borderRadius: 4,
         borderSkipped: false,
         order: 2,
+        yAxisID: 'y',
       },
       {
         label: 'Calls',
@@ -364,6 +365,7 @@ new Chart(ctx, {
         tension: 0.3,
         fill: false,
         order: 1,
+        yAxisID: 'y1',
       },
       {
         label: 'Texts',
@@ -376,6 +378,7 @@ new Chart(ctx, {
         tension: 0.3,
         fill: false,
         order: 1,
+        yAxisID: 'y1',
       }
     ]
   },
@@ -409,9 +412,18 @@ new Chart(ctx, {
       },
       y: {
         beginAtZero: true,
+        position: 'left',
         border: { display: false },
         grid: { color: '#f3f4f6' },
         ticks: { font: { size: 11 }, color: '#9ca3af', stepSize: 1, precision: 0 }
+      },
+      y1: {
+        beginAtZero: true,
+        position: 'right',
+        border: { display: false },
+        grid: { drawOnChartArea: false },
+        ticks: { font: { size: 11 }, color: '#9ca3af', stepSize: 1, precision: 0 },
+        title: { display: true, text: 'Calls / Texts', font: { size: 10 }, color: '#9ca3af' }
       }
     }
   }
