@@ -1257,21 +1257,31 @@ def gl_analytics():
     total_batch = sum(r["letters"] for r in batch_rows)
 
 
-    # ── FUB Calls + Texts per GL inbox ───────────────────────────────────────
-    # These phone numbers are dedicated exclusively to the CRE GL program —
-    # they didn't exist before letters were sent, so every call/text is a GL
-    # response. We gate on LETTER_COUNTS (slugs with confirmed letters) to
-    # determine which inboxes to query. No date filter needed.
-    # Note: multiple slugs share one inbox (county-level), so per-city rows
-    # show the county total and are flagged with a shared-inbox indicator (*).
+    # ── FUB Calls + Texts — KPI totals only, since first scan per inbox ──────
+    # These phone numbers are county-level (shared across cities) so calls/texts
+    # are NOT shown in the per-city table — only in the KPI summary cards.
+    # Cutoff = earliest QR scan for any slug on that inbox (proxy for "letters
+    # arrived in mailboxes"). Inboxes with zero scans = letters not yet delivered,
+    # so excluded entirely.
     import base64 as _b64_fub, sys as _sys_fub
 
-    # inbox_id → earliest mail date among MAILED slugs (LETTER_COUNTS > 0)
-    # Used only to flag which inboxes have live letters — not for date filtering.
-    _mailed_inbox_ids = set()
-    for _sl, _iid in SLUG_INBOX.items():
-        if LETTER_COUNTS.get(_sl, 0) > 0:
-            _mailed_inbox_ids.add(_iid)
+    # Build inbox_id → earliest scan datetime from gl_scans table
+    _inbox_first_scan = {}
+    try:
+        _scan_rows = db.session.execute(text("""
+            SELECT s.slug, MIN(s.created_at) AS first_scan
+            FROM   gl_scans s
+            WHERE  s.event_type = 'scan'
+            GROUP  BY s.slug
+        """)).fetchall()
+        for _sr in _scan_rows:
+            _iid = SLUG_INBOX.get(_sr[0])
+            if _iid and _sr[1]:
+                _dt = _sr[1]
+                if _iid not in _inbox_first_scan or _dt < _inbox_first_scan[_iid]:
+                    _inbox_first_scan[_iid] = _dt
+    except Exception:
+        pass
 
     _fub_key = os.environ.get("FUB_API_KEY", "")
     if not _fub_key:
@@ -1282,9 +1292,11 @@ def gl_analytics():
         except Exception:
             pass
 
-    # inbox_id → {calls, texts} — all-time, mailed inboxes only
+    # inbox_id → {calls, texts} filtered since first scan
     inbox_activity = {}
-    if _fub_key:
+    total_calls = 0
+    total_texts = 0
+    if _fub_key and _inbox_first_scan:
         _fub_auth = _b64_fub.b64encode(f"{_fub_key}:".encode()).decode()
         _fub_hdrs = {
             "Authorization": f"Basic {_fub_auth}",
@@ -1292,49 +1304,41 @@ def gl_analytics():
             "X-System": "TDG-GL-Analytics",
             "X-System-Key": _fub_key,
         }
-        for _iid in _mailed_inbox_ids:
+        from datetime import timezone as _tz
+        for _iid, _since in _inbox_first_scan.items():
+            # Make timezone-aware for comparison
+            if _since.tzinfo is None:
+                _since = _since.replace(tzinfo=_tz.utc)
             _calls = _texts = 0
             try:
-                _rc = http.get(f"{FUB_BASE}/calls",
-                               params={"limit": 1, "sharedInboxId": _iid},
-                               headers=_fub_hdrs, timeout=15)
-                if _rc.status_code == 200:
-                    # Count only inbound calls (property owners calling in)
-                    # Must paginate — metadata total includes outbound
-                    _call_params = {"limit": 200, "sharedInboxId": _iid}
-                    _next = None
-                    while True:
-                        if _next:
-                            _call_params["next"] = _next
-                        _rcp = http.get(f"{FUB_BASE}/calls", params=_call_params,
-                                        headers=_fub_hdrs, timeout=15)
-                        if _rcp.status_code != 200:
-                            break
-                        _cd = _rcp.json()
-                        _calls += sum(1 for c in _cd.get("calls", [])
-                                      if c.get("isIncoming"))
-                        _next = _cd.get("_metadata", {}).get("next")
-                        if not _next:
-                            break
+                _rcp = http.get(f"{FUB_BASE}/calls",
+                                params={"limit": 200, "sharedInboxId": _iid},
+                                headers=_fub_hdrs, timeout=15)
+                if _rcp.status_code == 200:
+                    from datetime import datetime as _dtm
+                    _calls = sum(
+                        1 for c in _rcp.json().get("calls", [])
+                        if c.get("isIncoming") and c.get("created") and
+                        _dtm.fromisoformat(c["created"].replace("Z", "+00:00")) >= _since
+                    )
             except Exception:
                 pass
             try:
-                _rt = http.get(f"{FUB_BASE}/textMessages",
-                               params={"limit": 200, "sharedInboxId": _iid},
-                               headers=_fub_hdrs, timeout=15)
-                if _rt.status_code == 200:
-                    # FUB returns key as lowercase "textmessages"
-                    _texts = sum(1 for t in _rt.json().get("textmessages", [])
-                                 if t.get("isInbound", t.get("isIncoming", False)))
+                _rtp = http.get(f"{FUB_BASE}/textMessages",
+                                params={"limit": 200, "sharedInboxId": _iid},
+                                headers=_fub_hdrs, timeout=15)
+                if _rtp.status_code == 200:
+                    from datetime import datetime as _dtm
+                    _texts = sum(
+                        1 for t in _rtp.json().get("textmessages", [])
+                        if t.get("isInbound", t.get("isIncoming", False)) and t.get("created") and
+                        _dtm.fromisoformat(t["created"].replace("Z", "+00:00")) >= _since
+                    )
             except Exception:
                 pass
             inbox_activity[_iid] = {"calls": _calls, "texts": _texts}
-
-    # Reverse map: inbox_id → list of slugs (to detect shared inboxes)
-    from collections import defaultdict as _dd
-    _inbox_to_slugs = _dd(list)
-    for _sl, _iid in SLUG_INBOX.items():
-        _inbox_to_slugs[_iid].append(_sl)
+            total_calls += _calls
+            total_texts += _texts
 
     # ── Build per-slug stats ──────────────────────────────────────────────────
     city_stats = []
@@ -1344,12 +1348,6 @@ def gl_analytics():
         scans   = events.get("scan", 0)
         forms   = events.get("form_submit", 0)
         sms     = events.get("sms_tap", 0)
-        # Attach inbox calls/texts for this slug's county group
-        _iid         = SLUG_INBOX.get(slug)
-        _act         = inbox_activity.get(_iid, {"calls": 0, "texts": 0}) if _iid else {"calls": 0, "texts": 0}
-        _inbox_calls = _act["calls"]
-        _inbox_texts = _act["texts"]
-        _shared      = len(_inbox_to_slugs.get(_iid, [])) > 1 if _iid else False
         city_stats.append({
             "slug":         slug,
             "city":         meta["city"],
@@ -1359,9 +1357,6 @@ def gl_analytics():
             "scans":        scans,
             "forms":        forms,
             "sms":          sms,
-            "inbox_calls":  _inbox_calls,
-            "inbox_texts":  _inbox_texts,
-            "inbox_shared": _shared,   # True = other cities share this phone number
             "scan_pct":     round(scans / letters * 100, 1) if letters else 0,
             "form_pct":     round(forms / letters * 100, 1) if letters else 0,
             "sms_pct":      round(sms   / letters * 100, 1) if letters else 0,
@@ -1369,19 +1364,11 @@ def gl_analytics():
         })
 
     # ── Totals ────────────────────────────────────────────────────────────────
-    total_letters = sum(s["letters"] for s in city_stats)
-    total_scans   = sum(s["scans"]   for s in city_stats)
-    # True totals: sum inbox activity once per inbox (not once per slug)
-    _seen_inboxes  = set()
-    total_calls    = 0
-    total_texts    = 0
-    for _iid, _act in inbox_activity.items():
-        if _iid not in _seen_inboxes:
-            _seen_inboxes.add(_iid)
-            total_calls += _act["calls"]
-            total_texts += _act["texts"]
-    total_forms   = sum(s["forms"]   for s in city_stats)
-    total_sms     = sum(s["sms"]     for s in city_stats)
+    total_letters   = sum(s["letters"] for s in city_stats)
+    total_scans     = sum(s["scans"]   for s in city_stats)
+    # total_calls and total_texts already accumulated in the FUB block above
+    total_forms     = sum(s["forms"]   for s in city_stats)
+    total_sms       = sum(s["sms"]     for s in city_stats)
     total_responses = total_forms + total_sms
 
     # ── Weekly trend (last 8 weeks) ───────────────────────────────────────────

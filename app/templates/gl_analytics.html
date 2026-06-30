@@ -153,8 +153,6 @@
             <th class="text-end fw-600" style="color:#2563EB;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Scans</th>
             <th class="text-end fw-600" style="color:#16a34a;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Forms</th>
             <th class="text-end fw-600" style="color:#c9a84c;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">SMS</th>
-            <th class="text-end fw-600" style="color:#0891b2;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Calls</th>
-            <th class="text-end fw-600" style="color:#7c3aed;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Texts</th>
             <th class="text-end fw-600" style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Scan%</th>
             <th class="text-end pe-4 fw-600" style="color:#dc2626;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Resp%</th>
           </tr>
@@ -175,12 +173,6 @@
             <td class="text-end fw-bold" style="color:#2563EB;">{{ s.scans }}</td>
             <td class="text-end fw-bold" style="color:#16a34a;">{{ s.forms }}</td>
             <td class="text-end fw-bold" style="color:#c9a84c;">{{ s.sms }}</td>
-            <td class="text-end fw-bold" style="color:#0891b2;">
-              {{ s.inbox_calls }}{% if s.inbox_shared %}<span title="Shared phone number — county total, not city-only" style="font-size:10px;color:#9ca3af;cursor:help;">*</span>{% endif %}
-            </td>
-            <td class="text-end fw-bold" style="color:#7c3aed;">
-              {{ s.inbox_texts }}{% if s.inbox_shared %}<span title="Shared phone number — county total, not city-only" style="font-size:10px;color:#9ca3af;cursor:help;">*</span>{% endif %}
-            </td>
             <td class="text-end">
               <span style="font-size:12px;color:#2563EB;font-weight:600;">{{ s.scan_pct }}%</span>
             </td>
@@ -205,8 +197,6 @@
             <td class="text-end" style="color:#2563EB;">{{ total_scans }}</td>
             <td class="text-end" style="color:#16a34a;">{{ total_forms }}</td>
             <td class="text-end" style="color:#c9a84c;">{{ total_sms }}</td>
-            <td class="text-end" style="color:#0891b2;">{{ total_calls }}</td>
-            <td class="text-end" style="color:#7c3aed;">{{ total_texts }}</td>
             <td class="text-end" style="color:#2563EB;">{{ scan_pct }}%</td>
             <td class="text-end pe-4" style="color:#dc2626;">{{ resp_pct }}%</td>
           </tr>
