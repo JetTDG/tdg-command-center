@@ -19,6 +19,53 @@ bp = Blueprint('gl', __name__, url_prefix='/gl')
 
 BASE_URL = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "web-production-1adf7.up.railway.app")
 
+
+@bp.route("/debug/sheets")
+def gl_debug_sheets():
+    """Unauthenticated debug endpoint — tests Google Sheets connectivity."""
+    import os as _os, json as _j, base64 as _b
+    result = {"env_var_set": False, "token_parsed": False, "token_expired": None,
+              "refresh_ok": None, "sheets_ok": False, "rows_resi": 0,
+              "rows_2026": 0, "rows_2025": 0, "area_meta_count": 0, "error": None}
+    try:
+        _tok = _os.environ.get("GOOGLE_TOKEN_JSON", "")
+        result["env_var_set"] = bool(_tok)
+        result["env_var_len"] = len(_tok)
+        if not _tok:
+            return jsonify(result)
+        _td = _j.loads(_b.b64decode(_tok).decode())
+        result["token_parsed"] = True
+        result["token_account"] = _td.get("account", "?")
+        result["token_expiry"] = _td.get("expiry", "?")
+        from google.oauth2.credentials import Credentials as GC
+        import google.auth.transport.requests as _gtr
+        _gc = GC.from_authorized_user_info(_td)
+        result["token_expired"] = _gc.expired
+        result["has_refresh_token"] = bool(_gc.refresh_token)
+        if _gc.expired and _gc.refresh_token:
+            _gc.refresh(_gtr.Request())
+            result["refresh_ok"] = True
+        from googleapiclient.discovery import build as gb
+        _gsvc = gb("sheets", "v4", credentials=_gc)
+        SID = "1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo"
+        r1 = _gsvc.spreadsheets().values().get(spreadsheetId=SID, range="'Residential GLs Schedule'!A:S").execute().get("values", [])
+        r2 = _gsvc.spreadsheets().values().get(spreadsheetId=SID, range="'2026 Company Mailings'!A:N").execute().get("values", [])
+        r3 = _gsvc.spreadsheets().values().get(spreadsheetId=SID, range="'2025 Company Mailings'!A:Q").execute().get("values", [])
+        result["sheets_ok"] = True
+        result["rows_resi"] = len(r1)
+        result["rows_2026"] = len(r2)
+        result["rows_2025"] = len(r3)
+        # count mailable resi rows
+        mailable = sum(1 for r in r1[1:] if len(r) > 17 and r[17].strip() and len(r) > 4 and r[4].strip())
+        result["mailable_resi_rows"] = mailable
+        mailable26 = sum(1 for r in r2[2:] if len(r) > 13 and r[13].strip() and len(r) > 3 and r[3].strip())
+        result["mailable_2026_rows"] = mailable26
+        mailable25 = sum(1 for r in r3[2:] if len(r) > 14 and r[14].strip() and len(r) > 3 and r[3].strip())
+        result["mailable_2025_rows"] = mailable25
+    except Exception as e:
+        result["error"] = str(e)
+    return jsonify(result)
+
 # ── Phone map: slug → (display, e164) ─────────────────────────────────────────
 PHONE_MAP = {
     # Macomb County Industrial
