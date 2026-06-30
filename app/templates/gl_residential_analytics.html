@@ -67,6 +67,12 @@
       <span style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:5px;">
         <span style="display:inline-block;width:12px;height:12px;background:#2563EB;border-radius:2px;"></span>QR Scans
       </span>
+      <span style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:5px;">
+        <span style="display:inline-block;width:12px;height:3px;background:#16a34a;border-radius:2px;"></span>Calls
+      </span>
+      <span style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:5px;">
+        <span style="display:inline-block;width:12px;height:3px;background:#c9a84c;border-radius:2px;"></span>Texts
+      </span>
     </div>
     <div style="position:relative;height:220px;">
       <canvas id="weeklyChart"></canvas>
@@ -326,19 +332,50 @@ new Chart(ctx, {
   type: 'bar',
   data: {
     labels: {{ chart_labels | tojson }},
-    datasets: [{
-      label: 'QR Scans',
-      data:  {{ chart_scans | tojson }},
-      backgroundColor: '#2563EB',
-      borderRadius: 5,
-      borderSkipped: false,
-    }]
+    datasets: [
+      {
+        label: 'QR Scans',
+        data:  {{ chart_scans | tojson }},
+        backgroundColor: '#2563EB',
+        borderRadius: 4,
+        borderSkipped: false,
+        order: 2,
+      },
+      {
+        label: 'Calls',
+        data:  {{ chart_calls | tojson }},
+        type: 'line',
+        borderColor: '#16a34a',
+        backgroundColor: '#16a34a22',
+        borderWidth: 2,
+        pointRadius: 3,
+        tension: 0.3,
+        fill: false,
+        order: 1,
+      },
+      {
+        label: 'Texts',
+        data:  {{ chart_texts | tojson }},
+        type: 'line',
+        borderColor: '#c9a84c',
+        backgroundColor: '#c9a84c22',
+        borderWidth: 2,
+        pointRadius: 3,
+        tension: 0.3,
+        fill: false,
+        order: 1,
+      }
+    ]
   },
   options: {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false },
+      legend: {
+        display: true,
+        position: 'top',
+        labels: { boxWidth: 12, font: { size: 11 }, color: '#6b7280' }
+      },
       tooltip: {
         backgroundColor: '#1a1d23',
         titleColor: '#9ca3af',

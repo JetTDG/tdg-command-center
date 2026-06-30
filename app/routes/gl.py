@@ -1678,30 +1678,31 @@ def gl_resi_analytics_detail():
       area = mailing area name (optional filter)
     """
     from sqlalchemy import text as sa_text2
-    event_type = request.args.get("type", "calls")
+    event_type  = request.args.get("type", "calls")
     area_filter = request.args.get("area", "")
 
-    # Map sheet event types → res_gl_scans source values
-    # Calls/texts/emails come from gl_nightly; scans from qr_scans/fello_audit
+    # Map UI type → event_type / source filter in res_gl_scans
     if event_type == "scans":
-        source_filter = ("'qr_scans'", "'fello_audit'")
+        et_filter = ("'scan'",)
+    elif event_type == "calls":
+        et_filter = ("'call'",)
+    elif event_type == "texts":
+        et_filter = ("'text'",)
+    elif event_type == "emails":
+        et_filter = ("'email'",)
     else:
-        source_filter = ("'gl_nightly'",)
+        et_filter = ("'call'", "'text'", "'email'", "'gl_contact'")
 
-    # Build query
-    conditions = ["source IN (" + ",".join(source_filter) + ")"]
+    conditions = ["event_type IN (" + ",".join(et_filter) + ")"]
     params = {}
     if area_filter:
         conditions.append("LOWER(TRIM(area)) = :area")
         params["area"] = area_filter.lower().strip()
 
-    # For calls vs texts vs emails from gl_nightly, we distinguish by what's in
-    # the Google Sheet — but since we only have source='gl_nightly' for now,
-    # we pull all gl_nightly rows and let the UI show all (future: add event_type col)
     where_clause = " AND ".join(conditions)
     sql = f"""
         SELECT id, scan_date, first_name, last_name, phone, email,
-               area, city, county, agent, fub_id, source, created_at
+               area, city, county, agent, fub_id, source, event_type, created_at
         FROM   res_gl_scans
         WHERE  {where_clause}
         ORDER  BY scan_date DESC, created_at DESC
@@ -1715,13 +1716,13 @@ def gl_resi_analytics_detail():
         name = f"{row[2] or ''} {row[3] or ''}".strip() or "Unknown"
         addr = f"{row[7] or ''}, {row[8] or ''}".strip(", ") if (row[7] or row[8]) else ""
         results.append({
-            "name": name,
-            "address": f"{addr}",
-            "agent": row[9] or "",
-            "date": str(row[1]) if row[1] else "",
-            "area": row[6] or "",
-            "source": row[11] or "",
-            "fub_id": fub_id,
+            "name":    name,
+            "address": addr,
+            "agent":   row[9] or "",
+            "date":    str(row[1]) if row[1] else "",
+            "area":    row[6] or "",
+            "source":  row[11] or "",
+            "fub_id":  fub_id,
             "fub_url": f"{FUB_PROFILE_BASE}/{fub_id}" if fub_id else ""
         })
 
@@ -1749,7 +1750,19 @@ def gl_residential_analytics():
     from collections import defaultdict
     from sqlalchemy import text as sa_text
 
-    # ── 1. Pull mailing areas from 2025 + 2026 Company Mailings tabs ─────
+    # ── Phone-area label map (matches gl_nightly_sync.py RESI_PHONE_MAP) ────────
+    # This is the canonical grouping: we roll up by area label, NOT by subdivision.
+    # Key = normalised area label, value = county
+    RESI_AREA_COUNTY = {
+        "gl - delta kelly subs":       "Oakland",
+        "gl - chris thompson":         "Macomb",
+        "gl - secord lake":            "Gladwin",
+        "gl - company non-rochester":  "Oakland",
+        "gl - company rochester subs": "Oakland",
+        "gl - resi eastside":          "Macomb",
+    }
+
+    # ── 1. Pull letter counts from Residential GLs Schedule + Company Mailings ──
     _gsvc    = None
     SHEET_ID = "1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo"
     try:
@@ -1767,84 +1780,173 @@ def gl_residential_analytics():
         else:
             token_path = _os.path.expanduser("~/.hermes/google_token.json")
             _gcreds = GCreds.from_authorized_user_file(token_path)
+        if _gcreds and _gcreds.expired and _gcreds.refresh_token:
+            import google.auth.transport.requests as _gtr
+            _gcreds.refresh(_gtr.Request())
         _gsvc   = goog_build("sheets", "v4", credentials=_gcreds)
 
-        def _fetch(tab, area_col, letters_col, mailed_col):
-            res = _gsvc.spreadsheets().values().get(
-                spreadsheetId=SHEET_ID, range=f"'{tab}'!A:Z").execute()
-            return res.get("values", [])
+        rows_resi_sched = _gsvc.spreadsheets().values().get(
+            spreadsheetId=SHEET_ID,
+            range="'Residential GLs Schedule'!A:S").execute().get("values", [])
 
-        rows_2026 = _fetch("2026 Company Mailings", 3, 9, 13)
-        rows_2025 = _fetch("2025 Company Mailings", 3, 8, 14)
+        rows_2026 = _gsvc.spreadsheets().values().get(
+            spreadsheetId=SHEET_ID,
+            range="'2026 Company Mailings'!A:N").execute().get("values", [])
+
+        rows_2025 = _gsvc.spreadsheets().values().get(
+            spreadsheetId=SHEET_ID,
+            range="'2025 Company Mailings'!A:Q").execute().get("values", [])
+
     except Exception as e:
-        rows_2026, rows_2025 = [], []
+        rows_resi_sched, rows_2026, rows_2025 = [], [], []
 
-    # Build area → {letters, mail_date} — residential only, dedupe by normalised name
-    # 2026: cols D=area(3), J=letters(9), N=mailed(13)
-    # 2025: cols D=area(3), I=letters(8), O=mailed(14)
-    area_meta = {}   # normalised_area -> {display, letters, mail_date}
+    # area_meta: normalised_area → {display, letters, mail_date}
+    # We accumulate letters/mail_date from both the Schedule tab and Company Mailings.
+    # Grouping is by area label (the human-readable name on the sheet).
+    area_meta = {}   # normalised → {display, letters, mail_date}
 
     import re as _re_md
 
     def _normalize_mail_date(date_str, sheet_year):
         """Append /YY to any M/D token that is missing a year portion."""
-        yy = str(sheet_year)[-2:]  # e.g. 26 or 25
+        yy = str(sheet_year)[-2:]
         def _add_year(m):
             token = m.group(0)
-            # Already has a year (3 parts) — leave it alone
             if token.count('/') >= 2:
                 return token
             return token + '/' + yy
         return _re_md.sub(r'\d{1,2}/\d{1,2}(?:/\d{2,4})?', _add_year, date_str)
 
-    def _add_rows(sheet_rows, area_idx, letters_idx, mailed_idx, sheet_year):
-        for r in sheet_rows[2:]:   # skip header + totals row
-            area_raw = r[area_idx].strip() if len(r) > area_idx else ''
-            if not area_raw or _is_cre_area(area_raw):
-                continue
-            letters_raw = r[letters_idx].strip() if len(r) > letters_idx else ''
-            mailed_raw  = r[mailed_idx].strip()  if len(r) > mailed_idx  else ''
-            if mailed_raw:
-                mailed_raw = _normalize_mail_date(mailed_raw, sheet_year)
-            try:
-                letters = int(letters_raw.replace(',', ''))
-            except (ValueError, AttributeError):
-                letters = 0
-            key = area_raw.lower().strip()
-            if key not in area_meta:
-                area_meta[key] = {'display': area_raw, 'letters': 0, 'mail_date': ''}
-            area_meta[key]['letters']   += letters
-            if mailed_raw and not area_meta[key]['mail_date']:
-                area_meta[key]['mail_date'] = mailed_raw
+    def _merge(key, display, letters, mail_date):
+        key = key.lower().strip()
+        if key not in area_meta:
+            area_meta[key] = {'display': display, 'letters': 0, 'mail_date': ''}
+        area_meta[key]['letters'] += letters
+        if mail_date and not area_meta[key]['mail_date']:
+            area_meta[key]['mail_date'] = mail_date
 
-    _add_rows(rows_2026, 3, 9, 13, 2026)
-    _add_rows(rows_2025, 3, 8, 14, 2025)
+    # Residential GLs Schedule tab:
+    # A(0)=Date, C(2)=County, D(3)=City/Criteria, E(4)=#Addresses, R(17)=Mail Date
+    for r in rows_resi_sched[1:]:   # skip header row
+        area_raw = r[3].strip() if len(r) > 3 else ''
+        if not area_raw:
+            continue
+        letters_raw = r[4].strip() if len(r) > 4 else ''
+        mail_raw    = r[17].strip() if len(r) > 17 else ''
+        # Skip if no mail date (not yet mailed)
+        if not mail_raw:
+            continue
+        try:
+            letters = int(letters_raw.replace(',', '').split()[0])
+        except (ValueError, AttributeError, IndexError):
+            letters = 0
+        if letters == 0:
+            continue
+        mail_norm = _normalize_mail_date(mail_raw, 2026)
+        _merge(area_raw, area_raw, letters, mail_norm)
 
-    # ── 2. Scan counts per area from res_gl_scans ─────────────────────────
-    scan_rows = db.session.execute(sa_text("""
-        SELECT LOWER(TRIM(area)) as area_key, COUNT(*) as cnt
+    # 2026 Company Mailings: D(3)=area, J(9)=letters, N(13)=mailed
+    # C(2)=Commercial or Residential — skip CRE rows
+    for r in rows_2026[2:]:
+        def _c26(i): return r[i].strip() if len(r) > i else ''
+        if _is_cre_area(_c26(3)) or _c26(2).lower() == 'commercial':
+            continue
+        area_raw    = _c26(3)
+        letters_raw = _c26(9)
+        mail_raw    = _c26(13)
+        if not area_raw or not mail_raw:
+            continue
+        try:
+            letters = int(letters_raw.replace(',', '').split()[0])
+        except (ValueError, AttributeError, IndexError):
+            letters = 0
+        if letters == 0:
+            continue
+        mail_norm = _normalize_mail_date(mail_raw, 2026)
+        _merge(area_raw, area_raw, letters, mail_norm)
+
+    # 2025 Company Mailings: D(3)=area, I(8)=letters, O(14)=mailed (header row 1, totals row 2)
+    for r in rows_2025[2:]:
+        def _c25(i): return r[i].strip() if len(r) > i else ''
+        if _is_cre_area(_c25(3)) or _c25(2).lower() == 'commercial':
+            continue
+        area_raw    = _c25(3)
+        letters_raw = _c25(8)
+        mail_raw    = _c25(14)
+        if not area_raw or not mail_raw:
+            continue
+        try:
+            letters = int(letters_raw.replace(',', '').split()[0])
+        except (ValueError, AttributeError, IndexError):
+            letters = 0
+        if letters == 0:
+            continue
+        mail_norm = _normalize_mail_date(mail_raw, 2025)
+        _merge(area_raw, area_raw, letters, mail_norm)
+
+    # ── 2. Scan/call/text/email counts from res_gl_scans (by event_type) ──────
+    event_rows = db.session.execute(sa_text("""
+        SELECT LOWER(TRIM(area)) as area_key, event_type, COUNT(*) as cnt
         FROM   res_gl_scans
         WHERE  area IS NOT NULL AND area != ''
-        GROUP  BY 1
+        GROUP  BY 1, 2
     """)).fetchall()
-    scan_by_area = {r[0]: r[1] for r in scan_rows}
 
-    # Grand total scans (all sources — includes pre-Jet historical data)
-    total_scans_all = db.session.execute(
-        sa_text("SELECT COUNT(*) FROM res_gl_scans")
-    ).scalar() or 0
-    total_fello     = db.session.execute(
-        sa_text("SELECT COUNT(*) FROM res_gl_scans WHERE source = 'fello_audit'")
-    ).scalar() or 0
-
-    # ── 3. Calls / Texts / Emails from tracker tab ────────────────────────
-    # Cols: A=Call date(0), B=Text date(1), C=Email date(2), D=Name(3), E=Agent(4), G=Address(6)
-    # Residential = agent does NOT end in (CRE)
+    scans_by_area  = defaultdict(int)
     calls_by_area  = defaultdict(int)
     texts_by_area  = defaultdict(int)
     emails_by_area = defaultdict(int)
-    total_calls = total_texts = total_emails = 0
 
+    for r in event_rows:
+        ak  = r[0]
+        et  = r[1] or 'scan'
+        cnt = r[2]
+        if et == 'scan':
+            scans_by_area[ak]  += cnt
+        elif et == 'call':
+            calls_by_area[ak]  += cnt
+        elif et == 'text':
+            texts_by_area[ak]  += cnt
+        elif et == 'email':
+            emails_by_area[ak] += cnt
+        else:
+            # gl_contact = legacy pre-event_type rows from gl_nightly
+            calls_by_area[ak] += cnt   # attribute to calls conservatively
+
+    # Grand totals from DB (all areas, including unattributed)
+    total_counts = db.session.execute(sa_text("""
+        SELECT event_type, COUNT(*)
+        FROM   res_gl_scans
+        GROUP  BY 1
+    """)).fetchall()
+
+    total_scans  = 0
+    total_calls  = 0
+    total_texts  = 0
+    total_emails = 0
+    total_fello  = 0
+
+    for et, cnt in total_counts:
+        et = et or 'scan'
+        if et == 'scan':
+            total_scans  += cnt
+        elif et == 'call':
+            total_calls  += cnt
+        elif et == 'text':
+            total_texts  += cnt
+        elif et == 'email':
+            total_emails += cnt
+        else:
+            total_calls  += cnt   # gl_contact legacy
+
+    total_fello = db.session.execute(
+        sa_text("SELECT COUNT(*) FROM res_gl_scans WHERE source = 'fello_audit'")
+    ).scalar() or 0
+
+    # ── 3. Calls/Texts/Emails from historical Google Sheet (VA-entered rows) ───
+    # These are pre-automation entries; we merge them into the per-area counts.
+    # Sheet cols: A(0)=Phone#, B(1)=Call Date, C(2)=Text Date, D(3)=Email Date,
+    #             E(4)=Client Name, F(5)=Agent, G(6)=Subdivision, H(7)=Address, I(8)=Notes
     try:
         if _gsvc is None:
             raise RuntimeError("Sheets not initialized")
@@ -1892,15 +1994,13 @@ def gl_residential_analytics():
                     break
 
             if has_call:
-                total_calls += 1
+                # Sheet data adds to area attribution only (totals come from DB)
                 if matched_area:
                     calls_by_area[matched_area] += 1
             if has_text:
-                total_texts += 1
                 if matched_area:
                     texts_by_area[matched_area] += 1
             if has_email:
-                total_emails += 1
                 if matched_area:
                     emails_by_area[matched_area] += 1
 
@@ -1911,7 +2011,7 @@ def gl_residential_analytics():
     area_stats = []
     for key, meta in sorted(area_meta.items(), key=lambda x: x[1]['display']):
         letters = meta['letters']
-        scans   = scan_by_area.get(key, 0)
+        scans   = scans_by_area.get(key, 0)
         calls   = calls_by_area.get(key, 0)
         texts   = texts_by_area.get(key, 0)
         emails  = emails_by_area.get(key, 0)
@@ -1959,14 +2059,15 @@ def gl_residential_analytics():
 
     # ── 5. Totals ─────────────────────────────────────────────────────────
     total_letters  = sum(a['letters'] for a in area_stats)
-    total_scans    = total_scans_all   # all QR scans including unattributed
     total_resp_all = total_scans + total_calls + total_texts + total_emails
-    unattributed   = total_scans_all - sum(scan_by_area.values())
+    unattributed   = total_scans - sum(scans_by_area.values())
 
     # ── 6. Weekly trend chart (last 16 weeks from res_gl_scans) ──────────
     weekly_rows = db.session.execute(sa_text("""
         SELECT DATE_TRUNC('week', scan_date)::date AS week,
-               COUNT(*) AS cnt
+               SUM(CASE WHEN event_type = 'scan' THEN 1 ELSE 0 END) AS scans,
+               SUM(CASE WHEN event_type = 'call' THEN 1 ELSE 0 END) AS calls,
+               SUM(CASE WHEN event_type IN ('text') THEN 1 ELSE 0 END) AS texts
         FROM   res_gl_scans
         WHERE  scan_date >= NOW() - INTERVAL '16 weeks'
         GROUP  BY 1
@@ -1975,6 +2076,8 @@ def gl_residential_analytics():
 
     chart_labels = [str(r[0]) for r in weekly_rows]
     chart_scans  = [r[1]      for r in weekly_rows]
+    chart_calls  = [r[2]      for r in weekly_rows]
+    chart_texts  = [r[3]      for r in weekly_rows]
 
     # ── 7. Batch summary table ─────────────────────────────────────────────
     # Re-use area_meta, sorted by mail_date
@@ -2006,4 +2109,6 @@ def gl_residential_analytics():
         resp_pct        = round(total_resp_all / total_letters * 100, 1) if total_letters else 0,
         chart_labels    = chart_labels,
         chart_scans     = chart_scans,
+        chart_calls     = chart_calls,
+        chart_texts     = chart_texts,
     )
