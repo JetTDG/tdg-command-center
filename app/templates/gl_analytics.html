@@ -176,7 +176,7 @@
               {% if s.sms > 0 %}
               <a href="#" class="gl-detail-link fw-bold text-decoration-none"
                  data-type="texts" data-label="SMS Taps"
-                 style="color:#c9a84c;">{{ s.sms }}</a>
+                 style="color:#c9a84c;text-decoration:underline dotted !important;cursor:pointer;">{{ s.sms }}</a>
               {% else %}<span class="fw-bold" style="color:#c9a84c;">0</span>{% endif %}
             </td>
             <td class="text-end">
@@ -271,7 +271,7 @@
               <a href="#" class="gl-detail-link fw-bold text-decoration-none"
                  data-type="calls" data-label="Calls — {{ co.county }} County"
                  data-inbox="{{ co.inbox_id or '' }}"
-                 style="color:#16a34a;font-size:13px;">{{ co.calls }}</a>
+                 style="color:#16a34a;font-size:13px;text-decoration:underline dotted !important;cursor:pointer;">{{ co.calls }}</a>
               <span style="color:#16a34a;font-size:11px;"> ({{ co.calls_pct }}%)</span>
               {% else %}
               <span style="color:#d1d5db;font-size:13px;">0</span>
@@ -282,7 +282,7 @@
               <a href="#" class="gl-detail-link fw-bold text-decoration-none"
                  data-type="texts" data-label="Texts — {{ co.county }} County"
                  data-inbox="{{ co.inbox_id or '' }}"
-                 style="color:#7c3aed;font-size:13px;">{{ co.texts }}</a>
+                 style="color:#7c3aed;font-size:13px;text-decoration:underline dotted !important;cursor:pointer;">{{ co.texts }}</a>
               <span style="color:#7c3aed;font-size:11px;"> ({{ co.texts_pct }}%)</span>
               {% else %}
               <span style="color:#d1d5db;font-size:13px;">0</span>
