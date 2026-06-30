@@ -28,7 +28,7 @@ def gl_debug_sheets():
               "refresh_ok": None, "sheets_ok": False, "rows_resi": 0,
               "rows_2026": 0, "rows_2025": 0, "area_meta_count": 0, "error": None}
     try:
-        _tok = _os.environ.get("GOOGLE_TOKEN_JSON", "")
+        _tok = _os.environ.get("GOOGLE_TOKEN_JSON_FOR_RAILWAY", "")
         result["env_var_set"] = bool(_tok)
         result["env_var_len"] = len(_tok)
         if not _tok:
@@ -1243,7 +1243,7 @@ def gl_analytics():
         from googleapiclient.discovery import build as goog_build
         from google.oauth2.credentials import Credentials as GCreds
         import os, json as _json2, base64 as _b64_2
-        _token_env2 = os.environ.get("GOOGLE_TOKEN_JSON", "")
+        _token_env2 = os.environ.get("GOOGLE_TOKEN_JSON_FOR_RAILWAY", "")
         if _token_env2:
             _token_dict2 = _json2.loads(_b64_2.b64decode(_token_env2).decode())
             import google.auth.transport.requests as _gtr2
@@ -1817,7 +1817,7 @@ def gl_residential_analytics():
         from google.oauth2.credentials import Credentials as GCreds
         import os as _os, json as _json, base64 as _b64, tempfile as _tf
         # Support Railway env var (base64-encoded token JSON) OR local file
-        _token_env = _os.environ.get("GOOGLE_TOKEN_JSON", "")
+        _token_env = _os.environ.get("GOOGLE_TOKEN_JSON_FOR_RAILWAY", "")
         if _token_env:
             _token_dict = _json.loads(_b64.b64decode(_token_env).decode())
             import google.auth.transport.requests as _gtr
