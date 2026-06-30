@@ -1256,6 +1256,20 @@ def gl_analytics():
     batch_rows.sort(key=lambda r: (0 if r["mail_date"] else 1, r["city"]))
     total_batch = sum(r["letters"] for r in batch_rows)
 
+    # Also build county rollup from batch_rows (for the county accordion table)
+    # county → {letters, cities[], mail_dates[]}
+    _county_map_b = {}
+    for _br in batch_rows:
+        # Derive county from city name using COUNTY_MAP_GL
+        _ck = _br["city"].lower().split()[0] if _br["city"] else ""
+        _co = COUNTY_MAP_GL.get(_ck, "Other")
+        if _co not in _county_map_b:
+            _county_map_b[_co] = {"letters": 0, "cities": [], "mail_dates": []}
+        _county_map_b[_co]["letters"] += _br["letters"]
+        _county_map_b[_co]["cities"].append(_br)
+        if _br["mail_date"]:
+            _county_map_b[_co]["mail_dates"].append(_br["mail_date"])
+
 
     # ── FUB Calls + Texts — KPI totals only, since first scan per inbox ──────
     # These phone numbers are county-level (shared across cities) so calls/texts
@@ -1340,6 +1354,39 @@ def gl_analytics():
             total_calls += _calls
             total_texts += _texts
 
+    # ── County rollup: attach calls+texts per county via inbox mapping ────────
+    # inbox_id → county name (derived from which slugs use that inbox)
+    _inbox_to_county = {}
+    for _slug, _iid in SLUG_INBOX.items():
+        _slug_meta = slugs_meta.get(_slug, {})
+        _co = _slug_meta.get("county", "")
+        if not _co:
+            _ck = _slug.split("-")[0].lower()
+            _co = COUNTY_MAP_GL.get(_ck, "Other")
+        if _iid not in _inbox_to_county and _co:
+            _inbox_to_county[_iid] = _co
+
+    county_rows = []
+    _county_order = ["Macomb", "Oakland", "Wayne", "Genesee", "Washtenaw", "Livingston", "Other"]
+    for _co in _county_order:
+        if _co not in _county_map_b:
+            continue
+        _cd = _county_map_b[_co]
+        # Find inbox(es) for this county
+        _co_inboxes = [_iid for _iid, _cn in _inbox_to_county.items() if _cn == _co]
+        _co_calls = sum(inbox_activity.get(_iid, {}).get("calls", 0) for _iid in _co_inboxes)
+        _co_texts = sum(inbox_activity.get(_iid, {}).get("texts", 0) for _iid in _co_inboxes)
+        _co_inbox_id = _co_inboxes[0] if _co_inboxes else None
+        county_rows.append({
+            "county":    _co,
+            "letters":   _cd["letters"],
+            "calls":     _co_calls,
+            "texts":     _co_texts,
+            "inbox_id":  _co_inbox_id,
+            "cities":    sorted(_cd["cities"], key=lambda c: c["city"]),
+            "mail_dates": sorted(set(_cd["mail_dates"])),
+        })
+
     # ── Build per-slug stats ──────────────────────────────────────────────────
     city_stats = []
     for slug, meta in sorted(slugs_meta.items(), key=lambda x: x[0]):
@@ -1399,6 +1446,7 @@ def gl_analytics():
     return render_template("gl_analytics.html",
         city_stats=city_stats,
         batch_rows=batch_rows,
+        county_rows=county_rows,
         total_batch=total_batch,
         total_letters=total_letters,
         total_scans=total_scans,
