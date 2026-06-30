@@ -271,7 +271,6 @@
               <a href="#" class="gl-detail-link fw-bold text-decoration-none"
                  data-type="calls" data-label="Calls — {{ co.county }} County"
                  data-inbox="{{ co.inbox_id or '' }}"
-                 onclick="event.stopPropagation()"
                  style="color:#16a34a;font-size:13px;">{{ co.calls }}</a>
               <span style="color:#16a34a;font-size:11px;"> ({{ co.calls_pct }}%)</span>
               {% else %}
@@ -283,7 +282,6 @@
               <a href="#" class="gl-detail-link fw-bold text-decoration-none"
                  data-type="texts" data-label="Texts — {{ co.county }} County"
                  data-inbox="{{ co.inbox_id or '' }}"
-                 onclick="event.stopPropagation()"
                  style="color:#7c3aed;font-size:13px;">{{ co.texts }}</a>
               <span style="color:#7c3aed;font-size:11px;"> ({{ co.texts_pct }}%)</span>
               {% else %}
@@ -486,6 +484,7 @@ new Chart(ctx, {
     var link = e.target.closest('.gl-detail-link');
     if (!link) return;
     e.preventDefault();
+    e.stopPropagation();
 
     var type  = link.dataset.type  || 'calls';
     var label = link.dataset.label || type;
