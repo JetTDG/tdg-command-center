@@ -559,10 +559,35 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
             assigned_id, assigned_name, pond_id = _parse_assignment(existing)
             has_real_agent = _is_real_agent(assigned_id, assigned_name)
 
+            # HARD RULE: never overwrite existing FUB data — only ADD.
+            # Merge tags: union of what FUB already has + new tags.
+            existing_tags = existing.get("tags") or []
+            merged_tags = list(dict.fromkeys(existing_tags + all_tags))  # dedup, preserve order
+
+            # Merge addresses: only append if the street isn't already on the contact.
+            existing_addrs = existing.get("addresses") or []
+            existing_streets = {(a.get("street") or "").lower().strip() for a in existing_addrs}
+            addr_to_add = None
+            if address and address.lower().strip() not in existing_streets:
+                addr_to_add = {"street": address, "type": "property"}
+            merged_addrs = existing_addrs + ([addr_to_add] if addr_to_add else [])
+
+            # Merge phones: only append if the number isn't already on the contact.
+            existing_phones = existing.get("phones") or []
+            existing_phone_vals = {(p.get("value") or "").replace(" ","").replace("-","").replace("(","").replace(")","") for p in existing_phones}
+            phone_clean = ''.join(c for c in (phone or "") if c.isdigit())
+            phone_to_add = None
+            if phone_clean and phone_clean not in existing_phone_vals and not any(phone_clean in v for v in existing_phone_vals):
+                phone_to_add = {"value": phone, "type": "mobile"}
+            merged_phones = existing_phones + ([phone_to_add] if phone_to_add else [])
+
             if has_real_agent and not pond_id:
-                # Rule A: Real agent owns it, not in any pond — tag + AP only, never touch
+                # Rule A: Real agent owns it, not in any pond — only add tags + AP, nothing else
+                update_a = {"tags": merged_tags}
+                if merged_addrs != existing_addrs:
+                    update_a["addresses"] = merged_addrs
                 http.put(f"{FUB_BASE}/people/{existing_id}",
-                         json={"tags": all_tags},
+                         json=update_a,
                          headers=headers, timeout=15)
                 _apply_ap(existing_id, headers)
                 http.post(f"{FUB_BASE}/notes",
@@ -572,14 +597,14 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
                 return str(existing_id), "tagged_existing_agent"
 
             elif has_real_agent and pond_id:
-                # Rule B: Real agent assigned BUT sitting in a pond — keep agent, clear pond
+                # Rule B: Real agent assigned BUT sitting in a pond — keep agent, clear pond, add data only
                 update = {
-                    "tags": all_tags,
+                    "tags": merged_tags,
                     "assignedUserId": assigned_id,   # same agent, explicit re-set
                     "assignedPondId": 0,              # clear pond
                 }
-                if address:
-                    update["addresses"] = [{"street": address, "type": "property"}]
+                if merged_addrs != existing_addrs:
+                    update["addresses"] = merged_addrs
                 r = http.put(f"{FUB_BASE}/people/{existing_id}",
                              json=update, headers=headers, timeout=15)
                 if r.status_code in (200, 201):
@@ -593,18 +618,18 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
                 return str(existing_id), "update_failed"
 
             else:
-                # Rule C: No real agent / pond-only — round-robin assign, clear pond
+                # Rule C: No real agent / pond-only — round-robin assign, clear pond, add data only
                 next_agent = pick_next_agent()
                 update = {
-                    "tags": all_tags,
+                    "tags": merged_tags,
                     "assignedPondId": 0,
                 }
                 if next_agent:
                     update["assignedUserId"] = next_agent
-                if phone:
-                    update["phones"] = [{"value": phone, "type": "mobile"}]
-                if address:
-                    update["addresses"] = [{"street": address, "type": "property"}]
+                if merged_phones != existing_phones:
+                    update["phones"] = merged_phones
+                if merged_addrs != existing_addrs:
+                    update["addresses"] = merged_addrs
                 if name:
                     parts = name.strip().split(None, 1)
                     update["firstName"] = parts[0]
