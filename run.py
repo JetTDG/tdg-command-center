@@ -1,4 +1,4 @@
-from app import create_app, db
+from app import create_app, db, socketio
 from app.models import User, Agent, Transaction, LeadGenLog, BusinessPlan, Pipeline
 
 app = create_app()
@@ -9,4 +9,4 @@ def make_shell_context():
                 LeadGenLog=LeadGenLog, BusinessPlan=BusinessPlan, Pipeline=Pipeline)
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    socketio.run(app, debug=False, host='0.0.0.0', port=5000)

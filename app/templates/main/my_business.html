@@ -221,7 +221,7 @@ function monthChanged() {
         {% set is_dead = t.status in ('x-Cancelled','y-Sale Failed','z-Expired') %}
         {% set is_temp = t.status in ('Temp Off Market','Temp off Mark') %}
         {% set row_class = 'row-pending' if is_pending else ('row-dead' if is_dead else ('row-temp' if is_temp else typ_class)) %}
-        <tr data-tid="{{ t.id }}" data-row data-status="{{ t.status or '' }}" data-txtype="{{ t.transaction_type or '' }}" class="{{ row_class }}">
+        <tr data-tid="{{ t.id }}" data-row data-status="{{ t.status or '' }}" data-txtype="{{ t.transaction_type or '' }}" data-updated-at="{{ t.updated_at.isoformat() if t.updated_at else '' }}" class="{{ row_class }}">
           {# Division col 0 — sticky, select #}
           <td class="sticky-col" style="left:0;width:90px;background:inherit" data-val="{{ t.division or '' }}">
             <select class="es" data-field="division" data-tid="{{ t.id }}" style="font-size:0.7rem;">
@@ -1336,6 +1336,109 @@ restoreState();
   let sync=false;
   rail.addEventListener('scroll',()=>{if(sync)return;sync=true;wrap.scrollLeft=rail.scrollLeft;sync=false;});
   wrap.addEventListener('scroll',()=>{if(sync)return;sync=true;rail.scrollLeft=wrap.scrollLeft;sync=false;});
+})();
+</script>
+
+<!-- ── Real-time sync via SocketIO ─────────────────────────────────────────── -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+<script>
+(function() {
+  'use strict';
+
+  var socket = io({ transports: ['websocket', 'polling'] });
+
+  // Track last known updated_at per transaction so we can detect stale edit forms
+  var rowUpdatedAt = {};
+  document.querySelectorAll('#mb-table tbody tr[data-tid]').forEach(function(row) {
+    var tid = row.dataset.tid;
+    var ua = row.dataset.updatedAt;
+    if (tid && ua) rowUpdatedAt[tid] = ua;
+  });
+
+  // ── Receive a cell update broadcast from any other user's save ──────────────
+  socket.on('cell_update', function(d) {
+    var myTid = String(d.tid);
+
+    // Track updated_at for conflict guard
+    if (d.updated_at) rowUpdatedAt[myTid] = d.updated_at;
+
+    // Find the row in MY table (may not exist if filtered out — that's fine)
+    var row = document.querySelector('#mb-table tbody tr[data-tid="' + myTid + '"]');
+    if (!row) return;
+
+    // Find the editable cell for this field
+    var cell = row.querySelector('[data-field="' + d.field + '"]');
+    if (!cell) return;
+
+    // Don't stomp on a cell the current user is actively editing
+    if (document.activeElement && document.activeElement.closest &&
+        document.activeElement.closest('[data-tid="' + myTid + '"]') === row &&
+        document.activeElement.dataset && document.activeElement.dataset.field === d.field) {
+      return;
+    }
+
+    // Update the cell value
+    var td = cell.tagName === 'TD' ? cell : cell.closest('td');
+    if (td) td.dataset.val = d.value;
+
+    if (cell.tagName === 'SELECT') {
+      cell.value = d.value;
+    } else if (cell.classList.contains('ec')) {
+      cell.textContent = d.value;
+    }
+
+    // If status changed — update row color + data-status
+    if (d.field === 'status') {
+      row.dataset.status = d.value;
+      if (typeof updateRowClass === 'function') updateRowClass(row, d.value);
+    }
+
+    // Update all computed read-only cells from the broadcast payload
+    if (d.computed) {
+      var compMap = {
+        'dom':               'dom',
+        'exp_in':            'exp_in',
+        'up_closing':        'up_closing',
+        'company_dollar':    'company_dollar',
+        'gci':               'gci',
+        'referral_fee':      'referral_fee',
+        'primary_agent_gci': 'primary_agent_gci',
+        'secondary_agent_gci':'secondary_agent_gci',
+        'member3_gci':       'member3_gci',
+        'member4_gci':       'member4_gci',
+      };
+      Object.keys(compMap).forEach(function(key) {
+        if (d.computed[key] === undefined || d.computed[key] === null) return;
+        var compCell = row.querySelector('[data-field="' + compMap[key] + '"]');
+        if (!compCell) return;
+        var compTd = compCell.tagName === 'TD' ? compCell : compCell.closest('td');
+        var displayVal = d.computed[key];
+        if (compMap[key] === 'company_dollar' || compMap[key] === 'gci' ||
+            compMap[key].indexOf('gci') > -1 || compMap[key] === 'referral_fee') {
+          displayVal = parseFloat(d.computed[key]);
+          if (!isNaN(displayVal)) {
+            if (compTd) compTd.dataset.val = String(displayVal);
+            compCell.textContent = displayVal.toLocaleString('en-US', {maximumFractionDigits:0});
+            return;
+          }
+        }
+        if (compTd) compTd.dataset.val = String(d.computed[key]);
+        compCell.textContent = d.computed[key];
+      });
+    }
+
+    // Flash the row briefly so admins see what just changed
+    row.style.transition = 'background 0.3s';
+    row.style.background = '#fef9c3';
+    setTimeout(function() {
+      row.style.background = '';
+      setTimeout(function() { row.style.transition = ''; }, 300);
+    }, 1200);
+  });
+
+  // ── Expose rowUpdatedAt for conflict guard (edit form reads this) ──────────
+  window._mbRowUpdatedAt = rowUpdatedAt;
+
 })();
 </script>
 {% endblock %}

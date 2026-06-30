@@ -1,1 +1,1 @@
-web: python migrate_add_audit_log.py && python migrate_add_gl_scans.py && python migrate_add_gl_round_robin.py && gunicorn run:app --bind 0.0.0.0:$PORT --workers 2 --timeout 60
+web: python migrate_add_audit_log.py && python migrate_add_gl_scans.py && python migrate_add_gl_round_robin.py && python -c "from app import create_app,db; app=create_app(); app.app_context().push(); from flask_migrate import upgrade; upgrade()" && gunicorn run:app --bind 0.0.0.0:$PORT --worker-class eventlet --workers 1 --timeout 60

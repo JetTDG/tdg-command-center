@@ -492,7 +492,12 @@ def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter, t
     # Pending uses projected_close_date year — not the year column — so that deals
     # originally signed in a prior year but projected to close this year are included.
     # Closed / all other statuses continue to use the year column (same as before).
-    query = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id).filter(
+    # contains_eager() tells SQLAlchemy to populate t.agent from the JOIN row —
+    # eliminates N+1 lazy SELECT per row in the template.
+    from sqlalchemy.orm import contains_eager
+    query = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id)\
+        .options(contains_eager(Transaction.agent))\
+        .filter(
         Transaction.archived == False,
         or_(
             and_(Transaction.status == 'Pending',
@@ -618,16 +623,50 @@ def my_business():
             and_(model.year == None, model.close_date == None, extract('year', model.signed_date) == year)
         )
 
+    # Summary counts — single query with CASE expressions instead of 5 separate COUNTs
+    from sqlalchemy import case, func as _func
+    _counts = db.session.query(
+        _func.count().filter(
+            Transaction.archived == False,
+            Transaction.transaction_type == 'Listing',
+            Transaction.status == 'Active',
+        ).label('active_listings'),
+        _func.count().filter(
+            Transaction.archived == False,
+            Transaction.transaction_type == 'Buyer',
+            Transaction.status == 'Active',
+        ).label('active_buyers'),
+        _func.count().filter(
+            Transaction.archived == False,
+            Transaction.status == 'Pending',
+            Transaction.projected_close_date.isnot(None),
+            extract('year', Transaction.projected_close_date) == year,
+        ).label('pending'),
+        _func.count().filter(
+            Transaction.archived == False,
+            Transaction.status == 'Closed',
+            or_(
+                Transaction.year == year,
+                and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
+                and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year),
+            ),
+        ).label('closed'),
+        _func.count().filter(
+            Transaction.archived == False,
+            Transaction.status == 'Pre-Signed',
+            or_(
+                Transaction.year == year,
+                and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
+                and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year),
+            ),
+        ).label('pipeline'),
+    ).one()
     summary = {
-        # Active = current status regardless of year (a listing active today is active)
-        'active_listings': Transaction.query.filter_by(transaction_type='Listing', status='Active', archived=False).count(),
-        'active_buyers':   Transaction.query.filter_by(transaction_type='Buyer',   status='Active', archived=False).count(),
-        'pending':         Transaction.query.filter(Transaction.archived==False, Transaction.status=='Pending',
-                              Transaction.projected_close_date.isnot(None),
-                              extract('year', Transaction.projected_close_date) == year).count(),
-        'closed':          Transaction.query.filter(Transaction.archived==False, Transaction.status=='Closed',   year_filter(Transaction)).count(),
-        # Pipeline = Pre-Signed (signed but not yet under contract)
-        'pipeline':        Transaction.query.filter(Transaction.archived==False, Transaction.status=='Pre-Signed', year_filter(Transaction)).count(),
+        'active_listings': _counts.active_listings,
+        'active_buyers':   _counts.active_buyers,
+        'pending':         _counts.pending,
+        'closed':          _counts.closed,
+        'pipeline':        _counts.pipeline,
     }
 
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
@@ -775,6 +814,27 @@ def edit_transaction(tid):
     t = Transaction.query.get_or_404(tid)
     if request.method == 'POST':
         f = request.form
+
+        # ── Conflict guard: reject save if someone else edited this row since the form opened ──
+        opened_at_str = f.get('opened_updated_at', '').strip()
+        if opened_at_str and t.updated_at:
+            try:
+                from datetime import timezone
+                opened_at = datetime.fromisoformat(opened_at_str)
+                # Normalize both to UTC naive for comparison
+                db_at = t.updated_at.replace(tzinfo=None) if t.updated_at.tzinfo else t.updated_at
+                op_at = opened_at.replace(tzinfo=None) if opened_at.tzinfo else opened_at
+                if db_at > op_at:
+                    # Someone saved this record after this user opened the form
+                    flash(
+                        f'⚠️ This transaction was updated by another user while you had the form open. '
+                        f'Your changes were NOT saved — please refresh and re-enter them.',
+                        'danger'
+                    )
+                    return redirect(url_for('main.edit_transaction', tid=tid))
+            except (ValueError, TypeError):
+                pass  # Malformed date — let the save proceed rather than block it
+
         t.agent_id = int(f['agent_id'])
         t.transaction_type = f['transaction_type']
         t.status = f['status']
@@ -962,7 +1022,30 @@ def patch_transaction(tid):
         if str(old_val) != str(new_val):
             log_change(tid, field, old_val, new_val)
         db.session.commit()
-        return jsonify({'ok': True, 'field': field, 'value': str(getattr(t, field) or '')})
+
+        # ── Real-time broadcast: push this cell change to all open My Business tabs ──
+        from app import socketio as _sio
+        _sio.emit('cell_update', {
+            'tid':   tid,
+            'field': field,
+            'value': str(getattr(t, field) or ''),
+            # Send updated computed fields so other tabs stay in sync
+            'computed': {
+                'dom':               t.dom,
+                'exp_in':            t.exp_in,
+                'up_closing':        t.up_closing,
+                'company_dollar':    t.company_dollar,
+                'gci':               t.gci,
+                'referral_fee':      t.referral_fee,
+                'primary_agent_gci': t.primary_agent_gci,
+                'secondary_agent_gci': t.secondary_agent_gci,
+                'member3_gci':       t.member3_gci,
+                'member4_gci':       t.member4_gci,
+            },
+            'updated_at': t.updated_at.isoformat(),
+        })
+
+        return jsonify({'ok': True, 'field': field, 'value': str(getattr(t, field) or ''), 'updated_at': t.updated_at.isoformat()})
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
