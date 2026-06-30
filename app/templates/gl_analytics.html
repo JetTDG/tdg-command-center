@@ -87,16 +87,148 @@
   </div>
 </div>
 
+{# ── County Rollup Table ───────────────────────────────────────────────────── #}
+<div class="card border-0 mb-4" style="box-shadow:0 1px 8px rgba(0,0,0,0.07);">
+  <div class="card-body p-0">
+    <div class="px-4 pt-4 pb-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div>
+        <h6 class="fw-bold mb-0" style="font-size:14px;color:#1a1d23;">CRE Golden Letter — County Rollup</h6>
+        <div class="text-muted" style="font-size:11px;">
+          {{ county_rows|length }} counties · {{ total_batch }} total letters ·
+          click a county row to see contacts
+        </div>
+      </div>
+      <button class="btn btn-sm p-1 border-0" type="button"
+              data-bs-toggle="collapse" data-bs-target="#countySection"
+              aria-expanded="true" aria-controls="countySection"
+              onclick="rotateChevron(this)">
+        <i class="bi bi-chevron-up" style="font-size:14px;color:#9ca3af;transition:transform .2s;"></i>
+      </button>
+    </div>
+
+    <div id="countySection" class="collapse show">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0" id="countyTable" style="font-size:13px;">
+        <thead>
+          <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+            <th class="ps-4 py-3 fw-600" style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;width:32px;"></th>
+            <th class="py-3 fw-600" style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">County</th>
+            <th class="text-end fw-600" style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Letters</th>
+            <th class="text-end fw-600" style="color:#16a34a;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Calls</th>
+            <th class="text-end fw-600" style="color:#7c3aed;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Texts</th>
+            <th class="text-end pe-4 fw-600" style="color:#6b7280;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Mail Date(s)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for co in county_rows %}
+          {# ── County header row ── #}
+          <tr class="county-header" data-county="{{ co.county }}"
+              data-inbox="{{ co.inbox_id or '' }}"
+              style="border-bottom:1px solid #e5e7eb;cursor:pointer;background:#fff;"
+              onclick="toggleCounty(this)">
+            <td class="ps-4 py-3" style="width:32px;">
+              <span class="county-chevron" style="display:inline-block;transition:transform .2s;color:#9ca3af;font-size:12px;">▶</span>
+            </td>
+            <td class="py-3">
+              <span class="fw-bold" style="color:#1a1d23;font-size:13px;">{{ co.county }} County</span>
+              <span class="ms-2" style="font-size:11px;color:#9ca3af;">{{ co.cities|length }} city batch{{ 'es' if co.cities|length != 1 }}</span>
+            </td>
+            <td class="text-end fw-bold" style="color:#c9a84c;font-size:14px;">{{ co.letters }}</td>
+            <td class="text-end">
+              {% if co.calls > 0 %}
+              <a href="#" class="gl-detail-link fw-bold text-decoration-none"
+                 data-type="calls" data-label="Calls — {{ co.county }} County"
+                 data-inbox="{{ co.inbox_id or '' }}"
+                 style="color:#16a34a;font-size:13px;text-decoration:underline dotted !important;cursor:pointer;">{{ co.calls }}</a>
+              <span style="color:#16a34a;font-size:11px;"> ({{ co.calls_pct }}%)</span>
+              {% else %}
+              <span style="color:#d1d5db;font-size:13px;">0</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if co.texts > 0 %}
+              <a href="#" class="gl-detail-link fw-bold text-decoration-none"
+                 data-type="texts" data-label="Texts — {{ co.county }} County"
+                 data-inbox="{{ co.inbox_id or '' }}"
+                 style="color:#7c3aed;font-size:13px;text-decoration:underline dotted !important;cursor:pointer;">{{ co.texts }}</a>
+              <span style="color:#7c3aed;font-size:11px;"> ({{ co.texts_pct }}%)</span>
+              {% else %}
+              <span style="color:#d1d5db;font-size:13px;">0</span>
+              {% endif %}
+            </td>
+            <td class="text-end pe-4" style="font-size:12px;color:#16a34a;font-weight:600;">
+              {% if co.mail_dates %}
+                {{ co.mail_dates | join(', ') }}
+              {% else %}
+                <span style="color:#d1d5db;font-style:italic;">Not mailed</span>
+              {% endif %}
+            </td>
+          </tr>
+          {# ── Expanded city rows (hidden by default) ── #}
+          <tr class="county-cities-{{ co.county | replace(' ','_') }}"
+              style="display:none;background:#f9fafb;">
+            <td colspan="6" class="p-0">
+              <table class="table table-sm align-middle mb-0" style="font-size:12px;">
+                <thead>
+                  <tr style="border-bottom:1px solid #e5e7eb;">
+                    <th class="ps-5 py-2 fw-600" style="color:#9ca3af;font-size:10px;letter-spacing:.4px;text-transform:uppercase;">City</th>
+                    <th class="py-2 fw-600" style="color:#9ca3af;font-size:10px;letter-spacing:.4px;text-transform:uppercase;">Vertical</th>
+                    <th class="text-end fw-600" style="color:#9ca3af;font-size:10px;letter-spacing:.4px;text-transform:uppercase;">Letters</th>
+                    <th class="text-end pe-4 fw-600" style="color:#9ca3af;font-size:10px;letter-spacing:.4px;text-transform:uppercase;">Mail Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for city in co.cities %}
+                  <tr style="border-bottom:1px solid #f3f4f6;">
+                    <td class="ps-5 py-2 fw-600" style="color:#374151;">{{ city.city }}</td>
+                    <td class="py-2" style="color:#6b7280;">{{ city.vertical }}</td>
+                    <td class="text-end fw-600" style="color:#c9a84c;">{{ city.letters }}</td>
+                    <td class="text-end pe-4" style="color:#6b7280;font-size:11px;">
+                      {{ city.mail_date if city.mail_date else '—' }}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:#f9fafb;border-top:2px solid #e5e7eb;">
+            <td class="ps-4 py-3"></td>
+            <td class="fw-bold" style="color:#1a1d23;font-size:13px;">TOTAL</td>
+            <td class="text-end fw-bold" style="color:#c9a84c;font-size:15px;">{{ total_batch }}</td>
+            <td class="text-end fw-bold" style="color:#16a34a;">{{ total_calls }}</td>
+            <td class="text-end fw-bold" style="color:#7c3aed;">{{ total_texts }}</td>
+            <td class="pe-4"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    </div>{# /countySection collapse #}
+  </div>
+</div>
+
 {# ── Per-City Breakdown ─────────────────────────────────────────────────── #}
 <div class="card border-0 mb-4" style="box-shadow:0 1px 8px rgba(0,0,0,0.07);">
   <div class="card-body p-0">
     <div class="px-4 pt-4 pb-2 d-flex align-items-center justify-content-between">
-      <h6 class="fw-bold mb-0" style="font-size:14px;color:#1a1d23;">Response Rate by City</h6>
-      {% if city_stats %}
-      <span class="text-muted" style="font-size:11px;">{{ city_stats|length }} cit{{ 'y' if city_stats|length == 1 else 'ies' }} tracked</span>
-      {% endif %}
+      <div>
+        <h6 class="fw-bold mb-0" style="font-size:14px;color:#1a1d23;">Response Rate by City</h6>
+        {% if city_stats %}
+        <span class="text-muted" style="font-size:11px;">{{ city_stats|length }} cit{{ 'y' if city_stats|length == 1 else 'ies' }} tracked</span>
+        {% endif %}
+      </div>
+      <button class="btn btn-sm p-1 border-0" type="button"
+              data-bs-toggle="collapse" data-bs-target="#citySection"
+              aria-expanded="true" aria-controls="citySection"
+              onclick="rotateChevron(this)">
+        <i class="bi bi-chevron-up" style="font-size:14px;color:#9ca3af;transition:transform .2s;"></i>
+      </button>
     </div>
 
+    <div id="citySection" class="collapse show">
     {% if city_stats %}
     {# Mobile card view (< md) #}
     <div class="d-md-none px-3 pb-3">
@@ -223,11 +355,12 @@
       </div>
     </div>
     {% endif %}
+    </div>{# /citySection collapse #}
   </div>
 </div>
 
-{# ── County Rollup Table ───────────────────────────────────────────────────── #}
-<div class="card border-0" style="box-shadow:0 1px 8px rgba(0,0,0,0.07);">
+{# ── OLD County Rollup — REPLACED, see above ─────────────────────────────── #}
+<div style="display:none" aria-hidden="true">
   <div class="card-body p-0">
     <div class="px-4 pt-4 pb-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
       <div>
@@ -353,6 +486,15 @@ function toggleCounty(headerRow) {
   });
   if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
   headerRow.style.background = isOpen ? '#fff' : '#fefce8';
+}
+
+function rotateChevron(btn) {
+  var icon = btn.querySelector('i');
+  if (!icon) return;
+  // Bootstrap fires show/hide events after the toggle, so we flip immediately on click
+  var expanded = btn.getAttribute('aria-expanded') === 'true';
+  // aria-expanded hasn't flipped yet when onclick fires, so current=true means we're collapsing
+  icon.style.transform = expanded ? 'rotate(180deg)' : '';
 }
 </script>
 
