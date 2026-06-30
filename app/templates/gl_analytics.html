@@ -480,11 +480,13 @@ new Chart(ctx, {
   var detailUrl = '/gl/analytics/detail';
   var SHEET_URL = 'https://docs.google.com/spreadsheets/d/1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo/edit#gid=1030774112';
 
+  // capture=true: fires BEFORE the <tr onclick="toggleCounty"> accordion handler,
+  // so clicking a calls/texts link opens the modal instead of toggling the row.
   document.addEventListener('click', function(e) {
     var link = e.target.closest('.gl-detail-link');
     if (!link) return;
     e.preventDefault();
-    e.stopPropagation();
+    e.stopPropagation(); // also stops accordion <tr> onclick from firing
 
     var type  = link.dataset.type  || 'calls';
     var label = link.dataset.label || type;
@@ -545,7 +547,7 @@ new Chart(ctx, {
         document.getElementById('glDetailTableBody').innerHTML =
           '<tr><td colspan="5" class="text-center text-danger py-3">Error loading data.</td></tr>';
       });
-  });
+  }, true);  // capture=true: intercepts click before <tr onclick="toggleCounty"> fires
 })();
 </script>
 
