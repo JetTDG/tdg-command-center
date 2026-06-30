@@ -1584,6 +1584,26 @@ def gl_analytics_detail():
 
         target_inboxes = {inbox_id: inbox_phones.get(inbox_id, set())} if inbox_id else inbox_phones
 
+        # Build inbox → first scan datetime (same cutoff used in the KPI counts)
+        from sqlalchemy import text as _sqlt
+        from datetime import timezone as _tz
+        _inbox_first_scan_d = {}
+        try:
+            _scan_rows_d = db.session.execute(_sqlt("""
+                SELECT s.slug, MIN(s.created_at) AS first_scan
+                FROM   gl_scans s
+                WHERE  s.event_type = 'scan'
+                GROUP  BY s.slug
+            """)).fetchall()
+            for _sr in _scan_rows_d:
+                _iid = SLUG_INBOX.get(_sr[0])
+                if _iid and _sr[1]:
+                    _dt = _sr[1] if _sr[1].tzinfo else _sr[1].replace(tzinfo=_tz.utc)
+                    if _iid not in _inbox_first_scan_d or _dt < _inbox_first_scan_d[_iid]:
+                        _inbox_first_scan_d[_iid] = _dt
+        except Exception:
+            pass
+
         for iid, phones in target_inboxes.items():
             for phone in phones:
                 endpoint = "calls" if event_type == "calls" else "textMessages"
@@ -1594,10 +1614,20 @@ def gl_analytics_detail():
                                  params={direction_param: phone_digits, "limit": 100},
                                  headers=_hdrs_d, timeout=15)
                     items = r.json().get("calls" if event_type=="calls" else "textmessages", [])
+                    _since_d = _inbox_first_scan_d.get(iid)
                     for item in items:
                         is_in = item.get("isIncoming", item.get("isInbound", False))
                         if not is_in:
                             continue
+                        # Apply same first-scan cutoff used in the KPI count
+                        if _since_d and item.get("created"):
+                            try:
+                                from datetime import datetime as _dtm
+                                _item_dt = _dtm.fromisoformat(item["created"].replace("Z", "+00:00"))
+                                if _item_dt < _since_d:
+                                    continue
+                            except Exception:
+                                pass
                         pid    = item.get("personId")
                         # Get person details
                         person_name, addr, agent = "Unknown", "", ""
