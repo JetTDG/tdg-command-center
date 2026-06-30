@@ -2236,6 +2236,114 @@ def scorecard(agent_id):
         avg_comm_units=avg_comm_units,
     )
 
+@bp.route('/scorecard/<int:agent_id>/drill')
+@login_required
+def scorecard_drill(agent_id):
+    """JSON endpoint: return the transaction rows for a scorecard KPI chip.
+    ?type= self_gen | team_lead | closed | pending
+    """
+    from datetime import date as _date, timedelta as _timedelta
+
+    # Agents can only drill into their own scorecard
+    if current_user.role == 'agent' and current_user.agent_id != agent_id:
+        return jsonify({'error': 'forbidden'}), 403
+
+    agent = Agent.query.get_or_404(agent_id)
+    drill_type = request.args.get('type', '')
+    year = int(request.args.get('year', current_year()))
+    division = request.args.get('division', 'all')
+
+    txn_filter = or_(
+        Transaction.agent_id == agent_id,
+        Transaction.primary_agent_name.ilike(f'%{agent.name}%'),
+        Transaction.secondary_agent_name.ilike(f'%{agent.name}%'),
+        Transaction.member3_name.ilike(f'%{agent.name}%'),
+        Transaction.member4_name.ilike(f'%{agent.name}%'),
+    )
+
+    def _agent_income(t):
+        n = agent.name.lower()
+        income = 0.0
+        if t.primary_agent_name and n in t.primary_agent_name.lower():
+            income += t.primary_agent_gci or 0
+        if t.secondary_agent_name and n in t.secondary_agent_name.lower():
+            income += t.secondary_agent_gci or 0
+        if t.member3_name and n in t.member3_name.lower():
+            income += t.member3_gci or 0
+        if t.member4_name and n in t.member4_name.lower():
+            income += t.member4_gci or 0
+        return income
+
+    txns = []
+
+    if drill_type in ('self_gen', 'team_lead'):
+        _rolling_start = _date.today() - _timedelta(days=365)
+        q = Transaction.query.filter(
+            txn_filter,
+            Transaction.status == 'Closed',
+            Transaction.close_date >= _rolling_start,
+        )
+        if division != 'all':
+            q = q.filter(Transaction.division == division)
+        rows = q.order_by(Transaction.close_date.desc()).all()
+        if drill_type == 'self_gen':
+            txns = [t for t in rows if t.lead_type == 'Agent']
+        else:
+            txns = [t for t in rows if t.lead_type != 'Agent']
+
+    elif drill_type == 'closed':
+        q = Transaction.query.filter(
+            txn_filter,
+            Transaction.year == year,
+            Transaction.status == 'Closed',
+        )
+        if division != 'all':
+            q = q.filter(Transaction.division == division)
+        txns = q.order_by(Transaction.close_date.desc()).all()
+
+    elif drill_type == 'pending':
+        CLOSED_STATUSES = {'Closed', 'Withdrawn', 'Expired', 'Cancelled', 'Dead'}
+        q = Transaction.query.filter(
+            txn_filter,
+            Transaction.year == year,
+            Transaction.status == 'Pending',
+        )
+        if division != 'all':
+            q = q.filter(Transaction.division == division)
+        txns = q.order_by(Transaction.projected_close_date.asc()).all()
+
+    else:
+        return jsonify({'error': 'unknown type'}), 400
+
+    deals = []
+    for t in txns:
+        inc = _agent_income(t)
+        deals.append({
+            'id': t.id,
+            'address': t.address or '—',
+            'client': t.client_name or '—',
+            'type': t.transaction_type or '—',
+            'status': t.status,
+            'source': t.lead_source or '—',
+            'lead_type': t.lead_type or '—',
+            'agent_gci': f'${inc:,.0f}',
+            'agent_gci_raw': inc,
+            'sale_price': f'${t.sale_price:,.0f}' if t.sale_price else '—',
+            'proj_close': t.projected_close_date.strftime('%m/%d/%y') if t.projected_close_date else '—',
+            'close_date': t.close_date.strftime('%m/%d/%y') if t.close_date else '—',
+            'division': t.division or '—',
+        })
+
+    total_income = sum(d['agent_gci_raw'] for d in deals)
+    return jsonify({
+        'drill_type': drill_type,
+        'agent': agent.name,
+        'count': len(deals),
+        'total_income': f'${total_income:,.0f}',
+        'deals': deals,
+    })
+
+
 @bp.route('/scorecard/<int:agent_id>/business-plan', methods=['GET', 'POST'])
 @login_required
 def business_plan_form_for(agent_id):
