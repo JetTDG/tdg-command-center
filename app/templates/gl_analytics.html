@@ -429,16 +429,22 @@ new Chart(ctx, {
 </script>
 {% endif %}
 
-{# ── GL Detail Modal (shared by CRE + Resi analytics pages) ─────────────── #}
+{# ── GL Detail Modal ─────────────────────────────────────────────────────── #}
 <div class="modal fade" id="glDetailModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
     <div class="modal-content border-0" style="border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
       <div class="modal-header border-0 pb-0 px-4 pt-4">
-        <div>
+        <div class="flex-grow-1">
           <h5 class="modal-title fw-bold" id="glDetailModalTitle" style="color:#1a1d23;font-size:16px;"></h5>
-          <div id="glDetailModalSub" style="font-size:12px;color:#9ca3af;margin-top:2px;"></div>
+          <div class="d-flex align-items-center gap-3 mt-1 flex-wrap">
+            <div id="glDetailModalSub" style="font-size:12px;color:#9ca3af;"></div>
+            <a id="glSheetLink" href="https://docs.google.com/spreadsheets/d/1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo/edit#gid=1030774112"
+               target="_blank" style="font-size:11px;color:#2563EB;text-decoration:none;display:none;">
+              View in Sheet ↗
+            </a>
+          </div>
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close ms-3" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body px-4 pb-4 pt-3">
         <div id="glDetailSpinner" class="text-center py-5">
@@ -454,7 +460,7 @@ new Chart(ctx, {
                   <th class="py-2 fw-600" style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Address</th>
                   <th class="py-2 fw-600" style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Agent</th>
                   <th class="py-2 fw-600" style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Date</th>
-                  <th class="py-2 fw-600 text-center" style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">FUB</th>
+                  <th class="py-2 fw-600 text-center" style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">FUB Profile</th>
                 </tr>
               </thead>
               <tbody id="glDetailTableBody"></tbody>
@@ -472,22 +478,29 @@ new Chart(ctx, {
 <script>
 (function() {
   var detailUrl = '/gl/analytics/detail';
+  var SHEET_URL = 'https://docs.google.com/spreadsheets/d/1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo/edit#gid=1030774112';
 
   document.addEventListener('click', function(e) {
     var link = e.target.closest('.gl-detail-link');
     if (!link) return;
     e.preventDefault();
 
-    var type     = link.dataset.type  || 'calls';
-    var label    = link.dataset.label || type;
-    var area     = link.dataset.area  || '';
-    var inbox    = link.dataset.inbox || '';
-    var count    = link.textContent.trim();
+    var type  = link.dataset.type  || 'calls';
+    var label = link.dataset.label || type;
+    var area  = link.dataset.area  || '';
+    var inbox = link.dataset.inbox || '';
+    var count = link.textContent.trim();
 
-    document.getElementById('glDetailModalTitle').textContent = label + ' — ' + count + ' record' + (count == 1 ? '' : 's');
+    document.getElementById('glDetailModalTitle').textContent = label + ' (' + count + ')';
     document.getElementById('glDetailModalSub').textContent   = area || 'All CRE GL Numbers';
     document.getElementById('glDetailSpinner').style.display  = '';
     document.getElementById('glDetailContent').style.display  = 'none';
+    document.getElementById('glDetailEmpty').style.display    = 'none';
+
+    // Always show sheet link for CRE
+    var sheetLink = document.getElementById('glSheetLink');
+    sheetLink.style.display = '';
+    sheetLink.href = SHEET_URL;
 
     var modal = new bootstrap.Modal(document.getElementById('glDetailModal'));
     modal.show();
@@ -503,28 +516,29 @@ new Chart(ctx, {
         document.getElementById('glDetailSpinner').style.display = 'none';
         document.getElementById('glDetailContent').style.display = '';
 
-        if (!rows.length) {
+        if (!rows || !rows.length) {
           document.getElementById('glDetailEmpty').style.display = '';
           return;
         }
-        document.getElementById('glDetailEmpty').style.display = 'none';
 
         rows.forEach(function(r) {
           var tr = document.createElement('tr');
           tr.style.borderBottom = '1px solid #f3f4f6';
           var fubCell = r.fub_url
-            ? '<a href="' + r.fub_url + '" target="_blank" class="btn btn-sm" style="background:#f3f4f6;color:#1a1d23;font-size:11px;padding:3px 8px;border-radius:6px;">Open ↗</a>'
+            ? '<a href="' + r.fub_url + '" target="_blank" class="btn btn-sm fw-600" '
+              + 'style="background:#2563EB14;color:#2563EB;font-size:11px;padding:3px 10px;border-radius:6px;">'
+              + 'Open ↗</a>'
             : '<span style="color:#d1d5db;font-size:11px;">—</span>';
           tr.innerHTML =
-            '<td class="ps-3 py-2 fw-600" style="color:#1a1d23;max-width:160px;">' + (r.name || '—') + '</td>' +
-            '<td class="py-2" style="color:#6b7280;font-size:12px;max-width:200px;">' + (r.address || '—') + '</td>' +
+            '<td class="ps-3 py-2 fw-600" style="color:#1a1d23;">' + (r.name || '—') + '</td>' +
+            '<td class="py-2" style="color:#6b7280;font-size:12px;">' + (r.address || '—') + '</td>' +
             '<td class="py-2" style="color:#6b7280;font-size:12px;">' + (r.agent || '—') + '</td>' +
             '<td class="py-2" style="color:#9ca3af;font-size:12px;white-space:nowrap;">' + (r.date || '—') + '</td>' +
             '<td class="py-2 text-center">' + fubCell + '</td>';
           tbody.appendChild(tr);
         });
       })
-      .catch(function(err) {
+      .catch(function() {
         document.getElementById('glDetailSpinner').style.display = 'none';
         document.getElementById('glDetailContent').style.display = '';
         document.getElementById('glDetailTableBody').innerHTML =

@@ -1354,37 +1354,76 @@ def gl_analytics():
             total_calls += _calls
             total_texts += _texts
 
-    # ── County rollup: attach calls+texts per county via inbox mapping ────────
-    # inbox_id → county name (derived from which slugs use that inbox)
-    _inbox_to_county = {}
-    for _slug, _iid in SLUG_INBOX.items():
-        _slug_meta = slugs_meta.get(_slug, {})
-        _co = _slug_meta.get("county", "")
-        if not _co:
-            _ck = _slug.split("-")[0].lower()
-            _co = COUNTY_MAP_GL.get(_ck, "Other")
-        if _iid not in _inbox_to_county and _co:
-            _inbox_to_county[_iid] = _co
+    # ── County rollup: built from LETTER_COUNTS + SLUG_INBOX (no sheet dep) ──
+    # This ensures county rows always render even if the Google Sheet call fails.
+    # Structure: county → {letters, calls, texts, inbox_id, slugs[]}
+    _county_data = {}
+    for _slug, _letters in LETTER_COUNTS.items():
+        _ck = _slug.split("-")[0].lower()
+        _co = COUNTY_MAP_GL.get(_ck, "Other")
+        _iid = SLUG_INBOX.get(_slug)
+        if _co not in _county_data:
+            _county_data[_co] = {
+                "letters": 0, "calls": 0, "texts": 0,
+                "inbox_id": None, "slugs": [], "inboxes": set()
+            }
+        _county_data[_co]["letters"] += _letters
+        _county_data[_co]["slugs"].append(_slug)
+        if _iid:
+            _county_data[_co]["inboxes"].add(_iid)
+            if not _county_data[_co]["inbox_id"]:
+                _county_data[_co]["inbox_id"] = _iid
 
+    # Attach calls+texts from inbox_activity
+    for _co, _cd in _county_data.items():
+        for _iid in _cd["inboxes"]:
+            _cd["calls"] += inbox_activity.get(_iid, {}).get("calls", 0)
+            _cd["texts"] += inbox_activity.get(_iid, {}).get("texts", 0)
+
+    # Build sorted county_rows, include city-level detail from batch_rows for expand
+    # Map city-key → batch_row for the expand panel
+    _batch_by_slug = {
+        f"{r['city'].lower().replace(' ','-')}-{r['vertical'].lower()}": r
+        for r in batch_rows
+    }
     county_rows = []
     _county_order = ["Macomb", "Oakland", "Wayne", "Genesee", "Washtenaw", "Livingston", "Other"]
     for _co in _county_order:
-        if _co not in _county_map_b:
+        if _co not in _county_data:
             continue
-        _cd = _county_map_b[_co]
-        # Find inbox(es) for this county
-        _co_inboxes = [_iid for _iid, _cn in _inbox_to_county.items() if _cn == _co]
-        _co_calls = sum(inbox_activity.get(_iid, {}).get("calls", 0) for _iid in _co_inboxes)
-        _co_texts = sum(inbox_activity.get(_iid, {}).get("texts", 0) for _iid in _co_inboxes)
-        _co_inbox_id = _co_inboxes[0] if _co_inboxes else None
+        _cd = _county_data[_co]
+        # Build city detail rows for expand panel
+        _city_details = []
+        for _slug in sorted(set(_cd["slugs"])):
+            _br = _batch_by_slug.get(_slug)
+            if _br:
+                _city_details.append(_br)
+            else:
+                # Fallback: construct from slug + LETTER_COUNTS
+                _parts = _slug.rsplit("-", 1)
+                _city_details.append({
+                    "city":     _parts[0].replace("-", " ").title() if _parts else _slug,
+                    "vertical": _parts[1].title() if len(_parts) > 1 else "",
+                    "letters":  LETTER_COUNTS.get(_slug, 0),
+                    "mail_date": None,
+                })
+        # Dedupe city+vertical combos
+        _seen_cv = set()
+        _deduped = []
+        for _c in sorted(_city_details, key=lambda x: x.get("city","")):
+            _key = (_c.get("city",""), _c.get("vertical",""))
+            if _key not in _seen_cv:
+                _seen_cv.add(_key)
+                _deduped.append(_c)
+        _mail_dates = sorted(set(c["mail_date"] for c in _deduped if c.get("mail_date")))
         county_rows.append({
-            "county":    _co,
-            "letters":   _cd["letters"],
-            "calls":     _co_calls,
-            "texts":     _co_texts,
-            "inbox_id":  _co_inbox_id,
-            "cities":    sorted(_cd["cities"], key=lambda c: c["city"]),
-            "mail_dates": sorted(set(_cd["mail_dates"])),
+            "county":     _co,
+            "letters":    _cd["letters"],
+            "calls":      _cd["calls"],
+            "texts":      _cd["texts"],
+            "inbox_id":   _cd["inbox_id"],
+            "cities":     _deduped,
+            "mail_dates": _mail_dates,
         })
 
     # ── Build per-slug stats ──────────────────────────────────────────────────
