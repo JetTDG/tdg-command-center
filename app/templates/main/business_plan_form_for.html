@@ -33,39 +33,39 @@
 
         <div class="col-6">
           <label class="form-label">Listing Unit Goal</label>
-          <input type="number" name="listing_unit_goal" class="form-control" value="{{ plan.listing_unit_goal if plan else (defaults.total_unit_goal // 2) }}" min="0">
+          <input type="number" name="listing_unit_goal" id="listingUnitGoal" class="form-control" value="{{ plan.listing_unit_goal if plan else (defaults.total_unit_goal // 2) }}" min="0" step="0.1">
         </div>
         <div class="col-6">
           <label class="form-label">Buyer Unit Goal</label>
-          <input type="number" name="buyer_unit_goal" class="form-control" value="{{ plan.buyer_unit_goal if plan else (defaults.total_unit_goal // 2) }}" min="0">
+          <input type="number" name="buyer_unit_goal" id="buyerUnitGoal" class="form-control" value="{{ plan.buyer_unit_goal if plan else (defaults.total_unit_goal // 2) }}" min="0" step="0.1">
         </div>
 
         <div class="col-6">
           <label class="form-label fw-semibold">Total Unit Goal</label>
-          <input type="number" name="total_unit_goal" id="totalUnits" class="form-control" value="{{ plan.total_unit_goal if plan else defaults.total_unit_goal }}" min="0" oninput="calcGCI()">
+          <input type="number" name="total_unit_goal" id="totalUnits" class="form-control" value="{{ plan.total_unit_goal if plan else defaults.total_unit_goal }}" min="0" oninput="splitTotalUnits()">
         </div>
         <div class="col-6">
           <label class="form-label fw-semibold">GCI Goal ($)</label>
-          <input type="number" name="gci_goal" id="gciGoal" class="form-control" value="{{ plan.gci_goal|int if plan else defaults.gci_goal }}" min="0" step="1000">
+          <input type="number" name="gci_goal" id="gciGoal" class="form-control" value="{{ plan.gci_goal|int if plan else defaults.gci_goal }}" min="0" step="1000" oninput="calcBackward()">
         </div>
 
         <div class="col-6">
           <label class="form-label">Avg Sale Price ($)</label>
-          <input type="number" name="avg_sale_price" id="avgPrice" class="form-control" value="{{ plan.avg_sale_price|int if plan else defaults.avg_sale_price }}" min="0" step="5000" oninput="calcGCI()">
+          <input type="number" name="avg_sale_price" id="avgPrice" class="form-control" value="{{ plan.avg_sale_price|int if plan else defaults.avg_sale_price }}" min="0" step="5000" oninput="recalcAll()">
         </div>
         <div class="col-6">
           <label class="form-label">Split % (your share)</label>
-          <input type="number" name="split_pct" id="splitPct" class="form-control" value="{{ (plan.split_pct * 100)|round(1) if plan else (defaults.split_pct * 100)|round(1) }}" min="0" max="100" step="0.1" oninput="calcGCI()">
+          <input type="number" name="split_pct" id="splitPct" class="form-control" value="{{ (plan.split_pct * 100)|round(1) if plan else (defaults.split_pct * 100)|round(1) }}" min="0" max="100" step="0.1" oninput="recalcAll()">
           <div class="form-text">e.g. 70 = you keep 70%</div>
         </div>
 
         <div class="col-6">
           <label class="form-label">Listing Commission %</label>
-          <input type="number" name="listing_comm_pct" id="listComm" class="form-control" value="{{ (plan.listing_comm_pct * 100)|round(2) if plan else (defaults.listing_comm_pct * 100)|round(2) }}" min="0" max="100" step="0.1" oninput="calcGCI()">
+          <input type="number" name="listing_comm_pct" id="listComm" class="form-control" value="{{ (plan.listing_comm_pct * 100)|round(2) if plan else (defaults.listing_comm_pct * 100)|round(2) }}" min="0" max="100" step="0.1" oninput="recalcAll()">
         </div>
         <div class="col-6">
           <label class="form-label">Buyer Commission %</label>
-          <input type="number" name="buyer_comm_pct" id="buyerComm" class="form-control" value="{{ (plan.buyer_comm_pct * 100)|round(2) if plan else (defaults.buyer_comm_pct * 100)|round(2) }}" min="0" max="100" step="0.1" oninput="calcGCI()">
+          <input type="number" name="buyer_comm_pct" id="buyerComm" class="form-control" value="{{ (plan.buyer_comm_pct * 100)|round(2) if plan else (defaults.buyer_comm_pct * 100)|round(2) }}" min="0" max="100" step="0.1" oninput="recalcAll()">
         </div>
 
         <div class="col-12">
@@ -88,37 +88,40 @@
 
         <div class="col-6">
           <label class="form-label">Listing Appts Set Goal</label>
-          <input type="number" name="listing_appts_set_goal" class="form-control" value="{{ plan.listing_appts_set_goal if plan else '' }}" min="0">
+          <input type="number" name="listing_appts_set_goal" id="listingApptsSet" class="form-control" value="{{ plan.listing_appts_set_goal if plan else '' }}" min="0" oninput="calcForward()">
         </div>
         <div class="col-6">
           <label class="form-label">Buyer Appts Set Goal</label>
-          <input type="number" name="buyer_appts_set_goal" class="form-control" value="{{ plan.buyer_appts_set_goal if plan else '' }}" min="0">
+          <input type="number" name="buyer_appts_set_goal" id="buyerApptsSet" class="form-control" value="{{ plan.buyer_appts_set_goal if plan else '' }}" min="0" oninput="calcForward()">
         </div>
 
         <div class="col-4">
           <label class="form-label small">Listing Held Rate %</label>
-          <input type="number" name="listing_held_rate" class="form-control form-control-sm" value="{{ (plan.listing_held_rate * 100)|round(1) if plan and plan.listing_held_rate is not none else (defaults.listing_held_rate * 100)|round(1) }}" min="0" max="100" step="0.1">
+          <input type="number" name="listing_held_rate" id="listingHeldRate" class="form-control form-control-sm" value="{{ (plan.listing_held_rate * 100)|round(1) if plan and plan.listing_held_rate is not none else (defaults.listing_held_rate * 100)|round(1) }}" min="0" max="100" step="0.1" oninput="calcForward()">
         </div>
         <div class="col-4">
           <label class="form-label small">Listing Signed Rate %</label>
-          <input type="number" name="listing_signed_rate" class="form-control form-control-sm" value="{{ (plan.listing_signed_rate * 100)|round(1) if plan and plan.listing_signed_rate is not none else (defaults.listing_signed_rate * 100)|round(1) }}" min="0" max="100" step="0.1">
+          <input type="number" name="listing_signed_rate" id="listingSignedRate" class="form-control form-control-sm" value="{{ (plan.listing_signed_rate * 100)|round(1) if plan and plan.listing_signed_rate is not none else (defaults.listing_signed_rate * 100)|round(1) }}" min="0" max="100" step="0.1" oninput="calcForward()">
         </div>
         <div class="col-4">
           <label class="form-label small">Listing Close Rate %</label>
-          <input type="number" name="listing_close_rate" class="form-control form-control-sm" value="{{ (plan.listing_close_rate * 100)|round(1) if plan and plan.listing_close_rate is not none else (defaults.listing_close_rate * 100)|round(1) }}" min="0" max="100" step="0.1">
+          <input type="number" name="listing_close_rate" id="listingCloseRate" class="form-control form-control-sm" value="{{ (plan.listing_close_rate * 100)|round(1) if plan and plan.listing_close_rate is not none else (defaults.listing_close_rate * 100)|round(1) }}" min="0" max="100" step="0.1" oninput="calcForward()">
         </div>
 
         <div class="col-4">
           <label class="form-label small">Buyer Held Rate %</label>
-          <input type="number" name="buyer_held_rate" class="form-control form-control-sm" value="{{ (plan.buyer_held_rate * 100)|round(1) if plan and plan.buyer_held_rate is not none else (defaults.buyer_held_rate * 100)|round(1) }}" min="0" max="100" step="0.1">
+          <input type="number" name="buyer_held_rate" id="buyerHeldRate" class="form-control form-control-sm" value="{{ (plan.buyer_held_rate * 100)|round(1) if plan and plan.buyer_held_rate is not none else (defaults.buyer_held_rate * 100)|round(1) }}" min="0" max="100" step="0.1" oninput="calcForward()">
         </div>
         <div class="col-4">
           <label class="form-label small">Buyer Signed Rate %</label>
-          <input type="number" name="buyer_signed_rate" class="form-control form-control-sm" value="{{ (plan.buyer_signed_rate * 100)|round(1) if plan and plan.buyer_signed_rate is not none else (defaults.buyer_signed_rate * 100)|round(1) }}" min="0" max="100" step="0.1">
+          <input type="number" name="buyer_signed_rate" id="buyerSignedRate" class="form-control form-control-sm" value="{{ (plan.buyer_signed_rate * 100)|round(1) if plan and plan.buyer_signed_rate is not none else (defaults.buyer_signed_rate * 100)|round(1) }}" min="0" max="100" step="0.1" oninput="calcForward()">
         </div>
         <div class="col-4">
           <label class="form-label small">Buyer Close Rate %</label>
-          <input type="number" name="buyer_close_rate" class="form-control form-control-sm" value="{{ (plan.buyer_close_rate * 100)|round(1) if plan and plan.buyer_close_rate is not none else (defaults.buyer_close_rate * 100)|round(1) }}" min="0" max="100" step="0.1">
+          <input type="number" name="buyer_close_rate" id="buyerCloseRate" class="form-control form-control-sm" value="{{ (plan.buyer_close_rate * 100)|round(1) if plan and plan.buyer_close_rate is not none else (defaults.buyer_close_rate * 100)|round(1) }}" min="0" max="100" step="0.1" oninput="calcForward()">
+        </div>
+        <div class="col-12">
+          <div class="text-muted" id="funnelPreview" style="font-size:0.78rem;"></div>
         </div>
 
         <div class="col-12 mt-2">
@@ -132,15 +135,124 @@
 
 {% block scripts %}
 <script>
+// ---- shared helpers ----
+function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function pct(id) { return val(id) / 100; }
+
+// ---- original flat calc (Total Units x Avg Price x Comm x Split -> GCI) ----
+// Kept for the top-level "Total Unit Goal" field which is independent of the
+// detailed funnel section below. Edits here do NOT touch the funnel fields.
 function calcGCI() {
-  const units = parseFloat(document.getElementById('totalUnits').value) || 0;
-  const price = parseFloat(document.getElementById('avgPrice').value) || 0;
-  const lComm = parseFloat(document.getElementById('listComm').value) || 3;
-  const bComm = parseFloat(document.getElementById('buyerComm').value) || 3;
-  const split = parseFloat(document.getElementById('splitPct').value) || 70;
+  const units = val('totalUnits');
+  const price = val('avgPrice');
+  const lComm = val('listComm') || 3;
+  const bComm = val('buyerComm') || 3;
+  const split = val('splitPct') || 70;
   const avgComm = (lComm + bComm) / 2 / 100;
   const gci = Math.round(units * price * avgComm * (split / 100) / 1000) * 1000;
   document.getElementById('gciGoal').value = gci;
+}
+// Alias: Total Unit Goal field wires to this name for clarity.
+function splitTotalUnits() { calcGCI(); }
+
+// Shared inputs (price/split/comm%) feed BOTH the flat calc and the funnel
+// calc. If funnel Appts Set values are present, recompute the funnel view too
+// so the numbers stay consistent instead of drifting apart.
+function recalcAll() {
+  calcGCI();
+  const lSet = document.getElementById('listingApptsSet').value;
+  const bSet = document.getElementById('buyerApptsSet').value;
+  if (lSet || bSet) {
+    calcForward();
+  }
+}
+
+// ---- FORWARD: funnel inputs (Appts Set + rates) -> GCI ----
+// Set -> (x held rate) -> Held -> (x signed rate) -> Signed -> (x close rate) -> Closed
+// -> (x avg price x comm% x split%) -> GCI, listing + buyer summed.
+function calcForward() {
+  const price = val('avgPrice');
+  const split = pct('splitPct');
+  const listComm = pct('listComm');
+  const buyerComm = pct('buyerComm');
+
+  const lSet = val('listingApptsSet');
+  const lHeld = pct('listingHeldRate');
+  const lSigned = pct('listingSignedRate');
+  const lClose = pct('listingCloseRate');
+  const closedListing = lSet * lHeld * lSigned * lClose;
+
+  const bSet = val('buyerApptsSet');
+  const bHeld = pct('buyerHeldRate');
+  const bSigned = pct('buyerSignedRate');
+  const bClose = pct('buyerCloseRate');
+  const closedBuyer = bSet * bHeld * bSigned * bClose;
+
+  const gciListing = closedListing * price * listComm * split;
+  const gciBuyer = closedBuyer * price * buyerComm * split;
+  const totalGci = Math.round((gciListing + gciBuyer) / 1000) * 1000;
+
+  document.getElementById('gciGoal').value = totalGci;
+  document.getElementById('listingUnitGoal').value = Math.round(closedListing * 10) / 10;
+  document.getElementById('buyerUnitGoal').value = Math.round(closedBuyer * 10) / 10;
+  document.getElementById('totalUnits').value = Math.round((closedListing + closedBuyer) * 10) / 10;
+
+  showFunnelPreview(closedListing, closedBuyer, totalGci);
+}
+
+// ---- BACKWARD: typing a GCI Goal solves backward for required Signed/Held/Set ----
+// Distributes the GCI goal across listing/buyer using the current unit-goal ratio
+// (falls back to 50/50 if both are zero), then divides by each side's
+// price*comm%*split% to get required closed units, then unwinds through the
+// held/signed/close rates to get the required Appts Set.
+function calcBackward() {
+  const gciGoal = val('gciGoal');
+  const price = val('avgPrice');
+  const split = pct('splitPct');
+  const listComm = pct('listComm');
+  const buyerComm = pct('buyerComm');
+
+  const curListingUnits = val('listingUnitGoal');
+  const curBuyerUnits = val('buyerUnitGoal');
+  const unitSum = curListingUnits + curBuyerUnits;
+  const listingShare = unitSum > 0 ? curListingUnits / unitSum : 0.5;
+  const buyerShare = 1 - listingShare;
+
+  const gciPerListingUnit = price * listComm * split;
+  const gciPerBuyerUnit = price * buyerComm * split;
+
+  const closedListingNeeded = gciPerListingUnit > 0 ? (gciGoal * listingShare) / gciPerListingUnit : 0;
+  const closedBuyerNeeded = gciPerBuyerUnit > 0 ? (gciGoal * buyerShare) / gciPerBuyerUnit : 0;
+
+  const lHeld = pct('listingHeldRate');
+  const lSigned = pct('listingSignedRate');
+  const lClose = pct('listingCloseRate');
+  const lFunnelRate = lHeld * lSigned * lClose;
+
+  const bHeld = pct('buyerHeldRate');
+  const bSigned = pct('buyerSignedRate');
+  const bClose = pct('buyerCloseRate');
+  const bFunnelRate = bHeld * bSigned * bClose;
+
+  const listingApptsNeeded = lFunnelRate > 0 ? closedListingNeeded / lFunnelRate : 0;
+  const buyerApptsNeeded = bFunnelRate > 0 ? closedBuyerNeeded / bFunnelRate : 0;
+
+  document.getElementById('listingApptsSet').value = Math.ceil(listingApptsNeeded);
+  document.getElementById('buyerApptsSet').value = Math.ceil(buyerApptsNeeded);
+  document.getElementById('listingUnitGoal').value = Math.round(closedListingNeeded * 10) / 10;
+  document.getElementById('buyerUnitGoal').value = Math.round(closedBuyerNeeded * 10) / 10;
+  document.getElementById('totalUnits').value = Math.round((closedListingNeeded + closedBuyerNeeded) * 10) / 10;
+
+  showFunnelPreview(closedListingNeeded, closedBuyerNeeded, gciGoal);
+}
+
+function showFunnelPreview(closedListing, closedBuyer, gci) {
+  const el = document.getElementById('funnelPreview');
+  if (!el) return;
+  const fmt = (n) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  const fmtMoney = (n) => '$' + Math.round(n).toLocaleString();
+  el.textContent = 'Implied: ' + fmt(closedListing) + ' closed listings + ' + fmt(closedBuyer) +
+    ' closed buyer sides \u2192 ' + fmtMoney(gci) + ' GCI';
 }
 </script>
 {% endblock %}
