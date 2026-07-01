@@ -79,18 +79,15 @@
     </div>
   </div>
 
-  {# ── PENDING (85% fall-through weighted) ── #}
+  {# ── PENDING (actual under-contract) ── #}
   <div class="col-12 col-lg-4">
     <div class="card h-100 py-3 px-3" style="border-top:3px solid var(--tdg-gold);">
       <div class="text-center mb-2">
-        <span class="fw-bold" style="font-size:0.82rem;text-transform:uppercase;letter-spacing:.06em;color:#1a1a2e;"
-              title="Weighted at {{ (pending_close_prob*100)|int }}% of pipeline — {{ ((1-pending_close_prob)*100)|int }}% historical fall-through. Raw pending: {{ pending_units }} units · ${{ '{:,.0f}'.format(pending_volume) }} vol · ${{ '{:,.0f}'.format(pending_income) }} GCI.">
-          <i class="bi bi-hourglass-split me-1" style="color:#f0a500;"></i>Pending
-          <span class="text-muted" style="font-size:0.62rem;">×{{ "%.2f"|format(pending_close_prob) }}</span>
-          <i class="bi bi-info-circle text-muted" style="font-size:0.66rem;"></i>
+        <span class="fw-bold" style="font-size:0.82rem;text-transform:uppercase;letter-spacing:.06em;color:#1a1a2e;">
+          <i class="bi bi-hourglass-split me-1" style="color:#f0a500;"></i>Pending <span class="text-muted">under contract</span>
         </span>
       </div>
-      {{ metric_grid(w_pending_units|round(1), w_pending_volume, w_pending_income, units_link='pending', gci_link='pending') }}
+      {{ metric_grid(w_pending_units, w_pending_volume, w_pending_income, units_link='pending', gci_link='pending') }}
     </div>
   </div>
 
@@ -99,7 +96,7 @@
     <div class="card h-100 py-3 px-3" style="border-top:3px solid var(--tdg-gold);background:#fffdf5;">
       <div class="text-center mb-2">
         <span class="fw-bold" style="font-size:0.82rem;text-transform:uppercase;letter-spacing:.06em;color:#1a1a2e;"
-              title="Projected = max( seasonal full-year pace , Closed + 85% weighted Pending ). Seasonal pace = Closed YTD ÷ historical share of the year's closings landing Jan→today (2022–2025 team curve). No double-counting.">
+              title="Projected = max( seasonal full-year pace , Closed + Pending ). Seasonal pace = Closed YTD ÷ historical share of the year's closings landing Jan→today (2022–2025 team curve). No double-counting.">
           <i class="bi bi-star-fill me-1" style="color:var(--tdg-gold);"></i>Projected <span class="text-muted">Year-End</span>
           <i class="bi bi-info-circle text-muted" style="font-size:0.66rem;"></i>
         </span>

@@ -2172,14 +2172,13 @@ def scorecard(agent_id):
     pending_volume  = sum(t.sale_price or 0 for t in _pending_txns)
     pending_income  = sum(agent_income(t) for t in _pending_txns)
 
-    # Fall-through weighting: 15% of pendings historically don't close → keep 85%
-    PENDING_CLOSE_PROB = 0.85
-    w_pending_units   = pending_units  * PENDING_CLOSE_PROB
-    w_pending_volume  = pending_volume * PENDING_CLOSE_PROB
-    w_pending_income  = pending_income * PENDING_CLOSE_PROB
+    # Actual pending — no fall-through discount (show real under-contract numbers)
+    w_pending_units   = pending_units
+    w_pending_volume  = pending_volume
+    w_pending_income  = pending_income
 
     # ── Seasonal year-end projection ─────────────────────────────────────────
-    # Model:  Projected_YE = max( seasonal_full_year , Closed_YTD + 0.85*Pending )
+    # Model:  Projected_YE = max( seasonal_full_year , Closed_YTD + Pending )
     #   seasonal_full_year = Closed_YTD / (fraction of annual closings that
     #                        historically land Jan -> today, from 2022-2025).
     # Computed per metric (units, volume, GCI-to-agent). Falls back to a flat
@@ -2381,7 +2380,6 @@ def scorecard(agent_id):
         w_pending_units=w_pending_units,
         w_pending_volume=w_pending_volume,
         w_pending_income=w_pending_income,
-        pending_close_prob=PENDING_CLOSE_PROB,
         seasonal_frac_units=seasonal_frac_units,
         seasonal_frac_volume=seasonal_frac_volume,
         seasonal_frac_gci=seasonal_frac_gci,
