@@ -2166,17 +2166,92 @@ def scorecard(agent_id):
     lg['buyer_held_to_signed'] = pct(lg['buyers_signed'], lg['buyer_held'])
     lg['contact_to_appt'] = pct(lg['listing_set'] + lg['buyer_set'], lg['contacts'])
 
-    # ── Year-end projection ───────────────────────────────────────────────────
+    # ── Pending (under-contract) actuals ─────────────────────────────────────
+    _pending_txns   = [t for t in pipeline_txns if t.status == 'Pending']
+    pending_units   = len(_pending_txns)
+    pending_volume  = sum(t.sale_price or 0 for t in _pending_txns)
+    pending_income  = sum(agent_income(t) for t in _pending_txns)
+
+    # Fall-through weighting: 15% of pendings historically don't close → keep 85%
+    PENDING_CLOSE_PROB = 0.85
+    w_pending_units   = pending_units  * PENDING_CLOSE_PROB
+    w_pending_volume  = pending_volume * PENDING_CLOSE_PROB
+    w_pending_income  = pending_income * PENDING_CLOSE_PROB
+
+    # ── Seasonal year-end projection ─────────────────────────────────────────
+    # Model:  Projected_YE = max( seasonal_full_year , Closed_YTD + 0.85*Pending )
+    #   seasonal_full_year = Closed_YTD / (fraction of annual closings that
+    #                        historically land Jan -> today, from 2022-2025).
+    # Computed per metric (units, volume, GCI-to-agent). Falls back to a flat
+    # months-elapsed pace if a metric has too little history.
     today = date.today()
     elapsed_months = today.month if year == today.year else 12
-    if ytd_units > 0 and elapsed_months > 0:
-        proj_units  = round(ytd_units / elapsed_months * 12)
-        proj_income = round(ytd_income / elapsed_months * 12)
+
+    # Elapsed fraction of the year by DAY (completed months + prorated current month)
+    if year == today.year:
+        _doy       = today.timetuple().tm_yday
+        _days_year = 366 if calendar.isleap(year) else 365
+        elapsed_year_frac = _doy / _days_year
     else:
-        proj_units  = 0
-        proj_income = 0.0
-    pending_income = sum(agent_income(t) for t in pipeline_txns if t.status == 'Pending')
-    proj_income_with_pending = proj_income + pending_income
+        elapsed_year_frac = 1.0
+
+    # Historical monthly seasonality curve — team-wide, complete years only (2022-2025)
+    _seas_rows = Transaction.query.filter(
+        Transaction.status == 'Closed',
+        Transaction.close_date.isnot(None),
+        Transaction.year >= 2022,
+        Transaction.year <= 2025,
+    )
+    if division != 'all':
+        _seas_rows = _seas_rows.filter(Transaction.division == division)
+    _seas_rows = _seas_rows.all()
+
+    # Fraction of each metric's annual total that lands in month m (1-12)
+    _seas_units = {m: 0.0 for m in range(1, 13)}
+    _seas_vol   = {m: 0.0 for m in range(1, 13)}
+    _seas_gci   = {m: 0.0 for m in range(1, 13)}
+    for t in _seas_rows:
+        m = t.month or (t.close_date.month if t.close_date else None)
+        if not m:
+            continue
+        _seas_units[m] += 1
+        _seas_vol[m]   += (t.sale_price or 0)
+        _seas_gci[m]   += agent_income(t)
+
+    def _seasonal_fraction(month_map):
+        """Fraction of annual total accumulated Jan -> today (current month prorated)."""
+        total = sum(month_map.values())
+        if total <= 0:
+            return None
+        if year != today.year:
+            return 1.0
+        cur = today.month
+        # completed months fully counted
+        done = sum(month_map[m] for m in range(1, cur))
+        # current month prorated by day-of-month
+        _dim = calendar.monthrange(year, cur)[1]
+        frac_cur = (today.day / _dim) if _dim else 0
+        done += month_map[cur] * frac_cur
+        return done / total
+
+    def _project(ytd_val, weighted_pending, month_map):
+        frac = _seasonal_fraction(month_map)
+        # Fallback to flat day-based pace if no usable history
+        if not frac or frac <= 0:
+            frac = elapsed_year_frac if elapsed_year_frac > 0 else 1.0
+        seasonal_full_year = ytd_val / frac if frac else ytd_val
+        return max(seasonal_full_year, ytd_val + weighted_pending)
+
+    proj_units  = round(_project(ytd_units,  w_pending_units,  _seas_units))
+    proj_volume = round(_project(ytd_volume, w_pending_volume, _seas_vol))
+    proj_income = round(_project(ytd_income, w_pending_income, _seas_gci))
+    # Back-compat alias used elsewhere in the template
+    proj_income_with_pending = proj_income
+
+    # Seasonal fractions for tooltip transparency
+    seasonal_frac_units  = _seasonal_fraction(_seas_units)
+    seasonal_frac_volume = _seasonal_fraction(_seas_vol)
+    seasonal_frac_gci    = _seasonal_fraction(_seas_gci)
 
     # ── Pipeline income sum ────────────────────────────────────────────────────
     pipeline_income = sum(agent_income(t) for t in pipeline_txns)
@@ -2297,9 +2372,19 @@ def scorecard(agent_id):
         ytd_gci=ytd_gci,
         ytd_volume=ytd_volume,
         proj_units=proj_units,
+        proj_volume=proj_volume,
         proj_income=proj_income,
         proj_income_with_pending=proj_income_with_pending,
+        pending_units=pending_units,
+        pending_volume=pending_volume,
         pending_income=pending_income,
+        w_pending_units=w_pending_units,
+        w_pending_volume=w_pending_volume,
+        w_pending_income=w_pending_income,
+        pending_close_prob=PENDING_CLOSE_PROB,
+        seasonal_frac_units=seasonal_frac_units,
+        seasonal_frac_volume=seasonal_frac_volume,
+        seasonal_frac_gci=seasonal_frac_gci,
         pipeline_income=pipeline_income,
         plan=plan,
         years=years,
