@@ -2570,6 +2570,119 @@ def scorecard_drill(agent_id):
     })
 
 
+@bp.route('/scorecard/<int:agent_id>/deal/<int:tid>/breakdown')
+@login_required
+def scorecard_deal_breakdown(agent_id, tid):
+    """JSON endpoint: full dollar-for-dollar commission waterfall for one deal,
+    viewed from a specific agent's scorecard. Every dollar of Adjusted GCI is
+    accounted for — referral off the top, every agent split, E&O, broker split,
+    franchise split, donation, other fee, down to Net Company Income (1099).
+    """
+    # Agents can only drill into their own scorecard
+    if current_user.role == 'agent' and current_user.agent_id != agent_id:
+        return jsonify({'error': 'forbidden'}), 403
+
+    agent = Agent.query.get_or_404(agent_id)
+    t = Transaction.query.get_or_404(tid)
+
+    # Confirm this agent actually appears on this deal (defense in depth —
+    # don't let an agent id-guess into a deal they're not on).
+    n = agent.name.lower()
+    on_deal = any([
+        t.primary_agent_name and n in t.primary_agent_name.lower(),
+        t.secondary_agent_name and n in t.secondary_agent_name.lower(),
+        t.member3_name and n in t.member3_name.lower(),
+        t.member4_name and n in t.member4_name.lower(),
+    ])
+    if current_user.role == 'agent' and not on_deal:
+        return jsonify({'error': 'forbidden'}), 403
+
+    gci = t.gci or 0.0
+    bonus = t.bonus or 0.0
+    tx_fee = t.transaction_fee or 0.0
+    referral_fee = t.referral_fee or 0.0
+    eo_fee = t.eo_fee or 0.0
+    broker_split = t.broker_split or 0.0
+    franchise_split = t.franchise_split or 0.0
+    donation = t.donation or 0.0
+    other_fee = t.other_fee or 0.0
+
+    # ── Waterfall (matches apply_formulas()/company_dollar/income_1099 exactly) ──
+    adjusted_gci = gci + bonus + tx_fee                     # GCI + Bonus + Tx Fee
+    net_after_referral = adjusted_gci - referral_fee        # referral comes off the top
+
+    agent_splits = []
+    for name_field, pct_field, gci_field, role_label in [
+        ('primary_agent_name', 'primary_agent_pct', 'primary_agent_gci', 'Primary Agent'),
+        ('secondary_agent_name', 'secondary_agent_pct', 'secondary_agent_gci', '2nd Agent'),
+        ('member3_name', 'member3_pct', 'member3_gci', 'Member 3'),
+        ('member4_name', 'member4_pct', 'member4_gci', 'Member 4'),
+    ]:
+        name = getattr(t, name_field)
+        if not name:
+            continue
+        agent_splits.append({
+            'role': role_label,
+            'name': name,
+            'pct': getattr(t, pct_field) or 0.0,
+            'gci': getattr(t, gci_field) or 0.0,
+            'is_viewed_agent': n in name.lower(),
+        })
+
+    total_agent_gci = sum(a['gci'] for a in agent_splits)
+    company_dollar = net_after_referral - total_agent_gci - eo_fee
+    income_1099 = company_dollar - broker_split - franchise_split - donation - other_fee
+
+    # Final Agent GCI = whatever this specific agent's split(s) sum to on this deal
+    final_agent_gci = sum(a['gci'] for a in agent_splits if a['is_viewed_agent'])
+
+    # ── Balance check: every dollar of adjusted_gci must land somewhere ──────
+    accounted = (
+        referral_fee + total_agent_gci + eo_fee +
+        broker_split + franchise_split + donation + other_fee +
+        income_1099
+    )
+    balance_diff = round(adjusted_gci - accounted, 2)
+
+    return jsonify({
+        'address': t.address or '—',
+        'client': t.client_name or '—',
+        'status': t.status,
+        'transaction_type': t.transaction_type or '—',
+        'sale_price': t.sale_price,
+        'commission_pct': t.commission_pct,
+        'close_date': t.close_date.strftime('%m/%d/%y') if t.close_date else (
+            t.projected_close_date.strftime('%m/%d/%y') if t.projected_close_date else '—'),
+
+        'gci': round(gci, 2),
+        'bonus': round(bonus, 2),
+        'transaction_fee': round(tx_fee, 2),
+        'adjusted_gci': round(adjusted_gci, 2),
+
+        'referral_fee': round(referral_fee, 2),
+        'referral_pct': t.referral_pct,
+        'net_after_referral': round(net_after_referral, 2),
+
+        'agent_splits': [
+            {**a, 'pct': round(a['pct'] * 100, 2) if a['pct'] else 0, 'gci': round(a['gci'], 2)}
+            for a in agent_splits
+        ],
+        'total_agent_gci': round(total_agent_gci, 2),
+
+        'eo_fee': round(eo_fee, 2),
+        'company_dollar': round(company_dollar, 2),
+
+        'broker_split': round(broker_split, 2),
+        'franchise_split': round(franchise_split, 2),
+        'donation': round(donation, 2),
+        'other_fee': round(other_fee, 2),
+        'income_1099': round(income_1099, 2),
+
+        'final_agent_gci': round(final_agent_gci, 2),
+        'balance_diff': balance_diff,   # should be 0.00 — every dollar accounted for
+    })
+
+
 @bp.route('/scorecard/<int:agent_id>/business-plan', methods=['GET', 'POST'])
 @login_required
 def business_plan_form_for(agent_id):

@@ -756,10 +756,7 @@ function renderScDrawer(data) {
     </thead>
     <tbody>`;
 
-  window.SC_DEAL_MAP = window.SC_DEAL_MAP || {};
-
   for (const d of data.deals) {
-    window.SC_DEAL_MAP[d.id] = d;
     const styleStr = STATUS_BADGE[d.status] || 'background:#6c757d;color:#fff';
     const badge = `<span class="badge" style="${styleStr}">${d.status}</span>`;
     const dateVal = isPending ? d.proj_close : d.close_date;
@@ -784,50 +781,97 @@ function renderScDrawer(data) {
   body.innerHTML = html;
 }
 
-function openCommissionBreakdown(dealId) {
-  const d = (window.SC_DEAL_MAP || {})[dealId];
-  if (!d) return;
+// ── Commission Breakdown Modal — full dollar-for-dollar waterfall ──────────
+// Every dollar of Adjusted GCI (GCI + Bonus + Tx Fee) is accounted for:
+// Referral off the top -> each Agent Split -> E&O -> Company Dollar ->
+// Broker/Franchise Split, Donation, Other Fee -> Net Company Income (1099).
+function money(v) {
+  const n = Number(v) || 0;
+  const sign = n < 0 ? '-' : '';
+  return `${sign}$${Math.abs(n).toLocaleString('en-US', {maximumFractionDigits: 0})}`;
+}
 
+function openCommissionBreakdown(dealId) {
   const overlay = document.getElementById('sc-breakdown-overlay');
   const panel   = document.getElementById('sc-breakdown-panel');
+  panel.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Loading\u2026</div>';
+  overlay.style.display = 'block';
+  panel.classList.add('open');
 
-  const totalGci  = d.total_gci_raw || 0;
-  const splitPct  = d.split_pct_raw || 0;
-  const agentGci  = d.agent_gci_raw || 0;
-  const fmt = (n) => '$' + n.toLocaleString('en-US', {maximumFractionDigits: 0});
+  fetch(`/scorecard/${SC_AGENT_ID}/deal/${dealId}/breakdown`)
+    .then(r => r.json())
+    .then(d => renderCommissionBreakdown(d))
+    .catch(() => { panel.innerHTML = '<div class="text-danger p-3">Failed to load breakdown.</div>'; });
+}
 
-  panel.innerHTML = `
+function renderCommissionBreakdown(d) {
+  const panel = document.getElementById('sc-breakdown-panel');
+  if (d.error) {
+    panel.innerHTML = '<div class="text-danger p-3">Not authorized to view this deal.</div>';
+    return;
+  }
+
+  const row = (label, val, opts = {}) => `
+    <div class="d-flex justify-content-between align-items-center py-1"
+         style="${opts.bold ? 'border-top:1px solid #dee2e6;border-bottom:1px solid #dee2e6;margin:4px 0;padding-top:6px;padding-bottom:6px;' : ''}">
+      <span style="${opts.bold ? 'font-weight:700;' : 'padding-left:' + (opts.indent || 0) + 'px;color:#555;'}">${label}</span>
+      <span style="${opts.bold ? 'font-weight:700;' : ''}${opts.color ? 'color:' + opts.color + ';' : ''}">${opts.neg ? '\u2212 ' : ''}${money(val)}</span>
+    </div>`;
+
+  let html = `
     <div style="background:var(--tdg-gold);color:#1a1a2e;padding:.75rem 1rem;
                 display:flex;align-items:center;justify-content:space-between;">
       <span class="fw-bold" style="font-size:1rem;">Commission Breakdown</span>
       <button onclick="closeCommissionBreakdown()" class="btn btn-sm"
               style="background:#1a1a2e;color:#fff;padding:.2rem .55rem;font-size:1rem;line-height:1;">&#x2715;</button>
     </div>
-    <div class="p-4">
-      <div class="fw-semibold mb-1" style="font-size:1.05rem;">${d.client}</div>
-      <div class="text-muted mb-3" style="font-size:0.85rem;">${d.address}</div>
+    <div class="px-3 pt-3 pb-1">
+      <div class="fw-semibold" style="font-size:1.05rem;">${d.client}</div>
+      <div class="text-muted small">${d.address}</div>
+      <div class="text-muted small mt-1">${d.transaction_type} \u00b7 ${d.status} \u00b7 ${d.close_date}${d.sale_price ? ' \u00b7 Sale Price ' + money(d.sale_price) : ''}${d.commission_pct ? ' \u00b7 ' + (d.commission_pct*100).toFixed(2) + '%' : ''}</div>
+    </div>
+    <div class="px-3 pb-3">
+      ${row('Total Deal GCI', d.gci, {bold:true, color:'var(--tdg-gold)'})}
+  `;
+  if (d.bonus) html += row('+ Bonus', d.bonus, {indent:12});
+  if (d.transaction_fee) html += row('+ Transaction Fee', d.transaction_fee, {indent:12});
+  html += row('Adjusted GCI', d.adjusted_gci, {bold:true});
 
-      <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-        <span class="text-muted">Total Deal GCI</span>
-        <span class="fw-semibold">${fmt(totalGci)}</span>
-      </div>
-      <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-        <span class="text-muted">Agent Split %</span>
-        <span class="fw-semibold">${d.split_pct}</span>
-      </div>
-      <div class="d-flex justify-content-between align-items-center py-3 mt-2 rounded"
-           style="background:#f0f9f2;padding-left:.75rem;padding-right:.75rem;">
-        <span class="fw-bold" style="color:#1a7f37;">Final Agent GCI</span>
-        <span class="fw-bold" style="font-size:1.15rem;color:#1a7f37;">${fmt(agentGci)}</span>
-      </div>
+  if (d.referral_fee) {
+    html += row(`Referral Fee${d.referral_pct ? ' (' + (d.referral_pct*100).toFixed(1) + '%)' : ''} \u2014 off the top`, d.referral_fee, {indent:12, neg:true, color:'#b45309'});
+  }
+  html += row('Net GCI (after Referral)', d.net_after_referral, {bold:true});
 
-      <div class="text-muted mt-3" style="font-size:0.75rem;">
-        Total Deal GCI × Agent Split % = Final Agent GCI
-      </div>
+  html += `<div class="mt-2 mb-1 text-uppercase text-muted" style="font-size:0.7rem;letter-spacing:.05em;">Agent Splits</div>`;
+  for (const a of d.agent_splits) {
+    const highlight = a.is_viewed_agent;
+    html += `<div class="d-flex justify-content-between align-items-center py-1" style="${highlight ? 'background:#fffbf0;border-radius:4px;padding-left:6px;padding-right:6px;' : ''}">
+      <span style="padding-left:12px;color:#555;">${a.role}: ${a.name}${a.pct ? ' (' + a.pct + '%)' : ''}${highlight ? ' <span class=\\'badge rounded-pill\\' style=\\'background:var(--tdg-gold);color:#1a1a2e;font-size:0.62rem;\\'>this agent</span>' : ''}</span>
+      <span style="${highlight ? 'font-weight:700;color:var(--tdg-gold);' : ''}">\u2212 ${money(a.gci)}</span>
     </div>`;
+  }
+  if (d.eo_fee) html += row('E&O Fee', d.eo_fee, {indent:12, neg:true});
+  html += row('Company Dollar', d.company_dollar, {bold:true});
 
-  overlay.style.display = 'block';
-  panel.classList.add('open');
+  if (d.broker_split) html += row('Broker Split', d.broker_split, {indent:12, neg:true});
+  if (d.franchise_split) html += row('Franchise Split', d.franchise_split, {indent:12, neg:true});
+  if (d.donation) html += row('Donation', d.donation, {indent:12, neg:true});
+  if (d.other_fee) html += row('Other Fee', d.other_fee, {indent:12, neg:true});
+  html += row('Net Company Income (1099)', d.income_1099, {bold:true});
+
+  html += `
+    <div class="mt-3 p-2 text-center rounded" style="background:#1a1a2e;">
+      <div class="text-uppercase" style="font-size:0.68rem;letter-spacing:.05em;color:#aaa;">Final Agent GCI \u2014 this agent</div>
+      <div class="fw-bold" style="font-size:1.35rem;color:var(--tdg-gold);">${money(d.final_agent_gci)}</div>
+    </div>
+    <div class="text-center text-muted mt-2" style="font-size:0.7rem;">
+      ${Math.abs(d.balance_diff) < 0.01
+        ? '\u2705 Every dollar of Adjusted GCI accounted for'
+        : '\u26a0\ufe0f Unaccounted: ' + money(d.balance_diff) + ' \u2014 check transaction fields'}
+    </div>
+  </div>`;
+
+  panel.innerHTML = html;
 }
 
 function closeCommissionBreakdown() {
@@ -883,8 +927,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeScDrawe
 <div id="sc-breakdown-panel"
      onclick="event.stopPropagation()"
      style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-            width:min(420px,90vw);background:#fff;z-index:1070;border-radius:10px;
-            overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3);">
+            width:min(480px,92vw);max-height:88vh;overflow-y:auto;background:#fff;z-index:1070;border-radius:10px;
+            box-shadow:0 12px 40px rgba(0,0,0,.3);">
 </div>
 
 <style>
