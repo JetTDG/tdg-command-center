@@ -264,8 +264,59 @@ class BusinessPlan(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Funnel goal fields (Set -> Held -> Signed), pre-filled from blended
+    # agent/company conversion-rate defaults, editable/overridable per agent.
+    # Rates stored as decimal fractions (0.75 = 75%), same convention as
+    # listing_comm_pct/buyer_comm_pct above.
+    listing_appts_set_goal = db.Column(db.Integer, default=0)
+    listing_held_rate = db.Column(db.Float)
+    listing_signed_rate = db.Column(db.Float)
+    listing_close_rate = db.Column(db.Float)
+    buyer_appts_set_goal = db.Column(db.Integer, default=0)
+    buyer_held_rate = db.Column(db.Float)
+    buyer_signed_rate = db.Column(db.Float)
+    buyer_close_rate = db.Column(db.Float)
+
     def __repr__(self):
         return f'<BusinessPlan {self.agent.name} {self.year}>'
+
+
+class AgentConversionStats(db.Model):
+    """Trailing-window funnel conversion rates per agent (Set→Held→Signed→Closed),
+    computed nightly by compute_agent_conversion_stats.py. One row per agent,
+    plus one row with agent_id=None holding the company-wide baseline used as
+    the blend/fallback target for agents with thin sample sizes."""
+    __tablename__ = 'agent_conversion_stats'
+    id = db.Column(db.Integer, primary_key=True)
+    agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True, unique=True)
+    computed_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    listing_appts_set = db.Column(db.Integer, default=0)
+    listing_appts_held = db.Column(db.Integer, default=0)
+    listings_signed = db.Column(db.Integer, default=0)
+    listings_closed = db.Column(db.Integer, default=0)
+    listing_held_rate = db.Column(db.Float)
+    listing_signed_rate = db.Column(db.Float)
+    listing_close_rate = db.Column(db.Float)
+
+    buyer_appts_set = db.Column(db.Integer, default=0)
+    buyer_appts_held = db.Column(db.Integer, default=0)
+    buyers_signed = db.Column(db.Integer, default=0)
+    buyers_closed = db.Column(db.Integer, default=0)
+    buyer_held_rate = db.Column(db.Float)
+    buyer_signed_rate = db.Column(db.Float)
+    buyer_close_rate = db.Column(db.Float)
+
+    avg_list_price = db.Column(db.Float)
+    avg_buy_price = db.Column(db.Float)
+    avg_listing_comm_pct = db.Column(db.Float)
+    avg_buyer_comm_pct = db.Column(db.Float)
+
+    n_listing_deals = db.Column(db.Integer, default=0)
+    n_buyer_deals = db.Column(db.Integer, default=0)
+
+    def __repr__(self):
+        return f'<AgentConversionStats agent_id={self.agent_id}>'
 
 
 class TeamGoal(db.Model):

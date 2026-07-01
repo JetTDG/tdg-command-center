@@ -73,6 +73,54 @@
           <textarea name="notes" class="form-control" rows="2">{{ plan.notes if plan else '' }}</textarea>
         </div>
 
+        <div class="col-12 mt-3 mb-1">
+          <hr>
+          <div class="fw-semibold" style="font-size:0.95rem;">
+            <i class="bi bi-funnel me-1"></i>Appointment Funnel Goals
+          </div>
+          <div class="text-muted" style="font-size:0.78rem;">
+            Pre-filled from your trailing conversion rates (blended with company average when your sample size is small — 5+ closed deals needed to fully trust your own numbers). Override anything.
+            {% if defaults.n_listing_deals is defined %}
+            <br>Sample size: {{ defaults.n_listing_deals }} listing deals, {{ defaults.n_buyer_deals }} buyer deals (trailing window).
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-6">
+          <label class="form-label">Listing Appts Set Goal</label>
+          <input type="number" name="listing_appts_set_goal" class="form-control" value="{{ plan.listing_appts_set_goal if plan else '' }}" min="0">
+        </div>
+        <div class="col-6">
+          <label class="form-label">Buyer Appts Set Goal</label>
+          <input type="number" name="buyer_appts_set_goal" class="form-control" value="{{ plan.buyer_appts_set_goal if plan else '' }}" min="0">
+        </div>
+
+        <div class="col-4">
+          <label class="form-label small">Listing Held Rate %</label>
+          <input type="number" name="listing_held_rate" class="form-control form-control-sm" value="{{ (plan.listing_held_rate * 100)|round(1) if plan and plan.listing_held_rate is not none else (defaults.listing_held_rate * 100)|round(1) }}" min="0" max="100" step="0.1">
+        </div>
+        <div class="col-4">
+          <label class="form-label small">Listing Signed Rate %</label>
+          <input type="number" name="listing_signed_rate" class="form-control form-control-sm" value="{{ (plan.listing_signed_rate * 100)|round(1) if plan and plan.listing_signed_rate is not none else (defaults.listing_signed_rate * 100)|round(1) }}" min="0" max="100" step="0.1">
+        </div>
+        <div class="col-4">
+          <label class="form-label small">Listing Close Rate %</label>
+          <input type="number" name="listing_close_rate" class="form-control form-control-sm" value="{{ (plan.listing_close_rate * 100)|round(1) if plan and plan.listing_close_rate is not none else (defaults.listing_close_rate * 100)|round(1) }}" min="0" max="100" step="0.1">
+        </div>
+
+        <div class="col-4">
+          <label class="form-label small">Buyer Held Rate %</label>
+          <input type="number" name="buyer_held_rate" class="form-control form-control-sm" value="{{ (plan.buyer_held_rate * 100)|round(1) if plan and plan.buyer_held_rate is not none else (defaults.buyer_held_rate * 100)|round(1) }}" min="0" max="100" step="0.1">
+        </div>
+        <div class="col-4">
+          <label class="form-label small">Buyer Signed Rate %</label>
+          <input type="number" name="buyer_signed_rate" class="form-control form-control-sm" value="{{ (plan.buyer_signed_rate * 100)|round(1) if plan and plan.buyer_signed_rate is not none else (defaults.buyer_signed_rate * 100)|round(1) }}" min="0" max="100" step="0.1">
+        </div>
+        <div class="col-4">
+          <label class="form-label small">Buyer Close Rate %</label>
+          <input type="number" name="buyer_close_rate" class="form-control form-control-sm" value="{{ (plan.buyer_close_rate * 100)|round(1) if plan and plan.buyer_close_rate is not none else (defaults.buyer_close_rate * 100)|round(1) }}" min="0" max="100" step="0.1">
+        </div>
+
         <div class="col-12 mt-2">
           <button type="submit" class="btn btn-gold w-100">Save Business Plan</button>
         </div>

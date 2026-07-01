@@ -18,7 +18,8 @@ def log_change(record_id, field_name, old_value, new_value, table_name='transact
         # committed together with the main change
     except Exception:
         pass  # audit failure never blocks the real save
-from app.models import Agent, Transaction, LeadGenLog, BusinessPlan, Pipeline, TeamGoal
+from app.models import Agent, Transaction, LeadGenLog, BusinessPlan, Pipeline, TeamGoal, AgentConversionStats
+from app.conversion_stats import get_blended_defaults
 from app import db
 from datetime import datetime, date
 from sqlalchemy import func, extract, or_, and_
@@ -2590,6 +2591,13 @@ def business_plan_form_for(agent_id):
         'gci_goal': round(default_avg_price * default_comm_pct * default_units),
     }
 
+    # ── Blended funnel defaults (agent conversion stats + company baseline) ──
+    # See app/conversion_stats.py for the shrinkage-blend math and rationale.
+    agent_stats = AgentConversionStats.query.filter_by(agent_id=agent_id).first()
+    company_stats = AgentConversionStats.query.filter_by(agent_id=None).first()
+    funnel_defaults = get_blended_defaults(agent_stats, company_stats)
+    defaults.update(funnel_defaults)
+
     if request.method == 'POST':
         f = request.form
         if plan:
@@ -2602,6 +2610,14 @@ def business_plan_form_for(agent_id):
             plan.buyer_comm_pct    = float(f.get('buyer_comm_pct') or 3) / 100
             plan.split_pct         = float(f.get('split_pct') or 70) / 100
             plan.notes             = f.get('notes', '')
+            plan.listing_appts_set_goal = int(f.get('listing_appts_set_goal') or 0)
+            plan.listing_held_rate      = float(f.get('listing_held_rate') or 0) / 100
+            plan.listing_signed_rate    = float(f.get('listing_signed_rate') or 0) / 100
+            plan.listing_close_rate     = float(f.get('listing_close_rate') or 0) / 100
+            plan.buyer_appts_set_goal   = int(f.get('buyer_appts_set_goal') or 0)
+            plan.buyer_held_rate        = float(f.get('buyer_held_rate') or 0) / 100
+            plan.buyer_signed_rate      = float(f.get('buyer_signed_rate') or 0) / 100
+            plan.buyer_close_rate       = float(f.get('buyer_close_rate') or 0) / 100
         else:
             plan = BusinessPlan(
                 agent_id=agent_id,
@@ -2616,6 +2632,14 @@ def business_plan_form_for(agent_id):
                 split_pct=float(f.get('split_pct') or 70) / 100,
                 notes=f.get('notes', ''),
                 submitted_by=agent.name,
+                listing_appts_set_goal=int(f.get('listing_appts_set_goal') or 0),
+                listing_held_rate=float(f.get('listing_held_rate') or 0) / 100,
+                listing_signed_rate=float(f.get('listing_signed_rate') or 0) / 100,
+                listing_close_rate=float(f.get('listing_close_rate') or 0) / 100,
+                buyer_appts_set_goal=int(f.get('buyer_appts_set_goal') or 0),
+                buyer_held_rate=float(f.get('buyer_held_rate') or 0) / 100,
+                buyer_signed_rate=float(f.get('buyer_signed_rate') or 0) / 100,
+                buyer_close_rate=float(f.get('buyer_close_rate') or 0) / 100,
             )
             db.session.add(plan)
         db.session.commit()
