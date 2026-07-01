@@ -2177,12 +2177,14 @@ def scorecard(agent_id):
     w_pending_volume  = pending_volume
     w_pending_income  = pending_income
 
-    # ── Seasonal year-end projection ─────────────────────────────────────────
-    # Model:  Projected_YE = max( seasonal_full_year , Closed_YTD + Pending )
-    #   seasonal_full_year = Closed_YTD / (fraction of annual closings that
-    #                        historically land Jan -> today, from 2022-2025).
-    # Computed per metric (units, volume, GCI-to-agent). Falls back to a flat
-    # months-elapsed pace if a metric has too little history.
+    # ── Seasonal year-end projection (additive: Closed + Pending + Future) ────
+    # Model:  Projected_YE = Closed_YTD + Pending + Future_new
+    #   Future_new = seasonal-implied annual pace × (share of year that closes
+    #                AFTER the pending window, so pending isn't double-counted).
+    #   annual_pace = Closed_YTD / (fraction of annual total closed Jan->today).
+    # Pending is assumed to clear within PENDING_WINDOW_DAYS (~45d); future NEW
+    # production is only counted for the months after that window. Computed per
+    # metric (units, volume, GCI-to-agent) off the 2022-2025 team seasonal curve.
     today = date.today()
     elapsed_months = today.month if year == today.year else 12
 
@@ -2230,21 +2232,43 @@ def scorecard(agent_id):
         if year != today.year:
             return 1.0
         cur = today.month
-        # completed months fully counted
         done = sum(month_map[m] for m in range(1, cur))
-        # current month prorated by day-of-month
         _dim = calendar.monthrange(year, cur)[1]
         frac_cur = (today.day / _dim) if _dim else 0
         done += month_map[cur] * frac_cur
         return done / total
 
-    def _project(ytd_val, weighted_pending, month_map):
+    # Pending is assumed to close within this window; new deals are counted after it.
+    PENDING_WINDOW_DAYS = 45
+    from datetime import timedelta as _td
+    _pending_end = today + _td(days=PENDING_WINDOW_DAYS)
+
+    def _fraction_after_window(month_map):
+        """Share of annual total that historically closes AFTER the pending window
+        (i.e. from _pending_end through Dec 31). Zero for a completed prior year."""
+        total = sum(month_map.values())
+        if total <= 0 or year != today.year:
+            return 0.0
+        bm, bd = _pending_end.month, _pending_end.day
+        if bm > 12:  # window spills past year-end → no remaining new production
+            return 0.0
+        # full months strictly after the boundary month
+        after = sum(month_map[m] for m in range(bm + 1, 13))
+        # remaining portion of the boundary month after boundary day
+        _dim = calendar.monthrange(year, bm)[1]
+        after += month_map[bm] * ((_dim - bd) / _dim) if _dim else 0
+        return after / total
+
+    def _project(ytd_val, pending_val, month_map):
+        """Option 3: Closed + Pending + seasonal-shaped future NEW production."""
         frac = _seasonal_fraction(month_map)
-        # Fallback to flat day-based pace if no usable history
         if not frac or frac <= 0:
             frac = elapsed_year_frac if elapsed_year_frac > 0 else 1.0
-        seasonal_full_year = ytd_val / frac if frac else ytd_val
-        return max(seasonal_full_year, ytd_val + weighted_pending)
+        annual_pace  = ytd_val / frac if frac else ytd_val
+        future_new   = annual_pace * _fraction_after_window(month_map)
+        proj = ytd_val + pending_val + future_new
+        # Floor: never below what's already committed (Closed + Pending)
+        return max(proj, ytd_val + pending_val)
 
     proj_units  = round(_project(ytd_units,  w_pending_units,  _seas_units))
     proj_volume = round(_project(ytd_volume, w_pending_volume, _seas_vol))
