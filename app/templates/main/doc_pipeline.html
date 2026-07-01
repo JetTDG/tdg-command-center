@@ -170,7 +170,7 @@
   <div class="sync-badge mt-1">
     <span class="sync-dot"></span>
     {% if last_sync %}
-      Last synced {{ last_sync.strftime('%-m/%-d %-I:%M %p') }} UTC
+      Last synced {{ (last_sync | to_et).strftime('%-m/%-d %-I:%M %p') }} ET
     {% else %}
       Not yet synced — run sync script to populate
     {% endif %}
@@ -350,9 +350,12 @@ function dpMonthChanged() {
     <tbody id="dp-tbody">
       {% for env in envelopes %}
       {% set badge_cls, badge_icon = stage_badge.get(env.stage, ('bg-secondary','bi-question')) %}
-      {% set sent_iso = env.sent_at.strftime('%Y-%m-%d') if env.sent_at else (env.created_at.strftime('%Y-%m-%d') if env.created_at else '') %}
-      {% set sent_disp = env.sent_at.strftime('%-m/%-d/%y') if env.sent_at else (env.created_at.strftime('%-m/%-d/%y') if env.created_at else '') %}
-      {% set comp_iso  = env.completed_at.strftime('%Y-%m-%d') if env.completed_at else '' %}
+      {% set sent_et = env.sent_at | to_et %}
+      {% set created_et = env.created_at | to_et %}
+      {% set comp_et = env.completed_at | to_et %}
+      {% set sent_iso = sent_et.strftime('%Y-%m-%d') if sent_et else (created_et.strftime('%Y-%m-%d') if created_et else '') %}
+      {% set sent_disp = sent_et.strftime('%-m/%-d/%y') if sent_et else (created_et.strftime('%-m/%-d/%y') if created_et else '') %}
+      {% set comp_iso  = comp_et.strftime('%Y-%m-%d') if comp_et else '' %}
       <tr data-row>
         <!-- Division -->
         <td data-col="7" data-val="{{ env.division or 'Residential' }}">
@@ -469,11 +472,11 @@ function dpMonthChanged() {
 
         <!-- Sent -->
         <td data-col="5" data-val="{{ sent_iso }}" style="white-space:nowrap; font-size:0.8rem;">
-          {% if env.sent_at %}
-            {{ env.sent_at.strftime('%-m/%-d/%y') }}<br>
-            <span style="color:var(--tdg-muted)">{{ env.sent_at.strftime('%-I:%M %p') }}</span>
-          {% elif env.created_at %}
-            {{ env.created_at.strftime('%-m/%-d/%y') }}
+          {% if sent_et %}
+            {{ sent_et.strftime('%-m/%-d/%y') }}<br>
+            <span style="color:var(--tdg-muted)">{{ sent_et.strftime('%-I:%M %p') }} ET</span>
+          {% elif created_et %}
+            {{ created_et.strftime('%-m/%-d/%y') }}
           {% else %}
             —
           {% endif %}
@@ -481,9 +484,9 @@ function dpMonthChanged() {
 
         <!-- Completed -->
         <td data-col="6" data-val="{{ comp_iso }}" style="white-space:nowrap; font-size:0.8rem;">
-          {% if env.completed_at %}
-            {{ env.completed_at.strftime('%-m/%-d/%y') }}<br>
-            <span style="color:var(--tdg-muted)">{{ env.completed_at.strftime('%-I:%M %p') }}</span>
+          {% if comp_et %}
+            {{ comp_et.strftime('%-m/%-d/%y') }}<br>
+            <span style="color:var(--tdg-muted)">{{ comp_et.strftime('%-I:%M %p') }} ET</span>
           {% else %}
             <span style="color:var(--tdg-muted)">—</span>
           {% endif %}

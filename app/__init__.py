@@ -46,6 +46,26 @@ def create_app():
     app.register_blueprint(gl.bp)
     app.register_blueprint(docs.bp)
 
+    # ── Timezone filter ──────────────────────────────────────────────────────
+    # All DB timestamps (doc_envelopes.sent_at/completed_at/last_synced_at,
+    # DocuSign API times, etc.) are stored as naive UTC. Templates must never
+    # strftime them directly — always convert to US/Eastern for display
+    # (Renee is ET-only). Fixed June 30 2026 — Document Pipeline was showing
+    # raw UTC timestamps unlabeled, which read as if they were local time.
+    from zoneinfo import ZoneInfo
+    _UTC = ZoneInfo('UTC')
+    _ET  = ZoneInfo('America/New_York')
+
+    def to_et(dt):
+        """Convert a naive-UTC or aware datetime to US/Eastern. Returns None if dt is falsy."""
+        if not dt:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=_UTC)
+        return dt.astimezone(_ET)
+
+    app.jinja_env.filters['to_et'] = to_et
+
     # Ensure all tables exist (safe — only creates missing ones)
     with app.app_context():
         db.create_all()
