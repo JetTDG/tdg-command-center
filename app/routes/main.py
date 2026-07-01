@@ -2470,6 +2470,30 @@ def scorecard_drill(agent_id):
             income += t.member4_gci or 0
         return income
 
+    def _agent_split_pct(t, income):
+        """Sum the split % across whichever role column(s) matched this agent.
+        Falls back to income/t.gci if no explicit pct is stored."""
+        n = agent.name.lower()
+        pct_total = 0.0
+        found = False
+        if t.primary_agent_name and n in t.primary_agent_name.lower() and t.primary_agent_pct:
+            pct_total += t.primary_agent_pct
+            found = True
+        if t.secondary_agent_name and n in t.secondary_agent_name.lower() and t.secondary_agent_pct:
+            pct_total += t.secondary_agent_pct
+            found = True
+        if t.member3_name and n in t.member3_name.lower() and t.member3_pct:
+            pct_total += t.member3_pct
+            found = True
+        if t.member4_name and n in t.member4_name.lower() and t.member4_pct:
+            pct_total += t.member4_pct
+            found = True
+        if found:
+            return pct_total
+        if t.gci:
+            return income / t.gci
+        return 0.0
+
     txns = []
 
     if drill_type in ('self_gen', 'team_lead'):
@@ -2514,6 +2538,8 @@ def scorecard_drill(agent_id):
     deals = []
     for t in txns:
         inc = _agent_income(t)
+        split_pct = _agent_split_pct(t, inc)
+        total_gci = t.gci or 0
         deals.append({
             'id': t.id,
             'address': t.address or '—',
@@ -2524,6 +2550,10 @@ def scorecard_drill(agent_id):
             'lead_type': t.lead_type or '—',
             'agent_gci': f'${inc:,.0f}',
             'agent_gci_raw': inc,
+            'total_gci': f'${total_gci:,.0f}',
+            'total_gci_raw': total_gci,
+            'split_pct': f'{split_pct*100:.1f}%',
+            'split_pct_raw': split_pct,
             'sale_price': f'${t.sale_price:,.0f}' if t.sale_price else '—',
             'proj_close': t.projected_close_date.strftime('%m/%d/%y') if t.projected_close_date else '—',
             'close_date': t.close_date.strftime('%m/%d/%y') if t.close_date else '—',

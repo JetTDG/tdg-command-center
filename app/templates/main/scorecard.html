@@ -756,7 +756,10 @@ function renderScDrawer(data) {
     </thead>
     <tbody>`;
 
+  window.SC_DEAL_MAP = window.SC_DEAL_MAP || {};
+
   for (const d of data.deals) {
+    window.SC_DEAL_MAP[d.id] = d;
     const styleStr = STATUS_BADGE[d.status] || 'background:#6c757d;color:#fff';
     const badge = `<span class="badge" style="${styleStr}">${d.status}</span>`;
     const dateVal = isPending ? d.proj_close : d.close_date;
@@ -768,7 +771,10 @@ function renderScDrawer(data) {
       <td class="text-muted small">${d.type}</td>
       <td>${badge}</td>
       <td class="text-muted small">${d.source}</td>
-      <td class="text-end fw-semibold">${d.agent_gci}</td>
+      <td class="text-end">
+        <a href="#" class="sc-gci-link fw-semibold" data-deal-id="${d.id}"
+           style="color:#0969da;text-decoration:underline;cursor:pointer;">${d.agent_gci}</a>
+      </td>
       <td class="text-end text-muted small">${d.sale_price}</td>
       <td class="text-muted small">${dateVal}</td>
     </tr>`;
@@ -778,9 +784,69 @@ function renderScDrawer(data) {
   body.innerHTML = html;
 }
 
+function openCommissionBreakdown(dealId) {
+  const d = (window.SC_DEAL_MAP || {})[dealId];
+  if (!d) return;
+
+  const overlay = document.getElementById('sc-breakdown-overlay');
+  const panel   = document.getElementById('sc-breakdown-panel');
+
+  const totalGci  = d.total_gci_raw || 0;
+  const splitPct  = d.split_pct_raw || 0;
+  const agentGci  = d.agent_gci_raw || 0;
+  const fmt = (n) => '$' + n.toLocaleString('en-US', {maximumFractionDigits: 0});
+
+  panel.innerHTML = `
+    <div style="background:var(--tdg-gold);color:#1a1a2e;padding:.75rem 1rem;
+                display:flex;align-items:center;justify-content:space-between;">
+      <span class="fw-bold" style="font-size:1rem;">Commission Breakdown</span>
+      <button onclick="closeCommissionBreakdown()" class="btn btn-sm"
+              style="background:#1a1a2e;color:#fff;padding:.2rem .55rem;font-size:1rem;line-height:1;">&#x2715;</button>
+    </div>
+    <div class="p-4">
+      <div class="fw-semibold mb-1" style="font-size:1.05rem;">${d.client}</div>
+      <div class="text-muted mb-3" style="font-size:0.85rem;">${d.address}</div>
+
+      <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+        <span class="text-muted">Total Deal GCI</span>
+        <span class="fw-semibold">${fmt(totalGci)}</span>
+      </div>
+      <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+        <span class="text-muted">Agent Split %</span>
+        <span class="fw-semibold">${d.split_pct}</span>
+      </div>
+      <div class="d-flex justify-content-between align-items-center py-3 mt-2 rounded"
+           style="background:#f0f9f2;padding-left:.75rem;padding-right:.75rem;">
+        <span class="fw-bold" style="color:#1a7f37;">Final Agent GCI</span>
+        <span class="fw-bold" style="font-size:1.15rem;color:#1a7f37;">${fmt(agentGci)}</span>
+      </div>
+
+      <div class="text-muted mt-3" style="font-size:0.75rem;">
+        Total Deal GCI × Agent Split % = Final Agent GCI
+      </div>
+    </div>`;
+
+  overlay.style.display = 'block';
+  panel.classList.add('open');
+}
+
+function closeCommissionBreakdown() {
+  document.getElementById('sc-breakdown-overlay').style.display = 'none';
+  document.getElementById('sc-breakdown-panel').classList.remove('open');
+}
+
+document.addEventListener('click', function(e) {
+  const gciLink = e.target.closest('.sc-gci-link');
+  if (gciLink) {
+    e.preventDefault();
+    openCommissionBreakdown(gciLink.dataset.dealId);
+  }
+});
+
 function closeScDrawer() {
   document.getElementById('sc-drawer-overlay').style.display = 'none';
   document.getElementById('sc-drawer').classList.remove('open');
+
 }
 
 document.addEventListener('click', function(e) {
@@ -809,6 +875,21 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeScDrawe
   <div id="sc-drawer-body" style="overflow-y:auto;flex:1;"></div>
 </div>
 
+{# ── Commission Breakdown Modal ───────────────────────────────────────────── #}
+<div id="sc-breakdown-overlay"
+     onclick="closeCommissionBreakdown()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1060;"></div>
+
+<div id="sc-breakdown-panel"
+     onclick="event.stopPropagation()"
+     style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+            width:min(420px,90vw);background:#fff;z-index:1070;border-radius:10px;
+            overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3);">
+</div>
+
+<style>
+#sc-breakdown-panel.open { display:block !important; }
+</style>
 <style>
 #sc-drawer { display:none; }
 #sc-drawer.open { display:flex !important; }
