@@ -845,8 +845,9 @@ function renderCommissionBreakdown(d) {
   html += `<div class="mt-2 mb-1 text-uppercase text-muted" style="font-size:0.7rem;letter-spacing:.05em;">Agent Splits</div>`;
   for (const a of d.agent_splits) {
     const highlight = a.is_viewed_agent;
+    const badge = highlight ? ' <span class="badge rounded-pill" style="background:var(--tdg-gold);color:#1a1a2e;font-size:0.62rem;">this agent</span>' : '';
     html += `<div class="d-flex justify-content-between align-items-center py-1" style="${highlight ? 'background:#fffbf0;border-radius:4px;padding-left:6px;padding-right:6px;' : ''}">
-      <span style="padding-left:12px;color:#555;">${a.role}: ${a.name}${a.pct ? ' (' + a.pct + '%)' : ''}${highlight ? ' <span class=\\'badge rounded-pill\\' style=\\'background:var(--tdg-gold);color:#1a1a2e;font-size:0.62rem;\\'>this agent</span>' : ''}</span>
+      <span style="padding-left:12px;color:#555;">${a.role}: ${a.name}${a.pct ? ' (' + a.pct + '%)' : ''}${badge}</span>
       <span style="${highlight ? 'font-weight:700;color:var(--tdg-gold);' : ''}">\u2212 ${money(a.gci)}</span>
     </div>`;
   }
