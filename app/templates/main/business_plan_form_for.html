@@ -61,11 +61,11 @@
 
         <div class="col-6">
           <label class="form-label">Listing Commission %</label>
-          <input type="number" name="listing_comm_pct" id="listComm" class="form-control" value="{{ (plan.listing_comm_pct * 100)|round(2) if plan else (defaults.listing_comm_pct * 100)|round(2) }}" min="0" max="10" step="0.1" oninput="calcGCI()">
+          <input type="number" name="listing_comm_pct" id="listComm" class="form-control" value="{{ (plan.listing_comm_pct * 100)|round(2) if plan else (defaults.listing_comm_pct * 100)|round(2) }}" min="0" max="100" step="0.1" oninput="calcGCI()">
         </div>
         <div class="col-6">
           <label class="form-label">Buyer Commission %</label>
-          <input type="number" name="buyer_comm_pct" id="buyerComm" class="form-control" value="{{ (plan.buyer_comm_pct * 100)|round(2) if plan else (defaults.buyer_comm_pct * 100)|round(2) }}" min="0" max="10" step="0.1" oninput="calcGCI()">
+          <input type="number" name="buyer_comm_pct" id="buyerComm" class="form-control" value="{{ (plan.buyer_comm_pct * 100)|round(2) if plan else (defaults.buyer_comm_pct * 100)|round(2) }}" min="0" max="100" step="0.1" oninput="calcGCI()">
         </div>
 
         <div class="col-12">
