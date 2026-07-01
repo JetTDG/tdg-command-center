@@ -2215,7 +2215,12 @@ def scorecard(agent_id):
             continue
         _seas_units[m] += 1
         _seas_vol[m]   += (t.sale_price or 0)
-        _seas_gci[m]   += agent_income(t)
+        # Seasonal SHAPE only: use TOTAL deal GCI team-wide (not agent-side).
+        # agent_income() would be ~0 on team-wide rows → sparse/noisy fraction
+        # that badly inflates the projection. The fraction is scale-free, so
+        # projecting the agent's YTD income by the total-GCI monthly shape is
+        # correct and keeps the volume:GCI ratio coherent with real take-rate.
+        _seas_gci[m]   += (t.gci or 0)
 
     def _seasonal_fraction(month_map):
         """Fraction of annual total accumulated Jan -> today (current month prorated)."""
