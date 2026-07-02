@@ -28,7 +28,7 @@ SLUG_PHONE = {
     "flint-retail":          "8103398306",
     "genesee-industrial":    "8102076329",
     "genesee-retail":        "8103398306",
-    "wayne-industrial":      "3134745938",
+    "wayne-industrial":      "3134745937",
     "washtenaw-industrial":  "7348213877",
     "livingston-industrial": "5176189157",
 }
