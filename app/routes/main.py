@@ -488,30 +488,38 @@ def home():
 
 # ─── MY BUSINESS ────────────────────────────────────────────────────────────
 
-def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter, type_filter, lead_source_filter, admin_filter):
-    """Shared query builder for My Business — used by both view and CSV export."""
-    # Pending uses projected_close_date year — not the year column — so that deals
-    # originally signed in a prior year but projected to close this year are included.
-    # Closed / all other statuses continue to use the year column (same as before).
-    # contains_eager() tells SQLAlchemy to populate t.agent from the JOIN row —
-    # eliminates N+1 lazy SELECT per row in the template.
+def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter, type_filter, lead_source_filter, admin_filter, all_years=False):
+    """Shared query builder for My Business — used by both view and CSV export.
+
+    all_years=True bypasses ALL year filtering entirely (no `year` column, no
+    close_date/signed_date/projected_close_date fallback) and returns every
+    non-archived record regardless of year — added July 2026 so duplicates that
+    straddle two different years (e.g. a pre-migration row with year=NULL sitting
+    next to a re-entered row stamped year=2026) can be seen side by side in one
+    view instead of hiding from each other behind the default per-year filter.
+    """
     from sqlalchemy.orm import contains_eager
     query = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id)\
         .options(contains_eager(Transaction.agent))\
-        .filter(
-        Transaction.archived == False,
-        or_(
-            and_(Transaction.status == 'Pending',
-                 Transaction.projected_close_date.isnot(None),
-                 extract('year', Transaction.projected_close_date) == year),
-            and_(Transaction.status != 'Pending',
-                 or_(
-                     Transaction.year == year,
-                     and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
-                     and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year)
-                 ))
+        .filter(Transaction.archived == False)
+
+    if not all_years:
+        # Pending uses projected_close_date year — not the year column — so that deals
+        # originally signed in a prior year but projected to close this year are included.
+        # Closed / all other statuses continue to use the year column (same as before).
+        query = query.filter(
+            or_(
+                and_(Transaction.status == 'Pending',
+                     Transaction.projected_close_date.isnot(None),
+                     extract('year', Transaction.projected_close_date) == year),
+                and_(Transaction.status != 'Pending',
+                     or_(
+                         Transaction.year == year,
+                         and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
+                         and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year)
+                     ))
+            )
         )
-    )
     if month_filter:
         m = int(month_filter)
         query = query.filter(or_(
@@ -541,9 +549,11 @@ def my_business_csv():
     type_filter      = request.args.get('type', '')
     lead_source_filter = request.args.get('lead_source', '')
     admin_filter     = request.args.get('admin_name', '')
+    all_years        = request.args.get('all_years', '') == '1'
 
     txns = _mb_query(year, month_filter, date_from, date_to, agent_id,
-                     status_filter, type_filter, lead_source_filter, admin_filter
+                     status_filter, type_filter, lead_source_filter, admin_filter,
+                     all_years=all_years
                     ).order_by(Transaction.id.desc()).all()
 
     def fmt_date(d): return d.strftime('%m/%d/%Y') if d else ''
@@ -610,9 +620,11 @@ def my_business():
     type_filter      = request.args.get('type', '')
     lead_source_filter = request.args.get('lead_source', '')
     admin_filter     = request.args.get('admin_name', '')
+    all_years        = request.args.get('all_years', '') == '1'
 
     query = _mb_query(year, month_filter, date_from, date_to, agent_id,
-                      status_filter, type_filter, lead_source_filter, admin_filter)
+                      status_filter, type_filter, lead_source_filter, admin_filter,
+                      all_years=all_years)
 
     transactions = query.order_by(Transaction.id.desc()).all()
 
@@ -705,6 +717,7 @@ def my_business():
         selected_type=type_filter,
         selected_lead_source=lead_source_filter,
         selected_admin=admin_filter,
+        selected_all_years=all_years,
         years=list(range(2020, current_year()+2))
     )
 
