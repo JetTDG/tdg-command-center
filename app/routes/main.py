@@ -2068,7 +2068,7 @@ def scorecard(agent_id):
         Transaction.member3_name.ilike(f'%{agent.name}%'),
         Transaction.member4_name.ilike(f'%{agent.name}%'),
     )
-    txn_q = Transaction.query.filter(txn_filter, Transaction.year == year)
+    txn_q = Transaction.query.filter(txn_filter, Transaction.year == year, Transaction.archived == False)
     if division != 'all':
         txn_q = txn_q.filter(Transaction.division == division)
     if month != 'all':
@@ -2116,7 +2116,7 @@ def scorecard(agent_id):
     # ── Source conversion (all txns this year, any status) ───────────────────
     from collections import defaultdict
     # Use full-year (no month filter) for source conversion
-    source_txns_q = Transaction.query.filter(txn_filter, Transaction.year == year)
+    source_txns_q = Transaction.query.filter(txn_filter, Transaction.year == year, Transaction.archived == False)
     if division != 'all':
         source_txns_q = source_txns_q.filter(Transaction.division == division)
     source_txns = source_txns_q.all()
