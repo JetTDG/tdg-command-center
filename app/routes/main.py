@@ -1602,6 +1602,13 @@ Key values:
   NOT the year column. Example: WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2022
   NOTE: 2021 has only 9 closed records — no complete 2021 CTE file exists in Drive.
 
+⚠️ "TDG" / "The Delia Group" / "the team" / "we" / "our" in a question refers to the WHOLE
+COMPANY (i.e. the entire transactions table, no agent filter at all) — NOT an agent's name.
+There is NO agent named "TDG" or "Delia Group" in primary_agent_name. NEVER add
+`primary_agent_name ILIKE '%TDG%'` or `ILIKE '%Delia Group%'` — that always returns zero rows.
+Only add a primary_agent_name filter when the question names an actual individual person
+(e.g. "Kim Duff's volume", "how many did Sarah close").
+
 METRIC DEFINITIONS — do not confuse these terms:
 - "volume" / "sales volume" / "closed volume" = SUM(sale_price). NEVER count rows for this.
 - "units" / "closings" / "deals" / "transactions" (as a count) = COUNT(*). NEVER sum sale_price for this.
@@ -1668,6 +1675,7 @@ Answer with ONE word: DATABASE or DOCS or BOTH.
 
     db_result_text = ''
     sql_used = ''
+    resolved_question = question  # may be rewritten below if this is a short follow-up
 
     if q_type in ('DATABASE', 'BOTH'):
         history_block = ''
@@ -1677,17 +1685,54 @@ Answer with ONE word: DATABASE or DOCS or BOTH.
                 history_lines.append(f"{h.get('role','user').upper()}: {h.get('text','')}")
             history_block = "Conversation so far (for resolving follow-ups like 'what about X' or 'in a single month'):\n" + "\n".join(history_lines) + "\n\n"
 
+        # ── Resolve terse/short follow-ups into a full standalone question BEFORE SQL generation ──
+        # Bug (July 8, 2026): a one-word follow-up like "volume" was treated as a brand-new
+        # standalone question, silently dropping the prior question's framing (e.g. "...in a
+        # single month" / "...last week" / "...for Kim Duff"). Result: user asked for "most
+        # volume in a single month" and got all-time total volume instead. Explicitly resolving
+        # the follow-up into one self-contained sentence — as its own Haiku call, separate from
+        # SQL generation — fixes this because it forces the model to restate the FULL intent
+        # (metric + scope + filters) in plain English before any SQL logic runs.
+        if history and len(question.split()) <= 6:
+            resolve_prompt = f"""{history_block}The user just sent this short follow-up message: "{question}"
+
+Rewrite it as ONE fully self-contained question that combines the follow-up with the necessary
+context from the prior question(s) above (metric, scope, time period, filters, etc.). Do not
+drop any qualifier from the earlier question that the follow-up is modifying — most often a
+short follow-up SWAPS one thing (usually the metric) while keeping everything else the same
+(e.g. "in a single month", "last week", a specific agent name). When the follow-up names a
+different metric word than the prior question (e.g. prior asked about "units", follow-up says
+"volume"), the new metric REPLACES the old one entirely — do not combine or describe the new
+metric in terms of the old one (WRONG: "the volume of units..."; RIGHT: "the most sales volume
+...").
+
+Example:
+  Prior question: "what is the most units TDG has ever closed in a single month?"
+  Follow-up: "volume"
+  Rewritten question: "what is the most sales volume TDG has ever closed in a single month?"
+
+Return ONLY the rewritten question, nothing else.
+
+Rewritten question:"""
+            try:
+                resolved_question = claude(resolve_prompt, max_tokens=100).strip().strip('"')
+                if not resolved_question:
+                    resolved_question = question
+            except Exception:
+                resolved_question = question
+
         sql_prompt = f"""Generate a single safe read-only PostgreSQL SELECT query.
 Rules: SELECT only. Use ILIKE for names.
 Only filter by year when the question is explicitly year-specific.
 For "ever", "all-time", "largest", "record", "most" questions: search ALL rows with NO year filter, but DO add `AND NOT (archived=TRUE AND EXTRACT(YEAR FROM close_date)=2026)` to exclude 2026 duplicate ghost rows (see archived notes in schema below). Do NOT sum every row in the table for a "record" question — a record means the single best month/year/agent, found via GROUP BY + ORDER BY + LIMIT 1, never a grand total across everything.
 For current pipeline (Active/Pending/Pre-Signed): add archived=FALSE.
 Before writing the query, identify which METRIC the question is about (see METRIC DEFINITIONS in the schema below) and use that metric's exact aggregate — do not substitute "volume" (SUM sale_price) for "units" (COUNT) or vice versa. This distinction matters even when both numbers come from the same underlying month/record.
-If the question is a follow-up (e.g. "in a single month", "what about GCI", "and last year?") that only makes sense combined with the prior question in the conversation, use the conversation history below to figure out the full intent before writing SQL.
+Do NOT filter primary_agent_name on "TDG", "The Delia Group", "the team", "we", or "our" — those refer to the whole company, not an agent name (see schema note). Only filter primary_agent_name when an actual person's name is given.
+The question below has ALREADY been resolved from any short follow-up into a full standalone question — treat it as complete and self-contained; do not re-derive it from the conversation history.
 Return ONLY the SQL, no markdown, no explanation.
 
 {history_block}Schema:{schema}
-Question: {question}
+Question: {resolved_question}
 SQL:"""
         try:
             sql = claude(sql_prompt)
@@ -1724,7 +1769,7 @@ SQL:"""
     answer_prompt = f"""You are an assistant for The Delia Group real estate team. Answer the question using the data below.
 Be concise, specific, and use $ for money amounts.
 {_classify_history}
-Question: "{question}"
+Question: "{resolved_question}"
 
 {chr(10).join(context_sections)}
 
