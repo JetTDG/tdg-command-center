@@ -1591,7 +1591,10 @@ DB: PostgreSQL. Tables:
 Key values:
 - status: Active, Pending, Closed, Pre-Signed, x-Cancelled, y-Sale Failed, z-Expired
 - transaction_type: Listing, Buyer, Commercial, Referral, Lease
-- archived: UI display flag only — archived=TRUE means prior-year CTE imports (2016–2025), archived=FALSE means current working records. Both have valid, complete data. DO NOT filter by archived for any analytical questions. Only filter archived=FALSE for "current pipeline" questions (Active/Pending/Pre-Signed counts).
+- archived: TWO DIFFERENT MEANINGS depending on close_date year — read carefully:
+  (a) For close_date in 2016–2025: archived=TRUE rows ARE the sole source of truth (legacy CTE import, no live duplicate exists). Historical/year-comparison/record queries spanning these years MUST include archived=TRUE rows or they will return zero/undercounted results.
+  (b) For close_date in 2026 (current year): archived=TRUE rows are DUPLICATE GHOST rows — every one of them shadows a live archived=FALSE row for the identical deal (same address/price/close_date). Including them double-counts. MyBusiness and Home (source of truth) always exclude archived rows entirely for current-year data.
+  THE RULE: always add `AND NOT (archived=TRUE AND EXTRACT(YEAR FROM close_date)=2026)` to any query that isn't already scoped to a single non-2026 year. This keeps full historical data intact while dropping only the current-year duplicate ghosts. Do NOT use a blanket "always exclude archived" rule — that breaks historical/record/all-time queries. Do NOT use a blanket "never filter archived" rule — that double-counts 2026 duplicates.
 - year: 2016–2026 (historical data loaded; year column = EXTRACT(YEAR FROM close_date))
   IMPORTANT: always use EXTRACT(YEAR FROM close_date) to count closings per calendar year,
   NOT the year column. Example: WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2022
@@ -1607,10 +1610,10 @@ METRIC DEFINITIONS — do not confuse these terms:
   Example: "what's our units record" -> SELECT COUNT(*) ... GROUP BY month/year ... ORDER BY COUNT(*) DESC LIMIT 1.
 
 CRITICAL QUERY RULES:
-1. For "ever", "all-time", "largest", "most", "best", "record" questions: DO NOT filter by year OR archived. Query the entire table.
-2. For YTD GCI, closed volume, closed units: use WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2026. No archived filter needed.
+1. For "ever", "all-time", "largest", "most", "best", "record" questions: DO NOT filter by year. DO add `AND NOT (archived=TRUE AND EXTRACT(YEAR FROM close_date)=2026)` to exclude 2026 duplicate ghost rows while keeping full 2016–2025 archived history.
+2. For YTD GCI, closed volume, closed units (2026 only): use WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2026 AND archived=FALSE.
 3. For "how many active listings/buyers" (current pipeline): WHERE transaction_type=X AND status='Active' AND archived=FALSE.
-4. For year-comparison questions ("which year had more closes"), query ALL years with GROUP BY EXTRACT(YEAR FROM close_date). No archived filter.
+4. For year-comparison questions ("which year had more closes"), query ALL years with GROUP BY EXTRACT(YEAR FROM close_date), and add `AND NOT (archived=TRUE AND EXTRACT(YEAR FROM close_date)=2026)` to avoid double-counting 2026 duplicate ghost rows.
 5. NEVER say you lack data — always run the query and return actual results.
 6. For "pended last week", "U/C date last week Mon-Sun", or "how many went pending last week":
    Use under_contract_date with date_trunc/interval math. Example:
