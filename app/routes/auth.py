@@ -19,6 +19,7 @@ ADMIN_EMAILS = {
     "julie@poweredbyinfinity.com",   # Julie Kelsey
     "team@poweredbyinfinity.com",    # Team@PoweredByInfinity.com
     "joanne@thedeliagroup.com",      # Joanne Sumiec
+    "jet.tdg3@gmail.com",            # Jet (Hermes agent) — QA/verification login, admin tier
 }
 
 # All TDG Google accounts allowed to log in (agents get role='agent')
