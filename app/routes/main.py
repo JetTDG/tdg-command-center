@@ -1597,6 +1597,15 @@ Key values:
   NOT the year column. Example: WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2022
   NOTE: 2021 has only 9 closed records — no complete 2021 CTE file exists in Drive.
 
+METRIC DEFINITIONS — do not confuse these terms:
+- "volume" / "sales volume" / "closed volume" = SUM(sale_price). NEVER count rows for this.
+- "units" / "closings" / "deals" / "transactions" (as a count) = COUNT(*). NEVER sum sale_price for this.
+- "GCI" / "commission" = SUM(gci), or SUM(primary_agent_gci) when the question is agent-specific ("agent's GCI", "my GCI").
+- "net income" / "company dollar" = use the net_income column if present, else compute per the CEO summary formula (do not approximate with gci alone).
+- A "record" question always names ONE of the metrics above (volume, units, GCI, net income, sale price). Identify which metric the question is asking about and query ONLY that metric's correct aggregate — do not substitute one for another.
+  Example: "what's our volume record" -> SELECT SUM(sale_price) ... GROUP BY month/year ... ORDER BY SUM(sale_price) DESC LIMIT 1  (NOT COUNT(*)).
+  Example: "what's our units record" -> SELECT COUNT(*) ... GROUP BY month/year ... ORDER BY COUNT(*) DESC LIMIT 1.
+
 CRITICAL QUERY RULES:
 1. For "ever", "all-time", "largest", "most", "best", "record" questions: DO NOT filter by year OR archived. Query the entire table.
 2. For YTD GCI, closed volume, closed units: use WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2026. No archived filter needed.
@@ -1610,6 +1619,7 @@ CRITICAL QUERY RULES:
    (This gives Mon–Sun of the previous calendar week.)
    DO NOT filter by status for U/C date queries — use under_contract_date as the signal.
 7. For "pended this month" or "U/C date this month": WHERE under_contract_date >= date_trunc('month', CURRENT_DATE) AND under_contract_date < CURRENT_DATE + 1.
+8. Match the SQL aggregate to the METRIC DEFINITIONS above. If a question asks about "volume" the query MUST use SUM(sale_price), never COUNT(*). If it asks about "units" the query MUST use COUNT(*), never SUM(sale_price).
 Agent name matching: use ILIKE '%name%'
 """
 
@@ -1657,6 +1667,7 @@ Rules: SELECT only. Use ILIKE for names.
 Only filter by year when the question is explicitly year-specific.
 For "ever", "all-time", "largest", "record", "most" questions: search ALL rows with NO year filter and NO archived filter.
 For current pipeline (Active/Pending/Pre-Signed): add archived=FALSE.
+Before writing the query, identify which METRIC the question is about (see METRIC DEFINITIONS in the schema below) and use that metric's exact aggregate — do not substitute "volume" (SUM sale_price) for "units" (COUNT) or vice versa. This distinction matters even when both numbers come from the same underlying month/record.
 Return ONLY the SQL, no markdown, no explanation.
 
 Schema:{schema}
