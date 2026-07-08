@@ -1568,7 +1568,9 @@ def ask():
 @login_required
 def api_ask():
     import re, os
-    question = (request.json or {}).get('question', '').strip()
+    body = request.json or {}
+    question = (body.get('question') or '').strip()
+    history = body.get('history') or []  # list of {role: 'user'|'assistant', text: str}, most recent last
     if not question:
         return jsonify({'error': 'No question provided'}), 400
 
@@ -1653,9 +1655,12 @@ Agent name matching: use ILIKE '%name%'
     drive_context = fetch_gdrive_context(question, api_key)
 
     # Decide: does this look like a DB question or a docs question?
+    _classify_history = ''
+    if history:
+        _classify_history = "Prior conversation:\n" + "\n".join(f"{h.get('role','user').upper()}: {h.get('text','')}" for h in history[-6:]) + "\n\n"
     classify_prompt = f"""Is this question best answered from a database of real estate transactions/agents, or from reference documents (offers, records, lead sheets)?
 Answer with ONE word: DATABASE or DOCS or BOTH.
-Question: {question}"""
+{_classify_history}Question: {question}"""
     try:
         q_type = claude(classify_prompt, max_tokens=10).upper().strip()
     except Exception:
@@ -1665,15 +1670,23 @@ Question: {question}"""
     sql_used = ''
 
     if q_type in ('DATABASE', 'BOTH'):
+        history_block = ''
+        if history:
+            history_lines = []
+            for h in history[-6:]:
+                history_lines.append(f"{h.get('role','user').upper()}: {h.get('text','')}")
+            history_block = "Conversation so far (for resolving follow-ups like 'what about X' or 'in a single month'):\n" + "\n".join(history_lines) + "\n\n"
+
         sql_prompt = f"""Generate a single safe read-only PostgreSQL SELECT query.
 Rules: SELECT only. Use ILIKE for names.
 Only filter by year when the question is explicitly year-specific.
-For "ever", "all-time", "largest", "record", "most" questions: search ALL rows with NO year filter and NO archived filter.
+For "ever", "all-time", "largest", "record", "most" questions: search ALL rows with NO year filter, but DO add `AND NOT (archived=TRUE AND EXTRACT(YEAR FROM close_date)=2026)` to exclude 2026 duplicate ghost rows (see archived notes in schema below). Do NOT sum every row in the table for a "record" question — a record means the single best month/year/agent, found via GROUP BY + ORDER BY + LIMIT 1, never a grand total across everything.
 For current pipeline (Active/Pending/Pre-Signed): add archived=FALSE.
 Before writing the query, identify which METRIC the question is about (see METRIC DEFINITIONS in the schema below) and use that metric's exact aggregate — do not substitute "volume" (SUM sale_price) for "units" (COUNT) or vice versa. This distinction matters even when both numbers come from the same underlying month/record.
+If the question is a follow-up (e.g. "in a single month", "what about GCI", "and last year?") that only makes sense combined with the prior question in the conversation, use the conversation history below to figure out the full intent before writing SQL.
 Return ONLY the SQL, no markdown, no explanation.
 
-Schema:{schema}
+{history_block}Schema:{schema}
 Question: {question}
 SQL:"""
         try:
@@ -1710,7 +1723,7 @@ SQL:"""
 
     answer_prompt = f"""You are an assistant for The Delia Group real estate team. Answer the question using the data below.
 Be concise, specific, and use $ for money amounts.
-
+{_classify_history}
 Question: "{question}"
 
 {chr(10).join(context_sections)}
