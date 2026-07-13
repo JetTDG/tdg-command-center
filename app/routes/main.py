@@ -2587,6 +2587,7 @@ def scorecard_drill(agent_id):
             txn_filter,
             Transaction.status == 'Closed',
             Transaction.close_date >= _rolling_start,
+            Transaction.archived == False,
         )
         if division != 'all':
             q = q.filter(Transaction.division == division)
@@ -2601,6 +2602,7 @@ def scorecard_drill(agent_id):
             txn_filter,
             Transaction.year == year,
             Transaction.status == 'Closed',
+            Transaction.archived == False,
         )
         if division != 'all':
             q = q.filter(Transaction.division == division)
@@ -2612,6 +2614,7 @@ def scorecard_drill(agent_id):
             txn_filter,
             Transaction.year == year,
             Transaction.status == 'Pending',
+            Transaction.archived == False,
         )
         if division != 'all':
             q = q.filter(Transaction.division == division)
