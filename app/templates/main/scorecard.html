@@ -255,7 +255,7 @@
       <thead><tr><th>Date &amp; Time</th><th>Contact</th><th>Type</th></tr></thead>
       <tbody>
         {% for a in perf.upcoming_appts %}
-        <tr><td>{{ a.date }}</td><td>{{ a.contact }}</td><td><span class="badge bg-light text-dark border">{{ a.type }}</span></td></tr>
+        <tr><td>{{ a.date }}</td><td>{% if a.contact_pid %}<a href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ a.contact_pid }}" target="_blank" rel="noopener">{{ a.contact }}</a>{% else %}{{ a.contact }}{% endif %}</td><td><span class="badge bg-light text-dark border">{{ a.type }}</span></td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -276,7 +276,7 @@
         {% if perf.past_appts %}
           {% for a in perf.past_appts %}
           <tr>
-            <td>{{ a.contact }}</td>
+            <td>{% if a.contact_pid %}<a href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ a.contact_pid }}" target="_blank" rel="noopener">{{ a.contact }}</a>{% else %}{{ a.contact }}{% endif %}</td>
             <td class="text-muted small">{{ a.date }}</td>
             <td><span class="badge bg-light text-dark border" style="font-size:0.72rem;">{{ a.type }}</span></td>
             <td>{% if a.held %}<span class="badge bg-success">✓ Held</span>{% else %}<span class="badge bg-danger">✗ Not Held</span>{% endif %}</td>

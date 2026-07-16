@@ -488,30 +488,38 @@ def home():
 
 # ─── MY BUSINESS ────────────────────────────────────────────────────────────
 
-def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter, type_filter, lead_source_filter, admin_filter):
-    """Shared query builder for My Business — used by both view and CSV export."""
-    # Pending uses projected_close_date year — not the year column — so that deals
-    # originally signed in a prior year but projected to close this year are included.
-    # Closed / all other statuses continue to use the year column (same as before).
-    # contains_eager() tells SQLAlchemy to populate t.agent from the JOIN row —
-    # eliminates N+1 lazy SELECT per row in the template.
+def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter, type_filter, lead_source_filter, admin_filter, all_years=False):
+    """Shared query builder for My Business — used by both view and CSV export.
+
+    all_years=True bypasses ALL year filtering entirely (no `year` column, no
+    close_date/signed_date/projected_close_date fallback) and returns every
+    non-archived record regardless of year — added July 2026 so duplicates that
+    straddle two different years (e.g. a pre-migration row with year=NULL sitting
+    next to a re-entered row stamped year=2026) can be seen side by side in one
+    view instead of hiding from each other behind the default per-year filter.
+    """
     from sqlalchemy.orm import contains_eager
     query = Transaction.query.outerjoin(Agent, Transaction.agent_id == Agent.id)\
         .options(contains_eager(Transaction.agent))\
-        .filter(
-        Transaction.archived == False,
-        or_(
-            and_(Transaction.status == 'Pending',
-                 Transaction.projected_close_date.isnot(None),
-                 extract('year', Transaction.projected_close_date) == year),
-            and_(Transaction.status != 'Pending',
-                 or_(
-                     Transaction.year == year,
-                     and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
-                     and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year)
-                 ))
+        .filter(Transaction.archived == False)
+
+    if not all_years:
+        # Pending uses projected_close_date year — not the year column — so that deals
+        # originally signed in a prior year but projected to close this year are included.
+        # Closed / all other statuses continue to use the year column (same as before).
+        query = query.filter(
+            or_(
+                and_(Transaction.status == 'Pending',
+                     Transaction.projected_close_date.isnot(None),
+                     extract('year', Transaction.projected_close_date) == year),
+                and_(Transaction.status != 'Pending',
+                     or_(
+                         Transaction.year == year,
+                         and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
+                         and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year)
+                     ))
+            )
         )
-    )
     if month_filter:
         m = int(month_filter)
         query = query.filter(or_(
@@ -541,9 +549,11 @@ def my_business_csv():
     type_filter      = request.args.get('type', '')
     lead_source_filter = request.args.get('lead_source', '')
     admin_filter     = request.args.get('admin_name', '')
+    all_years        = request.args.get('all_years', '') == '1'
 
     txns = _mb_query(year, month_filter, date_from, date_to, agent_id,
-                     status_filter, type_filter, lead_source_filter, admin_filter
+                     status_filter, type_filter, lead_source_filter, admin_filter,
+                     all_years=all_years
                     ).order_by(Transaction.id.desc()).all()
 
     def fmt_date(d): return d.strftime('%m/%d/%Y') if d else ''
@@ -610,9 +620,11 @@ def my_business():
     type_filter      = request.args.get('type', '')
     lead_source_filter = request.args.get('lead_source', '')
     admin_filter     = request.args.get('admin_name', '')
+    all_years        = request.args.get('all_years', '') == '1'
 
     query = _mb_query(year, month_filter, date_from, date_to, agent_id,
-                      status_filter, type_filter, lead_source_filter, admin_filter)
+                      status_filter, type_filter, lead_source_filter, admin_filter,
+                      all_years=all_years)
 
     transactions = query.order_by(Transaction.id.desc()).all()
 
@@ -705,6 +717,7 @@ def my_business():
         selected_type=type_filter,
         selected_lead_source=lead_source_filter,
         selected_admin=admin_filter,
+        selected_all_years=all_years,
         years=list(range(2020, current_year()+2))
     )
 
@@ -1555,7 +1568,9 @@ def ask():
 @login_required
 def api_ask():
     import re, os
-    question = (request.json or {}).get('question', '').strip()
+    body = request.json or {}
+    question = (body.get('question') or '').strip()
+    history = body.get('history') or []  # list of {role: 'user'|'assistant', text: str}, most recent last
     if not question:
         return jsonify({'error': 'No question provided'}), 400
 
@@ -1578,17 +1593,36 @@ DB: PostgreSQL. Tables:
 Key values:
 - status: Active, Pending, Closed, Pre-Signed, x-Cancelled, y-Sale Failed, z-Expired
 - transaction_type: Listing, Buyer, Commercial, Referral, Lease
-- archived: UI display flag only — archived=TRUE means prior-year CTE imports (2016–2025), archived=FALSE means current working records. Both have valid, complete data. DO NOT filter by archived for any analytical questions. Only filter archived=FALSE for "current pipeline" questions (Active/Pending/Pre-Signed counts).
+- archived: TWO DIFFERENT MEANINGS depending on close_date year — read carefully:
+  (a) For close_date in 2016–2025: archived=TRUE rows ARE the sole source of truth (legacy CTE import, no live duplicate exists). Historical/year-comparison/record queries spanning these years MUST include archived=TRUE rows or they will return zero/undercounted results.
+  (b) For close_date in 2026 (current year): archived=TRUE rows are DUPLICATE GHOST rows — every one of them shadows a live archived=FALSE row for the identical deal (same address/price/close_date). Including them double-counts. MyBusiness and Home (source of truth) always exclude archived rows entirely for current-year data.
+  THE RULE: always add `AND NOT (archived=TRUE AND EXTRACT(YEAR FROM close_date)=2026)` to any query that isn't already scoped to a single non-2026 year. This keeps full historical data intact while dropping only the current-year duplicate ghosts. Do NOT use a blanket "always exclude archived" rule — that breaks historical/record/all-time queries. Do NOT use a blanket "never filter archived" rule — that double-counts 2026 duplicates.
 - year: 2016–2026 (historical data loaded; year column = EXTRACT(YEAR FROM close_date))
   IMPORTANT: always use EXTRACT(YEAR FROM close_date) to count closings per calendar year,
   NOT the year column. Example: WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2022
   NOTE: 2021 has only 9 closed records — no complete 2021 CTE file exists in Drive.
 
+⚠️ "TDG" / "The Delia Group" / "the team" / "we" / "our" in a question refers to the WHOLE
+COMPANY (i.e. the entire transactions table, no agent filter at all) — NOT an agent's name.
+There is NO agent named "TDG" or "Delia Group" in primary_agent_name. NEVER add
+`primary_agent_name ILIKE '%TDG%'` or `ILIKE '%Delia Group%'` — that always returns zero rows.
+Only add a primary_agent_name filter when the question names an actual individual person
+(e.g. "Kim Duff's volume", "how many did Sarah close").
+
+METRIC DEFINITIONS — do not confuse these terms:
+- "volume" / "sales volume" / "closed volume" = SUM(sale_price). NEVER count rows for this.
+- "units" / "closings" / "deals" / "transactions" (as a count) = COUNT(*). NEVER sum sale_price for this.
+- "GCI" / "commission" = SUM(gci), or SUM(primary_agent_gci) when the question is agent-specific ("agent's GCI", "my GCI").
+- "net income" / "company dollar" = use the net_income column if present, else compute per the CEO summary formula (do not approximate with gci alone).
+- A "record" question always names ONE of the metrics above (volume, units, GCI, net income, sale price). Identify which metric the question is asking about and query ONLY that metric's correct aggregate — do not substitute one for another.
+  Example: "what's our volume record" -> SELECT SUM(sale_price) ... GROUP BY month/year ... ORDER BY SUM(sale_price) DESC LIMIT 1  (NOT COUNT(*)).
+  Example: "what's our units record" -> SELECT COUNT(*) ... GROUP BY month/year ... ORDER BY COUNT(*) DESC LIMIT 1.
+
 CRITICAL QUERY RULES:
-1. For "ever", "all-time", "largest", "most", "best", "record" questions: DO NOT filter by year OR archived. Query the entire table.
-2. For YTD GCI, closed volume, closed units: use WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2026. No archived filter needed.
+1. For "ever", "all-time", "largest", "most", "best", "record" questions: DO NOT filter by year. DO add `AND NOT (archived=TRUE AND EXTRACT(YEAR FROM close_date)=2026)` to exclude 2026 duplicate ghost rows while keeping full 2016–2025 archived history.
+2. For YTD GCI, closed volume, closed units (2026 only): use WHERE status='Closed' AND EXTRACT(YEAR FROM close_date)=2026 AND archived=FALSE.
 3. For "how many active listings/buyers" (current pipeline): WHERE transaction_type=X AND status='Active' AND archived=FALSE.
-4. For year-comparison questions ("which year had more closes"), query ALL years with GROUP BY EXTRACT(YEAR FROM close_date). No archived filter.
+4. For year-comparison questions ("which year had more closes"), query ALL years with GROUP BY EXTRACT(YEAR FROM close_date), and add `AND NOT (archived=TRUE AND EXTRACT(YEAR FROM close_date)=2026)` to avoid double-counting 2026 duplicate ghost rows.
 5. NEVER say you lack data — always run the query and return actual results.
 6. For "pended last week", "U/C date last week Mon-Sun", or "how many went pending last week":
    Use under_contract_date with date_trunc/interval math. Example:
@@ -1597,6 +1631,7 @@ CRITICAL QUERY RULES:
    (This gives Mon–Sun of the previous calendar week.)
    DO NOT filter by status for U/C date queries — use under_contract_date as the signal.
 7. For "pended this month" or "U/C date this month": WHERE under_contract_date >= date_trunc('month', CURRENT_DATE) AND under_contract_date < CURRENT_DATE + 1.
+8. Match the SQL aggregate to the METRIC DEFINITIONS above. If a question asks about "volume" the query MUST use SUM(sale_price), never COUNT(*). If it asks about "units" the query MUST use COUNT(*), never SUM(sale_price).
 Agent name matching: use ILIKE '%name%'
 """
 
@@ -1627,9 +1662,12 @@ Agent name matching: use ILIKE '%name%'
     drive_context = fetch_gdrive_context(question, api_key)
 
     # Decide: does this look like a DB question or a docs question?
+    _classify_history = ''
+    if history:
+        _classify_history = "Prior conversation:\n" + "\n".join(f"{h.get('role','user').upper()}: {h.get('text','')}" for h in history[-6:]) + "\n\n"
     classify_prompt = f"""Is this question best answered from a database of real estate transactions/agents, or from reference documents (offers, records, lead sheets)?
 Answer with ONE word: DATABASE or DOCS or BOTH.
-Question: {question}"""
+{_classify_history}Question: {question}"""
     try:
         q_type = claude(classify_prompt, max_tokens=10).upper().strip()
     except Exception:
@@ -1637,17 +1675,64 @@ Question: {question}"""
 
     db_result_text = ''
     sql_used = ''
+    resolved_question = question  # may be rewritten below if this is a short follow-up
 
     if q_type in ('DATABASE', 'BOTH'):
+        history_block = ''
+        if history:
+            history_lines = []
+            for h in history[-6:]:
+                history_lines.append(f"{h.get('role','user').upper()}: {h.get('text','')}")
+            history_block = "Conversation so far (for resolving follow-ups like 'what about X' or 'in a single month'):\n" + "\n".join(history_lines) + "\n\n"
+
+        # ── Resolve terse/short follow-ups into a full standalone question BEFORE SQL generation ──
+        # Bug (July 8, 2026): a one-word follow-up like "volume" was treated as a brand-new
+        # standalone question, silently dropping the prior question's framing (e.g. "...in a
+        # single month" / "...last week" / "...for Kim Duff"). Result: user asked for "most
+        # volume in a single month" and got all-time total volume instead. Explicitly resolving
+        # the follow-up into one self-contained sentence — as its own Haiku call, separate from
+        # SQL generation — fixes this because it forces the model to restate the FULL intent
+        # (metric + scope + filters) in plain English before any SQL logic runs.
+        if history and len(question.split()) <= 6:
+            resolve_prompt = f"""{history_block}The user just sent this short follow-up message: "{question}"
+
+Rewrite it as ONE fully self-contained question that combines the follow-up with the necessary
+context from the prior question(s) above (metric, scope, time period, filters, etc.). Do not
+drop any qualifier from the earlier question that the follow-up is modifying — most often a
+short follow-up SWAPS one thing (usually the metric) while keeping everything else the same
+(e.g. "in a single month", "last week", a specific agent name). When the follow-up names a
+different metric word than the prior question (e.g. prior asked about "units", follow-up says
+"volume"), the new metric REPLACES the old one entirely — do not combine or describe the new
+metric in terms of the old one (WRONG: "the volume of units..."; RIGHT: "the most sales volume
+...").
+
+Example:
+  Prior question: "what is the most units TDG has ever closed in a single month?"
+  Follow-up: "volume"
+  Rewritten question: "what is the most sales volume TDG has ever closed in a single month?"
+
+Return ONLY the rewritten question, nothing else.
+
+Rewritten question:"""
+            try:
+                resolved_question = claude(resolve_prompt, max_tokens=100).strip().strip('"')
+                if not resolved_question:
+                    resolved_question = question
+            except Exception:
+                resolved_question = question
+
         sql_prompt = f"""Generate a single safe read-only PostgreSQL SELECT query.
 Rules: SELECT only. Use ILIKE for names.
 Only filter by year when the question is explicitly year-specific.
-For "ever", "all-time", "largest", "record", "most" questions: search ALL rows with NO year filter and NO archived filter.
+For "ever", "all-time", "largest", "record", "most" questions: search ALL rows with NO year filter, but DO add `AND NOT (archived=TRUE AND EXTRACT(YEAR FROM close_date)=2026)` to exclude 2026 duplicate ghost rows (see archived notes in schema below). Do NOT sum every row in the table for a "record" question — a record means the single best month/year/agent, found via GROUP BY + ORDER BY + LIMIT 1, never a grand total across everything.
 For current pipeline (Active/Pending/Pre-Signed): add archived=FALSE.
+Before writing the query, identify which METRIC the question is about (see METRIC DEFINITIONS in the schema below) and use that metric's exact aggregate — do not substitute "volume" (SUM sale_price) for "units" (COUNT) or vice versa. This distinction matters even when both numbers come from the same underlying month/record.
+Do NOT filter primary_agent_name on "TDG", "The Delia Group", "the team", "we", or "our" — those refer to the whole company, not an agent name (see schema note). Only filter primary_agent_name when an actual person's name is given.
+The question below has ALREADY been resolved from any short follow-up into a full standalone question — treat it as complete and self-contained; do not re-derive it from the conversation history.
 Return ONLY the SQL, no markdown, no explanation.
 
-Schema:{schema}
-Question: {question}
+{history_block}Schema:{schema}
+Question: {resolved_question}
 SQL:"""
         try:
             sql = claude(sql_prompt)
@@ -1683,8 +1768,8 @@ SQL:"""
 
     answer_prompt = f"""You are an assistant for The Delia Group real estate team. Answer the question using the data below.
 Be concise, specific, and use $ for money amounts.
-
-Question: "{question}"
+{_classify_history}
+Question: "{resolved_question}"
 
 {chr(10).join(context_sections)}
 
@@ -2068,7 +2153,7 @@ def scorecard(agent_id):
         Transaction.member3_name.ilike(f'%{agent.name}%'),
         Transaction.member4_name.ilike(f'%{agent.name}%'),
     )
-    txn_q = Transaction.query.filter(txn_filter, Transaction.year == year)
+    txn_q = Transaction.query.filter(txn_filter, Transaction.year == year, Transaction.archived == False)
     if division != 'all':
         txn_q = txn_q.filter(Transaction.division == division)
     if month != 'all':
@@ -2116,7 +2201,7 @@ def scorecard(agent_id):
     # ── Source conversion (all txns this year, any status) ───────────────────
     from collections import defaultdict
     # Use full-year (no month filter) for source conversion
-    source_txns_q = Transaction.query.filter(txn_filter, Transaction.year == year)
+    source_txns_q = Transaction.query.filter(txn_filter, Transaction.year == year, Transaction.archived == False)
     if division != 'all':
         source_txns_q = source_txns_q.filter(Transaction.division == division)
     source_txns = source_txns_q.all()
@@ -2502,6 +2587,7 @@ def scorecard_drill(agent_id):
             txn_filter,
             Transaction.status == 'Closed',
             Transaction.close_date >= _rolling_start,
+            Transaction.archived == False,
         )
         if division != 'all':
             q = q.filter(Transaction.division == division)
@@ -2516,6 +2602,7 @@ def scorecard_drill(agent_id):
             txn_filter,
             Transaction.year == year,
             Transaction.status == 'Closed',
+            Transaction.archived == False,
         )
         if division != 'all':
             q = q.filter(Transaction.division == division)
@@ -2527,6 +2614,7 @@ def scorecard_drill(agent_id):
             txn_filter,
             Transaction.year == year,
             Transaction.status == 'Pending',
+            Transaction.archived == False,
         )
         if division != 'all':
             q = q.filter(Transaction.division == division)

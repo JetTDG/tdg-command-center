@@ -1588,7 +1588,7 @@ def gl_analytics():
 
 # ── Detail drill-down endpoints ─────────────────────────────────────────────
 
-FUB_PROFILE_BASE = "https://poweredbyinfinity.followupboss.com/2/people"
+FUB_PROFILE_BASE = "https://poweredbyinfinity.followupboss.com/2/people/view"
 
 @bp.route("/analytics/detail")
 @login_required

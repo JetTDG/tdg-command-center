@@ -7,10 +7,24 @@
     <div class="page-subtitle">Transaction records — all agents</div>
   </div>
   <a href="{{ url_for('main.add_transaction') }}" class="btn btn-gold"><i class="bi bi-plus-lg me-1"></i>Add Transaction</a>
+  <button type="button" id="all-years-btn" class="btn btn-sm ms-2 {% if selected_all_years %}btn-gold{% else %}btn-outline-secondary{% endif %}"
+          style="align-self:center" title="Show every non-archived record regardless of year — useful for finding duplicates that straddle two years">
+    <i class="bi bi-calendar3-range me-1"></i>{% if selected_all_years %}Showing All Years{% else %}Search All Years{% endif %}
+  </button>
   <a id="export-csv-btn" href="#" class="btn btn-outline-secondary btn-sm ms-2" style="align-self:center" title="Export current view to CSV">
     <i class="bi bi-download me-1"></i>Export CSV
   </a>
 </div>
+
+{% if selected_all_years %}
+<div class="alert alert-warning py-2 px-3 mb-2" style="font-size:0.8rem;">
+  <i class="bi bi-exclamation-triangle me-1"></i>
+  <strong>All Years mode</strong> — showing every non-archived record across all years (year/month
+  filters below are ignored). Use this to spot duplicates that a single-year view would hide from
+  each other (e.g. one row entered in 2025, a re-keyed copy stamped 2026).
+  <button type="button" id="exit-all-years-btn" class="btn btn-sm btn-outline-dark ms-2">Exit All Years</button>
+</div>
+{% endif %}
 
 <!-- Summary bar -->
 <div class="row g-2 mb-3">
@@ -42,17 +56,17 @@
 </div>
 
 <!-- Year / Month / Date filter bar -->
-<form method="GET" class="row g-2 mb-2 align-items-center flex-wrap" id="year-form">
+<form method="GET" class="row g-2 mb-2 align-items-center flex-wrap" id="year-form" {% if selected_all_years %}style="opacity:0.45;pointer-events:none;"{% endif %}>
   <!-- Year -->
   <div class="col-auto">
-    <select name="year" class="form-select form-select-sm" onchange="monthChanged()">
+    <select name="year" class="form-select form-select-sm" onchange="monthChanged()" {% if selected_all_years %}disabled{% endif %}>
       {% for y in years %}<option value="{{ y }}" {% if y==selected_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
     </select>
   </div>
 
   <!-- Month — styled like CTE dropdown -->
   <div class="col-auto">
-    <select name="month" class="form-select form-select-sm" id="month-select" onchange="monthChanged()">
+    <select name="month" class="form-select form-select-sm" id="month-select" onchange="monthChanged()" {% if selected_all_years %}disabled{% endif %}>
       <option value="" {% if not selected_month %}selected{% endif %}>All Months</option>
       {% for num, name in month_names %}
       <option value="{{ num }}" {% if selected_month == num %}selected{% endif %}>{{ name }}</option>
@@ -87,6 +101,33 @@ function monthChanged() {
     document.getElementById('date-to-input').value = '';
   }
 }
+
+// ── All Years toggle — bypass year/month filtering entirely ──────────────
+(function() {
+  var btn = document.getElementById('all-years-btn');
+  var exitBtn = document.getElementById('exit-all-years-btn');
+  function goAllYears() {
+    var url = new URL(window.location.href);
+    url.searchParams.set('all_years', '1');
+    // year/month/date filters are ignored server-side when all_years=1, but
+    // clear them from the URL too so the page doesn't look like a stale filter is active
+    url.searchParams.delete('month');
+    url.searchParams.delete('date_from');
+    url.searchParams.delete('date_to');
+    window.location.href = url.toString();
+  }
+  function exitAllYears() {
+    var url = new URL(window.location.href);
+    url.searchParams.delete('all_years');
+    window.location.href = url.toString();
+  }
+  if (btn) {
+    btn.addEventListener('click', function() {
+      if (btn.classList.contains('btn-gold')) { exitAllYears(); } else { goAllYears(); }
+    });
+  }
+  if (exitBtn) exitBtn.addEventListener('click', exitAllYears);
+})();
 </script>
 
 <!-- ── Searchable option lists for inline Agent / Source editing ──────────── -->

@@ -34,6 +34,8 @@
 
 <script>
 
+let chatHistory = [];  // {role: 'user'|'assistant', text: string}
+
 function addMessage(text, isUser) {
   const chat = document.getElementById('chat-messages');
   const div = document.createElement('div');
@@ -78,11 +80,16 @@ async function sendQuestion() {
     const resp = await fetch('/api/ask', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({question: q})
+      body: JSON.stringify({question: q, history: chatHistory})
     });
     const data = await resp.json();
     removeTyping();
-    addMessage(data.answer || 'No answer returned.', false);
+    const answer = data.answer || 'No answer returned.';
+    addMessage(answer, false);
+    chatHistory.push({role: 'user', text: q});
+    chatHistory.push({role: 'assistant', text: answer});
+    // Keep history from growing unbounded — last 12 messages (6 exchanges) is plenty of context
+    if (chatHistory.length > 12) chatHistory = chatHistory.slice(-12);
   } catch(e) {
     removeTyping();
     addMessage('Sorry, something went wrong. Try again.', false);
