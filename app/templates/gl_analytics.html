@@ -257,15 +257,36 @@
             <div style="font-size:10px;color:#9ca3af;">LETTERS</div>
           </div>
           <div class="text-center">
-            <div class="fw-bold" style="font-size:18px;color:#2563EB;">{{ s.scans }}</div>
+            <div class="fw-bold" style="font-size:18px;color:#2563EB;">
+              {% if s.scans > 0 %}
+              <a href="#" class="gl-detail-link text-decoration-none"
+                 data-type="scans" data-label="Scans — {{ s.city }}"
+                 data-slug="{{ s.slug }}" data-area="{{ s.city }} · {{ s.vertical }}"
+                 style="color:#2563EB;">{{ s.scans }}</a>
+              {% else %}{{ s.scans }}{% endif %}
+            </div>
             <div style="font-size:10px;color:#9ca3af;">SCANS</div>
           </div>
           <div class="text-center">
-            <div class="fw-bold" style="font-size:18px;color:#16a34a;">{{ s.forms }}</div>
+            <div class="fw-bold" style="font-size:18px;color:#16a34a;">
+              {% if s.forms > 0 %}
+              <a href="#" class="gl-detail-link text-decoration-none"
+                 data-type="forms" data-label="Form Submits — {{ s.city }}"
+                 data-slug="{{ s.slug }}" data-area="{{ s.city }} · {{ s.vertical }}"
+                 style="color:#16a34a;">{{ s.forms }}</a>
+              {% else %}{{ s.forms }}{% endif %}
+            </div>
             <div style="font-size:10px;color:#9ca3af;">FORMS</div>
           </div>
           <div class="text-center">
-            <div class="fw-bold" style="font-size:18px;color:#c9a84c;">{{ s.sms }}</div>
+            <div class="fw-bold" style="font-size:18px;color:#c9a84c;">
+              {% if s.sms > 0 %}
+              <a href="#" class="gl-detail-link text-decoration-none"
+                 data-type="texts" data-label="SMS Taps — {{ s.city }}"
+                 data-slug="{{ s.slug }}" data-area="{{ s.city }} · {{ s.vertical }}"
+                 style="color:#c9a84c;">{{ s.sms }}</a>
+              {% else %}{{ s.sms }}{% endif %}
+            </div>
             <div style="font-size:10px;color:#9ca3af;">SMS</div>
           </div>
         </div>
@@ -302,12 +323,27 @@
             </td>
             <td style="color:#6b7280;font-size:12px;">{{ s.county }}</td>
             <td class="text-end fw-600" style="color:#1a1d23;">{{ s.letters }}</td>
-            <td class="text-end fw-bold" style="color:#2563EB;">{{ s.scans }}</td>
-            <td class="text-end fw-bold" style="color:#16a34a;">{{ s.forms }}</td>
+            <td class="text-end fw-bold" style="color:#2563EB;">
+              {% if s.scans > 0 %}
+              <a href="#" class="gl-detail-link fw-bold text-decoration-none"
+                 data-type="scans" data-label="Scans — {{ s.city }}"
+                 data-slug="{{ s.slug }}" data-area="{{ s.city }} · {{ s.vertical }}"
+                 style="color:#2563EB;text-decoration:underline dotted !important;cursor:pointer;">{{ s.scans }}</a>
+              {% else %}0{% endif %}
+            </td>
+            <td class="text-end fw-bold" style="color:#16a34a;">
+              {% if s.forms > 0 %}
+              <a href="#" class="gl-detail-link fw-bold text-decoration-none"
+                 data-type="forms" data-label="Form Submits — {{ s.city }}"
+                 data-slug="{{ s.slug }}" data-area="{{ s.city }} · {{ s.vertical }}"
+                 style="color:#16a34a;text-decoration:underline dotted !important;cursor:pointer;">{{ s.forms }}</a>
+              {% else %}0{% endif %}
+            </td>
             <td class="text-end">
               {% if s.sms > 0 %}
               <a href="#" class="gl-detail-link fw-bold text-decoration-none"
-                 data-type="texts" data-label="SMS Taps"
+                 data-type="texts" data-label="SMS Taps — {{ s.city }}"
+                 data-slug="{{ s.slug }}" data-area="{{ s.city }} · {{ s.vertical }}"
                  style="color:#c9a84c;text-decoration:underline dotted !important;cursor:pointer;">{{ s.sms }}</a>
               {% else %}<span class="fw-bold" style="color:#c9a84c;">0</span>{% endif %}
             </td>
@@ -634,6 +670,7 @@ new Chart(ctx, {
     var label = link.dataset.label || type;
     var area  = link.dataset.area  || '';
     var inbox = link.dataset.inbox || '';
+    var slug  = link.dataset.slug  || '';
     var count = link.textContent.trim();
 
     document.getElementById('glDetailModalTitle').textContent = label + ' (' + count + ')';
@@ -652,6 +689,7 @@ new Chart(ctx, {
 
     var params = new URLSearchParams({ type: type });
     if (inbox) params.set('inbox', inbox);
+    if (slug)  params.set('slug', slug);
 
     fetch(detailUrl + '?' + params.toString())
       .then(function(r) { return r.json(); })

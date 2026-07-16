@@ -1601,6 +1601,30 @@ def gl_analytics_detail():
     """
     event_type = request.args.get("type", "calls")
     inbox_id   = request.args.get("inbox", type=int)
+    slug_filter = request.args.get("slug", "")
+
+    if event_type in ("scans", "forms"):
+        # Scans + form submits are captured directly in gl_scans at the moment
+        # of landing-page interaction — no FUB API round-trip needed.
+        from app.models import GLScan
+        et = "scan" if event_type == "scans" else "form_submit"
+        q = GLScan.query.filter(GLScan.event_type == et)
+        if slug_filter:
+            q = q.filter(GLScan.slug == slug_filter)
+        rows_s = q.order_by(GLScan.created_at.desc()).limit(300).all()
+        results_s = []
+        for row in rows_s:
+            fub_id = row.fub_id
+            results_s.append({
+                "name":    row.name or "Unknown",
+                "address": row.address or "",
+                "agent":   "",
+                "date":    row.created_at.strftime("%Y-%m-%d") if row.created_at else "",
+                "type":    "Scan" if et == "scan" else "Form Submit",
+                "fub_id":  fub_id,
+                "fub_url": f"{FUB_PROFILE_BASE}/{fub_id}" if fub_id else "",
+            })
+        return jsonify(results_s)
 
     import base64 as _b64d
     _fub_key_d = os.environ.get("FUB_API_KEY", "")
@@ -1645,16 +1669,21 @@ def gl_analytics_detail():
         except Exception as e:
             log.warning(f"GL detail emails: {e}")
     else:
-        # Calls or texts across all CRE inbox IDs
+        # Calls or texts across all CRE inbox IDs (or a single slug's phone, if given)
         from app.routes.gl import PHONE_MAP, SLUG_INBOX
-        # Build unique inbox IDs → phones
-        inbox_phones = {}  # inbox_id → list of phones
-        for slug, (display, e164) in PHONE_MAP.items():
-            iid = SLUG_INBOX.get(slug)
-            if iid:
-                inbox_phones.setdefault(iid, set()).add(e164)
+        if slug_filter and slug_filter in PHONE_MAP:
+            _display_s, _e164_s = PHONE_MAP[slug_filter]
+            _iid_s = SLUG_INBOX.get(slug_filter)
+            target_inboxes = {_iid_s: {_e164_s}} if _iid_s else {}
+        else:
+            # Build unique inbox IDs → phones
+            inbox_phones = {}  # inbox_id → list of phones
+            for slug, (display, e164) in PHONE_MAP.items():
+                iid = SLUG_INBOX.get(slug)
+                if iid:
+                    inbox_phones.setdefault(iid, set()).add(e164)
 
-        target_inboxes = {inbox_id: inbox_phones.get(inbox_id, set())} if inbox_id else inbox_phones
+            target_inboxes = {inbox_id: inbox_phones.get(inbox_id, set())} if inbox_id else inbox_phones
 
         # Build inbox → first scan datetime (same cutoff used in the KPI counts)
         from sqlalchemy import text as _sqlt
