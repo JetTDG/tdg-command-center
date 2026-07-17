@@ -24,7 +24,7 @@
   <h2><i class="bi bi-speedometer2 me-1"></i> Company Flex Performance</h2>
   <div class="row g-3">
     <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">{{ flex.month or 'Current Month' }} Logged</div><div class="zp-value">{{ flex.logged_transactions|show_value }}</div><div class="zp-target">Target {{ flex.transaction_target|show_value }}</div></div></div>
-    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">Monthly Attainment</div><div class="zp-value">{{ flex.target_attainment|show_value }}{% if flex.target_attainment is not none %}%{% endif %}</div><div class="zp-target">Official company worksheet</div></div></div>
+    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">Monthly Attainment</div><div class="zp-value">{{ flex.target_attainment|show_value }}{% if flex.target_attainment is not none %}%{% endif %}</div></div></div>
     <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">Rolling 6M Logged</div><div class="zp-value">{{ flex.rolling_6m_logged|show_value }}</div><div class="zp-target">Target {{ flex.rolling_6m_target|show_value }}</div></div></div>
     <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">Rolling 6M Attainment</div><div class="zp-value">{{ flex.rolling_6m_attainment|show_value }}{% if flex.rolling_6m_attainment is not none %}%{% endif %}</div><div class="zp-target">Transactions needed {{ flex.transactions_needed|show_value }}</div></div></div>
   </div>
@@ -34,7 +34,7 @@
   <h2><i class="bi bi-funnel me-1"></i> Company Zillow Funnel</h2>
   <div class="row row-cols-3 row-cols-lg-6 g-2">
     {% for label,key in [('Connections','buyer_connections'),('Appointments','appointments'),('Meetings','meetings'),('Showings','showings'),('Offers','offers'),('Closed','closed_transactions')] %}
-    {% set pct = funnel[key ~ '_pct_of_connections'] %}
+    {% set pct = funnel.get(key ~ '_pct_of_connections') %}
     <div class="col"><div class="zp-stage"><span class="zp-label">{{ label }}</span><strong>{{ funnel[key]|show_value }}</strong>{% if pct is not none %}<div class="zp-target">{{ pct }}% of connections</div>{% elif key != 'buyer_connections' %}<div class="zp-target">—</div>{% endif %}</div></div>
     {% endfor %}
   </div>
@@ -44,7 +44,7 @@
   <h2><i class="bi bi-bank me-1"></i> Zillow Home Loans</h2>
   <div class="row g-3">
     {% for label,key,target in [('Transfer Rate','transfer_rate',company.standards.tdg_transfer_rate),('Engaged Rate','engaged_rate',company.standards.tdg_engaged_rate),('Preapprovals','preapprovals',z.preapproval_target),('Funded Loans','funded_loans',none)] %}
-    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">{{ label }}</div><div class="zp-value">{{ z[key]|show_value }}{% if 'rate' in key and z[key] is not none %}%{% endif %}</div>{% if target is not none %}<div class="zp-target">Goal {{ target }}{% if 'rate' in key %}%{% endif %}</div>{% endif %}</div></div>
+    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">{{ label }}</div><div class="zp-value">{{ z[key]|show_value }}{% if 'rate' in key and z[key] is not none %}%{% endif %}</div>{% if target is not none %}<div class="zp-target">Goal {{ target }}{% if 'rate' in key %}%{% endif %}</div>{% endif %}{% if key == 'preapprovals' and z.cumulative_deficit is defined and z.cumulative_deficit is not none %}<div class="zp-target {% if z.cumulative_deficit > 0 %}text-danger fw-bold{% endif %}">{% if z.cumulative_deficit > 0 %}{{ z.cumulative_deficit|round|int }} behind over last {{ z.cumulative_deficit_months }} mo{% else %}Caught up over last {{ z.cumulative_deficit_months }} mo{% endif %}</div>{% endif %}</div></div>
     {% endfor %}
   </div>
 </div>

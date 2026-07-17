@@ -31,7 +31,7 @@ def app(tmp_path, monkeypatch):
             payload_json=json.dumps({
                 "flex": {"month": "July", "logged_transactions": 8, "transaction_target": 6.2, "target_attainment": 133.3},
                 "funnel": {"buyer_connections": 656, "appointments": 236, "meetings": 199, "showings": 121, "offers": 32, "closed_transactions": 11},
-                "zhl": {"transfer_rate": 7.8, "engaged_rate": 100, "preapprovals": 2, "preapproval_target": 4},
+                "zhl": {"transfer_rate": 7.8, "engaged_rate": 100, "preapprovals": 2, "preapproval_target": 4, "cumulative_deficit": 9, "cumulative_deficit_months": 4},
                 "operations": {"fub_compliance": 100, "closing_docs": 100, "pay_on_time": 100},
                 "standards": {"tdg_transfer_rate": 35, "tdg_engaged_rate": 70},
             }),

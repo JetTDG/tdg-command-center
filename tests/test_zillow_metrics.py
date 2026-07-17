@@ -41,6 +41,7 @@ def test_build_company_snapshot_uses_company_worksheets_without_agent_rollup():
             {"column_1": "Overall Transfer Rate", "2026__5": "7.8%"},
             {"column_1": "Total Engaged Transfers", "2026__5": "10"},
             {"column_1": "ZHL Total Transfers", "2026__5": "10"},
+            {"column_1": "ZHL Pre Approval(s) Needed to Reach Target", "2026__2": "2", "2026__3": "3", "2026__4": "2", "2026__5": "2"},
         ],
         ("Performance", "Home_Ops_Compliance"): [
             {"column_1": "", "column_2": "", "column_3": "High", "Last Month Name": "100.0%"}
@@ -57,6 +58,23 @@ def test_build_company_snapshot_uses_company_worksheets_without_agent_rollup():
     assert result["zhl"]["transfer_rate"] == 7.8
     assert result["zhl"]["engaged_rate"] == 100.0
     assert result["operations"]["fub_compliance"] == 100.0
+    # Cumulative shortfall must sum ALL available months' "needed" values, not just
+    # the current month, so leadership can see how far behind we are, not only
+    # this month's isolated gap.
+    assert result["zhl"]["cumulative_deficit"] == 9.0
+    assert result["zhl"]["cumulative_deficit_months"] == 4
+
+
+def test_cumulative_deficit_missing_series_returns_none():
+    rows = {
+        ("Performance", "Home_Flex_Card"): [{}],
+        ("Funnel", "F_Flex_Table"): [],
+        ("TeamDetails", "ZHL AP"): [],
+        ("Performance", "Home_Ops_Compliance"): [],
+    }
+    result = build_company_snapshot(rows)
+    assert result["zhl"]["cumulative_deficit"] is None
+    assert result["zhl"]["cumulative_deficit_months"] == 0
 
 
 def test_build_agent_snapshots_joins_summary_rtt_and_transactions_by_normalized_name():

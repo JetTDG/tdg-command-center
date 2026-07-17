@@ -63,6 +63,35 @@ def _latest_series_value(row: Optional[dict]) -> Any:
     return values[-1] if values else None
 
 
+def _series_values(row: Optional[dict]) -> List[Any]:
+    if not row:
+        return []
+    ignored = {"column_1", "column_2", "DZV_Final_Trigger", "Related Enhanced Market"}
+    return [v for k, v in row.items() if k not in ignored and v not in _EMPTY]
+
+
+def _series_months(row: Optional[dict]) -> List[str]:
+    if not row:
+        return []
+    ignored = {"column_1", "column_2", "DZV_Final_Trigger", "Related Enhanced Market"}
+    return [k for k, v in row.items() if k not in ignored and v not in _EMPTY]
+
+
+def _cumulative_deficit(needed_row: Optional[dict]) -> dict:
+    """Sum every available month's 'needed to reach target' value.
+
+    This answers "how far behind are we counting all prior months", not just
+    the current month's gap versus its own target. Each monthly value from
+    the source worksheet is already (target - actual) floored at 0 by Zillow's
+    own workbook, so summing them gives a true cumulative shortfall.
+    """
+    values = [parse_number(v) for v in _series_values(needed_row)]
+    values = [v for v in values if v is not None]
+    if not values:
+        return {"total": None, "months_counted": 0}
+    return {"total": sum(values), "months_counted": len(values)}
+
+
 def _funnel_with_conversion(funnel_map: Mapping[str, dict], funnel_fields: Mapping[str, str]) -> dict:
     """Build funnel stage counts plus each stage's conversion % of Connections.
 
@@ -99,6 +128,11 @@ def build_company_snapshot(rows: Mapping) -> dict:
     transfers = parse_number(_latest_series_value(zhl_map.get("ZHL Total Transfers")))
     engaged = parse_number(_latest_series_value(zhl_map.get("Total Engaged Transfers")))
     engaged_rate = round(engaged / transfers * 100, 1) if engaged is not None and transfers else None
+
+    preapproval_deficit = _cumulative_deficit(
+        zhl_map.get("ZHL Pre Approval(s) Needed to Reach Target")
+        or zhl_map.get("ZHL Pre-Approval(s) Needed to Reach Target")
+    )
 
     compliance_rows = _sheet(rows, "Performance", "Home_Ops_Compliance")
     compliance = compliance_rows[-1] if compliance_rows else {}
@@ -139,6 +173,8 @@ def build_company_snapshot(rows: Mapping) -> dict:
             "preapprovals": parse_number(_latest_series_value(zhl_map.get("Total ZHL Pre-Approvals"))),
             "preapproval_target": parse_number(_latest_series_value(zhl_map.get("ZHL Pre-Approval Target"))),
             "preapprovals_needed": parse_number(_latest_series_value(zhl_roll_map.get("L3M ZHL Pre-Approval(s) Needed to Reach Target"))),
+            "cumulative_deficit": preapproval_deficit["total"],
+            "cumulative_deficit_months": preapproval_deficit["months_counted"],
             "locks": parse_number(_latest_series_value(zhl_map.get("Total ZHL Locks"))),
             "funded_loans": parse_number(_latest_series_value(zhl_map.get("Total ZHL Funded Loans"))),
             "closed_with_zhl_pct": parse_percent(_latest_series_value(zhl_map.get("% of Closed Loans with ZHL"))),
