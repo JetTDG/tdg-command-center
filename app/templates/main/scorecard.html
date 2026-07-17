@@ -106,6 +106,44 @@
   </div>
 </div>
 
+{# ── Zillow Performance: compact summary + lazy-loaded detail ───────────── #}
+{% if zillow_summary %}
+<div id="zillow-performance" class="card mb-4" style="border:1px solid #8bc9ee;border-top:4px solid #0d6efd;overflow:hidden;">
+  <button type="button" id="zillow-toggle" class="w-100 border-0 bg-white text-start p-0" aria-expanded="false" aria-controls="zillow-detail-panel">
+    <div class="d-flex align-items-center justify-content-between px-3 pt-3 pb-2">
+      <div><span class="fw-bold" style="font-size:.92rem;color:#0b3d62;"><i class="bi bi-house-heart-fill me-1" style="color:#0d6efd;"></i>Zillow Performance</span><span class="text-muted ms-2" style="font-size:.67rem;">{{ zillow_summary.period_start }} – {{ zillow_summary.period_end }}</span></div>
+      <i id="zillow-chevron" class="bi bi-chevron-down" style="color:#0d6efd;"></i>
+    </div>
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-0 px-2 pb-3 text-center">
+      {% for label,value,suffix in [
+        ('Overall',zillow_summary.overall_performance,''),
+        ('Predicted CVR',zillow_summary.predicted_cvr,'%'),
+        ('Pickup Rate',zillow_summary.pickup_rate,'%'),
+        ('Connections',zillow_summary.buyer_connections,''),
+        ('ZHL Preapprovals',(zillow_summary.eligible_preapprovals|string ~ ' / ' ~ zillow_summary.preapproval_target|string),''),
+        ('24-Hour Evidence',(zhl_summary.timely_rate if zhl_summary.timely_rate is not none else '—'),'%')
+      ] %}
+      <div class="col px-1 py-1"><div style="border-left:1px solid var(--tdg-border);"><div class="text-muted" style="font-size:.59rem;text-transform:uppercase;letter-spacing:.04em;">{{ label }}</div><div class="fw-bold" style="font-size:1rem;color:#0b3d62;">{{ value|show_value }}{% if value is not none and value != '—' %}{{ suffix }}{% endif %}</div>{% if label=='24-Hour Evidence' and zhl_summary.counts.get('missing_overdue',0) %}<div class="text-danger" style="font-size:.61rem;">{{ zhl_summary.counts.get('missing_overdue') }} overdue</div>{% endif %}</div></div>
+      {% endfor %}
+    </div>
+  </button>
+  <div id="zillow-detail-panel" hidden style="border-top:1px solid var(--tdg-border);"><div class="text-center text-muted p-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading Zillow performance…</div></div>
+</div>
+<script>
+(function(){
+  const btn=document.getElementById('zillow-toggle'), panel=document.getElementById('zillow-detail-panel'), chevron=document.getElementById('zillow-chevron');
+  if(!btn||!panel)return; let loaded=false;
+  btn.addEventListener('click', async function(){
+    const opening=panel.hidden; panel.hidden=!opening; btn.setAttribute('aria-expanded',String(opening)); chevron.className='bi '+(opening?'bi-chevron-up':'bi-chevron-down');
+    if(opening&&!loaded){
+      try{const response=await fetch('{{ url_for("main.scorecard_zillow_detail",agent_id=agent.id) }}',{credentials:'same-origin'}); if(!response.ok)throw new Error('HTTP '+response.status); panel.innerHTML=await response.text(); loaded=true;}
+      catch(error){panel.innerHTML='<div class="alert alert-danger m-3">Unable to load Zillow details. Please refresh and try again.</div>';}
+    }
+  });
+})();
+</script>
+{% endif %}
+
 {# ── Secondary KPI row: Lead Mix + Avg Comm% ─────────────────────────────── #}
 <div class="row g-3 mb-4">
 

@@ -1,0 +1,32 @@
+{% if not zillow %}
+<div class="p-4 text-center text-muted"><i class="bi bi-inbox fs-2 d-block mb-2"></i>No Zillow performance record is linked to {{ agent.name }}.</div>
+{% else %}
+{% set s=zillow.summary %}{% set r=zillow.rtt %}
+<style>
+.za-grid{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:.65rem}.za-metric{background:var(--tdg-bg);border:1px solid var(--tdg-border);border-radius:11px;padding:.75rem}.za-label{font-size:.61rem;text-transform:uppercase;letter-spacing:.05em;color:var(--tdg-muted);font-weight:700}.za-value{font-size:1.15rem;font-weight:800}.za-block{border-top:1px solid var(--tdg-border);padding:1rem 1.1rem}.za-block h4{font-size:.84rem;font-weight:800;margin:0 0 .7rem}.za-table{font-size:.75rem}.za-path{background:#fff8dc;border:1px solid #ead58a;border-radius:11px;padding:.85rem}.za-status{font-size:.7rem;font-weight:800;border-radius:999px;padding:.2rem .5rem;background:#e9ecef}.za-status.High{background:#d1e7dd;color:#0f5132}.za-status.Fair{background:#fff3cd;color:#664d03}.za-status.Low{background:#f8d7da;color:#842029}@media(max-width:900px){.za-grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:520px){.za-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+<div class="za-block border-top-0">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"><div><div class="za-label">Official Zillow reporting period</div><strong>{{ s.period_start or '—' }} – {{ s.period_end or '—' }}</strong></div><span class="za-status {{ s.overall_performance or '' }}">{{ s.overall_performance or 'No rating' }}</span></div>
+  <div class="za-grid">
+    {% for label,key,suffix in [('Predicted CVR','predicted_cvr','%'),('Pickup Rate','pickup_rate','%'),('Buyer Connections','buyer_connections',''),('ZHL Preapprovals','eligible_preapprovals',''),('ZHL Target','preapproval_target',''),('Closed / Pending','closed_transactions','')] %}
+    <div class="za-metric"><div class="za-label">{{ label }}</div><div class="za-value">{% if label=='Closed / Pending' %}{{ s.closed_transactions|show_value }} / {{ s.pending_transactions|show_value }}{% else %}{{ s[key]|show_value }}{% if s[key] is not none %}{{ suffix }}{% endif %}{% endif %}</div></div>
+    {% endfor %}
+  </div>
+</div>
+<div class="za-block"><h4><i class="bi bi-stars me-1"></i>Path to HIGH</h4><div class="za-path">
+  {% if s.overall_performance == 'High' %}<strong>Maintain HIGH performance.</strong> Protect response discipline, conversion, and required ZHL preapproval performance.
+  {% else %}<strong>Close the controllable gaps first.</strong>
+    {% if s.predicted_cvr is none or s.predicted_cvr < 5 %}Raise predicted CVR toward TDG’s 5% HIGH coaching goal. {% endif %}
+    {% if s.pickup_rate is none or s.pickup_rate < 25 %}Reach at least the official 25% pickup standard. {% endif %}
+    {% if s.preapproval_target and (s.eligible_preapprovals or 0) < s.preapproval_target %}Add {{ s.preapproval_target - (s.eligible_preapprovals or 0) }} eligible ZHL preapproval(s). {% endif %}
+    Zillow’s combined tier weighting is unpublished; these actions improve the known inputs but do not guarantee a tier change.
+  {% endif %}
+  {% if s.insights %}<div class="mt-2 text-muted">Zillow insight: {{ s.insights }}</div>{% endif %}
+</div></div>
+<div class="za-block"><h4><i class="bi bi-chat-square-check me-1"></i>24-Hour ZHL Conversation</h4>
+  <div class="za-grid mb-3" style="grid-template-columns:repeat(4,minmax(120px,1fr))"><div class="za-metric"><div class="za-label">Eligible</div><div class="za-value">{{ zhl.eligible }}</div></div><div class="za-metric"><div class="za-label">Timely</div><div class="za-value">{{ zhl.timely }}</div></div><div class="za-metric"><div class="za-label">Evidence Rate</div><div class="za-value">{{ zhl.timely_rate|show_value }}{% if zhl.timely_rate is not none %}%{% endif %}</div></div><div class="za-metric"><div class="za-label">Missing Evidence — Overdue</div><div class="za-value">{{ zhl.counts.get('missing_overdue',0) }}</div></div></div>
+  <div class="table-responsive"><table class="table table-sm za-table"><thead><tr><th>Client</th><th>First Showing</th><th>Deadline</th><th>Status</th><th>Evidence</th></tr></thead><tbody>{% for e in zhl.rows %}<tr><td>{% if e.fub_url %}<a href="{{ e.fub_url }}" target="_blank" rel="noopener">{{ e.client_name or 'FUB Client' }}</a>{% else %}{{ e.client_name or '—' }}{% endif %}</td><td>{{ e.first_showing_at|fmt_et }}</td><td>{{ e.deadline_at|fmt_et }}</td><td>{{ (e.status or 'pending verification')|replace('_',' ')|title }}</td><td>{{ e.evidence_channel or '—' }}</td></tr>{% else %}<tr><td colspan="5" class="text-muted text-center">No eligible showing records yet.</td></tr>{% endfor %}</tbody></table></div>
+</div>
+<div class="za-block"><h4><i class="bi bi-lightning-charge me-1"></i>Ready to Tour</h4><div class="za-grid">{% for label,key,suffix in [('Opportunities','opportunities',''),('Connections','connections',''),('Accept Rate','accept_rate','%'),('Met Rate','met_rate','%'),('Show Rate','show_rate','%'),('Transactions','transactions','')] %}<div class="za-metric"><div class="za-label">{{ label }}</div><div class="za-value">{{ r[key]|show_value }}{% if r[key] is not none %}{{ suffix }}{% endif %}</div></div>{% endfor %}</div></div>
+<div class="za-block"><h4><i class="bi bi-house-check me-1"></i>Zillow Transactions</h4><div class="table-responsive"><table class="table table-sm za-table"><thead><tr><th>Client / Property</th><th>Status</th><th>Side</th><th class="text-end">Price</th><th class="text-end">Expected Zillow Commission</th><th>Close</th></tr></thead><tbody>{% for t in zillow.transactions %}<tr><td>{% if t.premier_agent_url %}<a href="{{ t.premier_agent_url }}" target="_blank" rel="noopener">{{ t.contact_name or 'Client' }}</a>{% else %}{{ t.contact_name or '—' }}{% endif %}<div class="text-muted">{{ t.address or '—' }}</div></td><td>{{ t.status or '—' }}</td><td>{{ t.representation or '—' }}</td><td class="text-end">{% if t.price is not none %}${{ '{:,.0f}'.format(t.price) }}{% else %}—{% endif %}</td><td class="text-end">{% if t.expected_zillow_commission is not none %}${{ '{:,.0f}'.format(t.expected_zillow_commission) }}{% else %}—{% endif %}</td><td>{{ t.close_date or '—' }}</td></tr>{% else %}<tr><td colspan="6" class="text-muted text-center">No Zillow transactions in this source period.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endif %}

@@ -64,7 +64,13 @@ def create_app():
             dt = dt.replace(tzinfo=_UTC)
         return dt.astimezone(_ET)
 
+    def fmt_et(value):
+        converted = to_et(value)
+        return converted.strftime('%b %-d, %Y %-I:%M %p') if converted else '—'
+
     app.jinja_env.filters['to_et'] = to_et
+    app.jinja_env.filters['fmt_et'] = fmt_et
+    app.jinja_env.filters['show_value'] = lambda value: '—' if value is None else value
 
     # Ensure all tables exist (safe — only creates missing ones)
     with app.app_context():

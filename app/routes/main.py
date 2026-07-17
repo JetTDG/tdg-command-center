@@ -18,7 +18,11 @@ def log_change(record_id, field_name, old_value, new_value, table_name='transact
         # committed together with the main change
     except Exception:
         pass  # audit failure never blocks the real save
-from app.models import Agent, Transaction, LeadGenLog, BusinessPlan, Pipeline, TeamGoal, AgentConversionStats
+from app.models import (
+    Agent, Transaction, LeadGenLog, BusinessPlan, Pipeline, TeamGoal,
+    AgentConversionStats, ZillowSyncRun, ZillowCompanySnapshot,
+    ZillowAgentSnapshot, ZillowLeadAlert, ZillowZhlFollowup,
+)
 from app.conversion_stats import get_blended_defaults
 from app import db
 from datetime import datetime, date
@@ -2129,6 +2133,89 @@ def edit_agent(aid):
         return redirect(url_for('main.agents'))
     return render_template('main/agent_form.html', agent=agent)
 
+
+# ─── ZILLOW PERFORMANCE ─────────────────────────────────────────────────────
+
+def _latest_zillow_agent_snapshot(agent_id):
+    return (ZillowAgentSnapshot.query.filter_by(agent_id=agent_id)
+            .order_by(ZillowAgentSnapshot.snapshot_at.desc()).first())
+
+
+def _zillow_followup_summary(agent_id=None):
+    q = ZillowZhlFollowup.query
+    if agent_id is not None:
+        q = q.filter_by(agent_id=agent_id)
+    rows = q.order_by(ZillowZhlFollowup.deadline_at.desc()).all()
+    counts = {}
+    for row in rows:
+        key = row.status or 'pending_verification'
+        counts[key] = counts.get(key, 0) + 1
+    eligible = sum(counts.values())
+    timely = counts.get('confirmed_timely', 0) + counts.get('agent_outreach_timely', 0)
+    return {
+        'rows': rows[:20] if agent_id is not None else rows[:25],
+        'counts': counts,
+        'eligible': eligible,
+        'timely': timely,
+        'timely_rate': round(timely / eligible * 100, 1) if eligible else None,
+    }
+
+
+@bp.route('/zillow')
+@login_required
+def zillow_performance():
+    if not current_user.is_admin:
+        return 'Forbidden', 403
+
+    import json as _json
+    company_row = ZillowCompanySnapshot.query.order_by(
+        ZillowCompanySnapshot.snapshot_at.desc()).first()
+    company = _json.loads(company_row.payload_json) if company_row else None
+    run = None
+    agents = []
+    transactions = []
+    if company_row:
+        run = ZillowSyncRun.query.filter_by(source_run_id=company_row.source_run_id).first()
+        for row in (ZillowAgentSnapshot.query
+                    .filter_by(source_run_id=company_row.source_run_id)
+                    .order_by(ZillowAgentSnapshot.agent_name).all()):
+            payload = _json.loads(row.payload_json)
+            payload['_row'] = row
+            agents.append(payload)
+            for transaction in payload.get('transactions', []):
+                item = dict(transaction)
+                item['agent_name'] = row.agent_name
+                transactions.append(item)
+
+    transactions.sort(key=lambda item: item.get('close_date') or '', reverse=True)
+    zhl = _zillow_followup_summary()
+    alerts = (ZillowLeadAlert.query.order_by(ZillowLeadAlert.received_at.desc())
+              .limit(100).all())
+    return render_template(
+        'main/zillow_performance.html', company=company, company_row=company_row,
+        run=run, agents=agents, transactions=transactions, zhl=zhl, alerts=alerts,
+    )
+
+
+@bp.route('/scorecard/<int:agent_id>/zillow-detail')
+@login_required
+def scorecard_zillow_detail(agent_id):
+    if current_user.role == 'agent' and current_user.agent_id != agent_id:
+        return jsonify({'error': 'forbidden'}), 403
+    import json as _json
+    agent = Agent.query.get_or_404(agent_id)
+    row = _latest_zillow_agent_snapshot(agent_id)
+    if not row:
+        return render_template('main/_zillow_agent_detail.html', agent=agent,
+                               zillow=None, snapshot=None,
+                               zhl=_zillow_followup_summary(agent_id))
+    return render_template(
+        'main/_zillow_agent_detail.html', agent=agent,
+        zillow=_json.loads(row.payload_json), snapshot=row,
+        zhl=_zillow_followup_summary(agent_id),
+    )
+
+
 @bp.route('/scorecard/<int:agent_id>')
 @login_required
 def scorecard(agent_id):
@@ -2469,6 +2556,16 @@ def scorecard(agent_id):
     except Exception as _e:
         import logging; logging.getLogger('scorecard').warning(f'perf cache read failed: {_e}')
 
+    # Zillow summary stays lightweight; full detail is lazy-loaded on click.
+    zillow_snapshot = _latest_zillow_agent_snapshot(agent_id)
+    zillow_summary = None
+    zhl_summary = _zillow_followup_summary(agent_id)
+    if zillow_snapshot:
+        try:
+            zillow_summary = _json.loads(zillow_snapshot.payload_json).get('summary', {})
+        except (TypeError, ValueError):
+            zillow_summary = None
+
     return render_template('main/scorecard.html',
         agent=agent,
         year=year,
@@ -2515,6 +2612,9 @@ def scorecard(agent_id):
         lead_mix=lead_mix,
         avg_comm_pct=avg_comm_pct,
         avg_comm_units=avg_comm_units,
+        zillow_summary=zillow_summary,
+        zillow_snapshot=zillow_snapshot,
+        zhl_summary=zhl_summary,
     )
 
 @bp.route('/scorecard/<int:agent_id>/drill')

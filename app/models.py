@@ -447,3 +447,97 @@ class DocEnvelope(db.Model):
 
     def __repr__(self):
         return f'<DocEnvelope {self.doc_type} {self.envelope_id[:8]}… {self.stage}>'
+
+
+class ZillowSyncRun(db.Model):
+    """One successful or failed import from the private Zillow reporting workbook."""
+    __tablename__ = 'zillow_sync_runs'
+    id = db.Column(db.Integer, primary_key=True)
+    source_run_id = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    source_started_at = db.Column(db.DateTime)
+    source_completed_at = db.Column(db.DateTime)
+    imported_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    status = db.Column(db.String(20), nullable=False)
+    dashboard_count = db.Column(db.Integer)
+    worksheet_count = db.Column(db.Integer)
+    row_count = db.Column(db.Integer)
+    cell_count = db.Column(db.Integer)
+    error = db.Column(db.Text)
+
+
+class ZillowCompanySnapshot(db.Model):
+    """Normalized company-level Zillow metrics for one successful source run."""
+    __tablename__ = 'zillow_company_snapshots'
+    id = db.Column(db.Integer, primary_key=True)
+    source_run_id = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    snapshot_at = db.Column(db.DateTime, nullable=False, index=True)
+    payload_json = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ZillowAgentSnapshot(db.Model):
+    """Normalized per-agent Zillow detail for one source run."""
+    __tablename__ = 'zillow_agent_snapshots'
+    id = db.Column(db.Integer, primary_key=True)
+    source_run_id = db.Column(db.String(64), nullable=False, index=True)
+    agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True, index=True)
+    agent_name = db.Column(db.String(150), nullable=False)
+    normalized_name = db.Column(db.String(150), nullable=False, index=True)
+    snapshot_at = db.Column(db.DateTime, nullable=False, index=True)
+    payload_json = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    __table_args__ = (
+        db.UniqueConstraint('source_run_id', 'normalized_name', name='uq_zillow_agent_run_name'),
+    )
+
+
+class ZillowLeadAlert(db.Model):
+    """Audit record for qualifying high-value or target-city Zillow leads."""
+    __tablename__ = 'zillow_lead_alerts'
+    id = db.Column(db.Integer, primary_key=True)
+    fub_event_id = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    fub_person_id = db.Column(db.String(50), index=True)
+    received_at = db.Column(db.DateTime, nullable=False, index=True)
+    agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True, index=True)
+    agent_name = db.Column(db.String(150))
+    client_name = db.Column(db.String(200))
+    property_address = db.Column(db.String(300))
+    city = db.Column(db.String(100))
+    price = db.Column(db.Float)
+    qualifying_reason = db.Column(db.String(200), nullable=False)
+    fub_url = db.Column(db.String(500))
+    slack_notified_at = db.Column(db.DateTime)
+    slack_message_ts = db.Column(db.String(50))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ZillowZhlFollowup(db.Model):
+    """Evidence audit for the first-showing + 24-hour ZHL conversation standard."""
+    __tablename__ = 'zillow_zhl_followups'
+    id = db.Column(db.Integer, primary_key=True)
+    fub_person_id = db.Column(db.String(50), nullable=False, index=True)
+    agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True, index=True)
+    agent_name = db.Column(db.String(150))
+    client_name = db.Column(db.String(200))
+    fub_url = db.Column(db.String(500))
+    appointment_id = db.Column(db.String(100), nullable=False)
+    first_showing_at = db.Column(db.DateTime, nullable=False, index=True)
+    deadline_at = db.Column(db.DateTime, nullable=False, index=True)
+    status = db.Column(db.String(40), index=True)
+    source_complete = db.Column(db.Boolean, default=False, nullable=False)
+    evidence_channel = db.Column(db.String(30))
+    evidence_record_id = db.Column(db.String(100))
+    evidence_at = db.Column(db.DateTime)
+    matched_term = db.Column(db.String(50))
+    authored_by = db.Column(db.String(30))
+    last_verified_at = db.Column(db.DateTime)
+    error = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    __table_args__ = (
+        db.UniqueConstraint('fub_person_id', 'appointment_id', name='uq_zillow_zhl_person_showing'),
+    )
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault('source_complete', False)
+        super().__init__(**kwargs)

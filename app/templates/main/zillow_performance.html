@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}Zillow Performance — TDG Command Center{% endblock %}
+{% block content %}
+<style>
+.zp-hero{background:linear-gradient(135deg,#0d1b2a,#17324d);color:#fff;border-radius:18px;padding:1.4rem 1.5rem;box-shadow:0 12px 30px rgba(13,27,42,.16)}
+.zp-eyebrow{font-size:.68rem;text-transform:uppercase;letter-spacing:.12em;color:#79d0ff;font-weight:800}.zp-title{font-size:1.7rem;font-weight:800;margin:.2rem 0}.zp-sub{color:#c9d8e8;font-size:.8rem}.zp-card{border:1px solid var(--tdg-border);border-radius:14px;background:var(--tdg-surface);height:100%;padding:1rem}.zp-label{font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;color:var(--tdg-muted);font-weight:700}.zp-value{font-size:1.65rem;font-weight:800;line-height:1.15;color:var(--tdg-text)}.zp-target{font-size:.72rem;color:var(--tdg-muted)}.zp-section{margin-top:1.6rem}.zp-section h2{font-size:1rem;font-weight:800;margin-bottom:.8rem}.zp-stage{position:relative;text-align:center;padding:.9rem .4rem;border-radius:12px;background:var(--tdg-bg);border:1px solid var(--tdg-border)}.zp-stage strong{display:block;font-size:1.35rem}.zp-badge{border-radius:999px;padding:.24rem .55rem;font-size:.68rem;font-weight:800}.zp-good{background:#d1e7dd;color:#0f5132}.zp-warn{background:#fff3cd;color:#664d03}.zp-bad{background:#f8d7da;color:#842029}.zp-muted{background:#e9ecef;color:#495057}.zp-table{font-size:.78rem}.zp-table th{font-size:.63rem;text-transform:uppercase;letter-spacing:.04em;color:var(--tdg-muted);white-space:nowrap}.zp-table td{vertical-align:middle}.zp-link{color:var(--tdg-gold-dark,#9a7200);font-weight:700;text-decoration:none}@media(max-width:767px){.zp-title{font-size:1.35rem}.zp-value{font-size:1.25rem}.zp-table{font-size:.72rem}}
+</style>
+
+<div class="zp-hero">
+  <div class="zp-eyebrow">Company Intelligence</div>
+  <div class="zp-title">Zillow Performance</div>
+  <div class="zp-sub">
+    Official Zillow reporting, company funnel, ZHL performance, agent accountability, and operational lead alerts.
+    {% if company_row %}Data through {{ company_row.snapshot_at|fmt_et }} ET.{% endif %}
+  </div>
+</div>
+
+{% if not company %}
+<div class="alert alert-warning mt-4"><strong>No Zillow snapshot has been imported yet.</strong> The page is ready and will populate after the first successful sync.</div>
+{% else %}
+{% set flex=company.flex %}{% set funnel=company.funnel %}{% set z=company.zhl %}{% set ops=company.operations %}
+
+<div class="zp-section">
+  <h2><i class="bi bi-speedometer2 me-1"></i> Company Flex Performance</h2>
+  <div class="row g-3">
+    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">{{ flex.month or 'Current Month' }} Logged</div><div class="zp-value">{{ flex.logged_transactions|show_value }}</div><div class="zp-target">Target {{ flex.transaction_target|show_value }}</div></div></div>
+    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">Monthly Attainment</div><div class="zp-value">{{ flex.target_attainment|show_value }}{% if flex.target_attainment is not none %}%{% endif %}</div><div class="zp-target">Official company worksheet</div></div></div>
+    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">Rolling 6M Logged</div><div class="zp-value">{{ flex.rolling_6m_logged|show_value }}</div><div class="zp-target">Target {{ flex.rolling_6m_target|show_value }}</div></div></div>
+    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">Rolling 6M Attainment</div><div class="zp-value">{{ flex.rolling_6m_attainment|show_value }}{% if flex.rolling_6m_attainment is not none %}%{% endif %}</div><div class="zp-target">Transactions needed {{ flex.transactions_needed|show_value }}</div></div></div>
+  </div>
+</div>
+
+<div class="zp-section">
+  <h2><i class="bi bi-funnel me-1"></i> Company Zillow Funnel</h2>
+  <div class="row row-cols-3 row-cols-lg-6 g-2">
+    {% for label,key in [('Connections','buyer_connections'),('Appointments','appointments'),('Meetings','meetings'),('Showings','showings'),('Offers','offers'),('Closed','closed_transactions')] %}
+    <div class="col"><div class="zp-stage"><span class="zp-label">{{ label }}</span><strong>{{ funnel[key]|show_value }}</strong></div></div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="zp-section">
+  <h2><i class="bi bi-bank me-1"></i> Zillow Home Loans</h2>
+  <div class="row g-3">
+    {% for label,key,target in [('Transfer Rate','transfer_rate',company.standards.tdg_transfer_rate),('Engaged Rate','engaged_rate',company.standards.tdg_engaged_rate),('Preapprovals','preapprovals',z.preapproval_target),('Funded Loans','funded_loans',none)] %}
+    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">{{ label }}</div><div class="zp-value">{{ z[key]|show_value }}{% if 'rate' in key and z[key] is not none %}%{% endif %}</div>{% if target is not none %}<div class="zp-target">Goal {{ target }}{% if 'rate' in key %}%{% endif %}</div>{% endif %}</div></div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="zp-section">
+  <h2><i class="bi bi-chat-square-check me-1"></i>24-Hour ZHL Conversation <span class="text-muted fw-normal" style="font-size:.78rem;">— latest 25 records</span></h2>
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">Eligible Showings</div><div class="zp-value">{{ zhl.eligible }}</div></div></div>
+    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">Timely Evidence</div><div class="zp-value">{{ zhl.timely }}</div><div class="zp-target">{{ zhl.timely_rate|show_value }}{% if zhl.timely_rate is not none %}%{% endif %}</div></div></div>
+    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">Missing Overdue</div><div class="zp-value">{{ zhl.counts.get('missing_overdue',0) }}</div></div></div>
+    <div class="col-6 col-lg-3"><div class="zp-card"><div class="zp-label">Unable to Verify</div><div class="zp-value">{{ zhl.counts.get('unable_to_verify',0) }}</div></div></div>
+  </div>
+  <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 zp-table"><thead><tr><th>Agent</th><th>Client</th><th>First Showing</th><th>Deadline</th><th>Status</th><th>Evidence</th><th>Verified</th></tr></thead><tbody>
+    {% for r in zhl.rows[:100] %}<tr><td>{{ r.agent_name or '—' }}</td><td>{% if r.fub_url %}<a class="zp-link" href="{{ r.fub_url }}" target="_blank" rel="noopener">{{ r.client_name or 'FUB Client' }}</a>{% else %}{{ r.client_name or '—' }}{% endif %}</td><td>{{ r.first_showing_at|fmt_et }}</td><td>{{ r.deadline_at|fmt_et }}</td><td><span class="zp-badge {% if r.status in ['confirmed_timely','agent_outreach_timely'] %}zp-good{% elif r.status in ['missing_overdue'] %}zp-bad{% elif r.status in ['late_evidence'] %}zp-warn{% else %}zp-muted{% endif %}">{{ (r.status or 'pending verification')|replace('_',' ')|title }}</span></td><td>{{ r.evidence_channel or '—' }}</td><td>{{ r.last_verified_at|fmt_et if r.last_verified_at else '—' }}</td></tr>
+    {% else %}<tr><td colspan="7" class="text-center text-muted py-4">No eligible Zillow showings have been recorded yet.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+</div>
+
+<div class="zp-section">
+  <h2><i class="bi bi-people me-1"></i> Agent Zillow Performance</h2>
+  <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 zp-table"><thead><tr><th>Agent</th><th>Overall</th><th>Predicted CVR</th><th>Pickup</th><th>Connections</th><th>ZHL Preapprovals</th><th>Closed</th><th>Pending</th><th>RTT</th></tr></thead><tbody>
+  {% for a in agents %}{% set s=a.summary %}{% set r=a.rtt %}<tr><td>{% if a._row.agent_id %}<a class="zp-link" href="{{ url_for('main.scorecard',agent_id=a._row.agent_id) }}#zillow-performance">{{ s.agent_name }}</a>{% else %}{{ s.agent_name }}{% endif %}</td><td><span class="zp-badge {% if s.overall_performance=='High' %}zp-good{% elif s.overall_performance=='Fair' %}zp-warn{% elif s.overall_performance=='Low' %}zp-bad{% else %}zp-muted{% endif %}">{{ s.overall_performance or '—' }}</span></td><td>{{ s.predicted_cvr|show_value }}{% if s.predicted_cvr is not none %}%{% endif %}</td><td>{{ s.pickup_rate|show_value }}{% if s.pickup_rate is not none %}%{% endif %}</td><td>{{ s.buyer_connections|show_value }}</td><td>{{ s.eligible_preapprovals|show_value }} / {{ s.preapproval_target|show_value }}</td><td>{{ s.closed_transactions|show_value }}</td><td>{{ s.pending_transactions|show_value }}</td><td>{{ r.transactions|show_value }}</td></tr>
+  {% else %}<tr><td colspan="9" class="text-center text-muted py-4">No agent Zillow records were supplied by the current workbook.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+</div>
+
+<div class="zp-section">
+  <h2><i class="bi bi-receipt me-1"></i> Company Zillow Transactions</h2>
+  <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 zp-table"><thead><tr><th>Agent</th><th>Client / Property</th><th>Status</th><th>Side</th><th class="text-end">Price</th><th class="text-end">Expected Zillow Commission</th><th>Close</th><th>Docs</th></tr></thead><tbody>
+  {% for t in transactions %}<tr><td>{{ t.agent_name }}</td><td>{% if t.premier_agent_url %}<a class="zp-link" href="{{ t.premier_agent_url }}" target="_blank" rel="noopener">{{ t.contact_name or 'Client' }}</a>{% else %}{{ t.contact_name or '—' }}{% endif %}<div class="text-muted">{{ t.address or '—' }}</div></td><td>{{ t.status or '—' }}</td><td>{{ t.representation or '—' }}</td><td class="text-end">{% if t.price is not none %}${{ '{:,.0f}'.format(t.price) }}{% else %}—{% endif %}</td><td class="text-end">{% if t.expected_zillow_commission is not none %}${{ '{:,.0f}'.format(t.expected_zillow_commission) }}{% else %}—{% endif %}</td><td>{{ t.close_date or '—' }}</td><td>{{ t.closing_docs or '—' }}</td></tr>
+  {% else %}<tr><td colspan="8" class="text-center text-muted py-4">No Zillow transactions in this source period.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+</div>
+
+<div class="zp-section">
+  <h2><i class="bi bi-shield-check me-1"></i> Operational Compliance</h2>
+  <div class="row g-3">
+    {% for label,key in [('FUB Coverage','fub_compliance'),('Closing Documents','closing_docs'),('Pay on Time','pay_on_time')] %}<div class="col-4"><div class="zp-card"><div class="zp-label">{{ label }}</div><div class="zp-value">{{ ops[key]|show_value }}{% if ops[key] is not none %}%{% endif %}</div></div></div>{% endfor %}
+  </div>
+</div>
+
+<div class="zp-section mb-4">
+  <h2><i class="bi bi-bell me-1"></i> Priority Zillow Lead Alerts</h2>
+  <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 zp-table"><thead><tr><th>Received</th><th>Agent</th><th>Client</th><th>Property</th><th>Price</th><th>Reason</th><th>Slack</th></tr></thead><tbody>
+  {% for a in alerts %}<tr><td>{{ a.received_at|fmt_et }}</td><td>{{ a.agent_name or '—' }}</td><td>{% if a.fub_url %}<a class="zp-link" href="{{ a.fub_url }}" target="_blank" rel="noopener">{{ a.client_name or 'FUB Lead' }}</a>{% else %}{{ a.client_name or '—' }}{% endif %}</td><td>{{ a.property_address or a.city or '—' }}</td><td>{% if a.price is not none %}${{ '{:,.0f}'.format(a.price) }}{% else %}—{% endif %}</td><td>{{ a.qualifying_reason }}</td><td>{{ 'Posted' if a.slack_notified_at else 'Pending' }}</td></tr>
+  {% else %}<tr><td colspan="7" class="text-center text-muted py-4">No qualifying alerts recorded yet.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+</div>
+{% endif %}
+{% endblock %}

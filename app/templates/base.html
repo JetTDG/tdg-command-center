@@ -627,6 +627,10 @@
       <div class="sidebar-section-label">Admin</div>
       <nav class="nav flex-column">
         {% if current_user.is_admin %}
+        <a class="nav-link {% if request.endpoint == 'main.zillow_performance' %}active{% endif %}"
+           href="{{ url_for('main.zillow_performance') }}">
+          <i class="bi bi-house-heart"></i> Zillow Performance
+        </a>
         <a class="nav-link {% if 'agents' in request.endpoint %}active{% endif %}"
            href="{{ url_for('main.agents') }}">
           <i class="bi bi-people"></i> Agents
@@ -686,6 +690,9 @@
           <i class="bi bi-clipboard-data" style="font-size:1.1rem;{% if 'business_plan' in request.endpoint %}color:var(--tdg-gold);{% endif %}"></i>Biz Plan
         </a>
         {% if current_user.is_admin %}
+        <a href="{{ url_for('main.zillow_performance') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if request.endpoint == 'main.zillow_performance' %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
+          <i class="bi bi-house-heart" style="font-size:1.1rem;"></i>Zillow
+        </a>
         <a href="{{ url_for('main.agents') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if 'agents' in request.endpoint %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
           <i class="bi bi-people" style="font-size:1.1rem;{% if 'agents' in request.endpoint %}color:var(--tdg-gold);{% endif %}"></i>Roster
         </a>
