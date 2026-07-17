@@ -34,7 +34,8 @@
   <h2><i class="bi bi-funnel me-1"></i> Company Zillow Funnel</h2>
   <div class="row row-cols-3 row-cols-lg-6 g-2">
     {% for label,key in [('Connections','buyer_connections'),('Appointments','appointments'),('Meetings','meetings'),('Showings','showings'),('Offers','offers'),('Closed','closed_transactions')] %}
-    <div class="col"><div class="zp-stage"><span class="zp-label">{{ label }}</span><strong>{{ funnel[key]|show_value }}</strong></div></div>
+    {% set pct = funnel[key ~ '_pct_of_connections'] %}
+    <div class="col"><div class="zp-stage"><span class="zp-label">{{ label }}</span><strong>{{ funnel[key]|show_value }}</strong>{% if pct is not none %}<div class="zp-target">{{ pct }}% of connections</div>{% elif key != 'buyer_connections' %}<div class="zp-target">—</div>{% endif %}</div></div>
     {% endfor %}
   </div>
 </div>
@@ -64,16 +65,68 @@
 
 <div class="zp-section">
   <h2><i class="bi bi-people me-1"></i> Agent Zillow Performance</h2>
-  <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 zp-table"><thead><tr><th>Agent</th><th>Overall</th><th>Predicted CVR</th><th>Pickup</th><th>Connections</th><th>ZHL Preapprovals</th><th>Closed</th><th>Pending</th><th>RTT</th></tr></thead><tbody>
-  {% for a in agents %}{% set s=a.summary %}{% set r=a.rtt %}<tr><td>{% if a._row.agent_id %}<a class="zp-link" href="{{ url_for('main.scorecard',agent_id=a._row.agent_id) }}#zillow-performance">{{ s.agent_name }}</a>{% else %}{{ s.agent_name }}{% endif %}</td><td><span class="zp-badge {% if s.overall_performance=='High' %}zp-good{% elif s.overall_performance=='Fair' %}zp-warn{% elif s.overall_performance=='Low' %}zp-bad{% else %}zp-muted{% endif %}">{{ s.overall_performance or '—' }}</span></td><td>{{ s.predicted_cvr|show_value }}{% if s.predicted_cvr is not none %}%{% endif %}</td><td>{{ s.pickup_rate|show_value }}{% if s.pickup_rate is not none %}%{% endif %}</td><td>{{ s.buyer_connections|show_value }}</td><td>{{ s.eligible_preapprovals|show_value }} / {{ s.preapproval_target|show_value }}</td><td>{{ s.closed_transactions|show_value }}</td><td>{{ s.pending_transactions|show_value }}</td><td>{{ r.transactions|show_value }}</td></tr>
+  <div class="d-flex justify-content-end mb-2">
+    <input type="text" id="agentFilter" class="form-control form-control-sm" style="max-width:260px;" placeholder="Filter by agent name…">
+  </div>
+  <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 zp-table zp-sortable" id="agentTable"><thead><tr>
+    <th class="sortable" data-col="agent" data-type="text">Agent</th>
+    <th class="sortable" data-col="overall" data-type="text">Overall</th>
+    <th class="sortable" data-col="cvr" data-type="num">Predicted CVR</th>
+    <th class="sortable" data-col="pickup" data-type="num">Pickup</th>
+    <th class="sortable" data-col="connections" data-type="num">Connections</th>
+    <th class="sortable" data-col="preapprovals" data-type="num">ZHL Preapprovals</th>
+    <th class="sortable" data-col="closed" data-type="num">Closed</th>
+    <th class="sortable" data-col="pending" data-type="num">Pending</th>
+    <th class="sortable" data-col="rtt" data-type="num">RTT</th>
+  </tr></thead><tbody id="agentTableBody">
+  {% for a in agents %}{% set s=a.summary %}{% set r=a.rtt %}<tr data-search="{{ s.agent_name|lower }}"
+      data-agent="{{ s.agent_name|lower }}" data-overall="{{ s.overall_performance|default('',true)|lower }}"
+      data-cvr="{{ s.predicted_cvr if s.predicted_cvr is not none else '' }}"
+      data-pickup="{{ s.pickup_rate if s.pickup_rate is not none else '' }}"
+      data-connections="{{ s.buyer_connections if s.buyer_connections is not none else '' }}"
+      data-preapprovals="{{ s.eligible_preapprovals if s.eligible_preapprovals is not none else '' }}"
+      data-closed="{{ s.closed_transactions if s.closed_transactions is not none else '' }}"
+      data-pending="{{ s.pending_transactions if s.pending_transactions is not none else '' }}"
+      data-rtt="{{ r.transactions if r.transactions is not none else '' }}">
+    <td>{% if a._row.agent_id %}<a class="zp-link" href="{{ url_for('main.scorecard',agent_id=a._row.agent_id) }}#zillow-performance">{{ s.agent_name }}</a>{% else %}{{ s.agent_name }}{% endif %}</td>
+    <td><span class="zp-badge {% if s.overall_performance=='High' %}zp-good{% elif s.overall_performance=='Fair' %}zp-warn{% elif s.overall_performance=='Low' %}zp-bad{% else %}zp-muted{% endif %}">{{ s.overall_performance or '—' }}</span></td>
+    <td>{{ s.predicted_cvr|show_value }}{% if s.predicted_cvr is not none %}%{% endif %}</td>
+    <td>{{ s.pickup_rate|show_value }}{% if s.pickup_rate is not none %}%{% endif %}</td>
+    <td>{{ s.buyer_connections|show_value }}</td>
+    <td>{{ s.eligible_preapprovals|show_value }} / {{ s.preapproval_target|show_value }}</td>
+    <td>{{ s.closed_transactions|show_value }}</td>
+    <td>{{ s.pending_transactions|show_value }}</td>
+    <td>{{ r.transactions|show_value }}</td></tr>
   {% else %}<tr><td colspan="9" class="text-center text-muted py-4">No agent Zillow records were supplied by the current workbook.</td></tr>{% endfor %}
   </tbody></table></div></div>
 </div>
 
 <div class="zp-section">
   <h2><i class="bi bi-receipt me-1"></i> Company Zillow Transactions</h2>
-  <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 zp-table"><thead><tr><th>Agent</th><th>Client / Property</th><th>Status</th><th>Side</th><th class="text-end">Price</th><th class="text-end">Expected Zillow Commission</th><th>Close</th><th>Docs</th></tr></thead><tbody>
-  {% for t in transactions %}<tr><td>{{ t.agent_name }}</td><td>{% if t.premier_agent_url %}<a class="zp-link" href="{{ t.premier_agent_url }}" target="_blank" rel="noopener">{{ t.contact_name or 'Client' }}</a>{% else %}{{ t.contact_name or '—' }}{% endif %}<div class="text-muted">{{ t.address or '—' }}</div></td><td>{{ t.status or '—' }}</td><td>{{ t.representation or '—' }}</td><td class="text-end">{% if t.price is not none %}${{ '{:,.0f}'.format(t.price) }}{% else %}—{% endif %}</td><td class="text-end">{% if t.expected_zillow_commission is not none %}${{ '{:,.0f}'.format(t.expected_zillow_commission) }}{% else %}—{% endif %}</td><td>{{ t.close_date or '—' }}</td><td>{{ t.closing_docs or '—' }}</td></tr>
+  <div class="d-flex justify-content-end mb-2">
+    <input type="text" id="txFilter" class="form-control form-control-sm" style="max-width:260px;" placeholder="Filter by agent or client…">
+  </div>
+  <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 zp-table zp-sortable" id="txTable"><thead><tr>
+    <th class="sortable" data-col="agent" data-type="text">Agent</th>
+    <th class="sortable" data-col="client" data-type="text">Client / Property</th>
+    <th class="sortable" data-col="status" data-type="text">Status</th>
+    <th class="sortable" data-col="side" data-type="text">Side</th>
+    <th class="text-end sortable" data-col="price" data-type="num">Price</th>
+    <th class="text-end sortable" data-col="commission" data-type="num">Expected Zillow Commission</th>
+    <th class="sortable" data-col="close" data-type="text">Close</th>
+    <th class="sortable" data-col="docs" data-type="text">Docs</th>
+  </tr></thead><tbody id="txTableBody">
+  {% for t in transactions %}<tr data-search="{{ (t.agent_name|default('',true) ~ ' ' ~ t.contact_name|default('',true))|lower }}"
+      data-agent="{{ t.agent_name|default('',true)|lower }}" data-client="{{ t.contact_name|default('',true)|lower }}"
+      data-status="{{ t.status|default('',true)|lower }}" data-side="{{ t.representation|default('',true)|lower }}"
+      data-price="{{ t.price if t.price is not none else '' }}"
+      data-commission="{{ t.expected_zillow_commission if t.expected_zillow_commission is not none else '' }}"
+      data-close="{{ t.close_date|default('',true) }}" data-docs="{{ t.closing_docs|default('',true)|lower }}">
+    <td>{{ t.agent_name }}</td><td>{% if t.premier_agent_url %}<a class="zp-link" href="{{ t.premier_agent_url }}" target="_blank" rel="noopener">{{ t.contact_name or 'Client' }}</a>{% else %}{{ t.contact_name or '—' }}{% endif %}<div class="text-muted">{{ t.address or '—' }}</div></td>
+    <td>{{ t.status or '—' }}</td><td>{{ t.representation or '—' }}</td>
+    <td class="text-end">{% if t.price is not none %}${{ '{:,.0f}'.format(t.price) }}{% else %}—{% endif %}</td>
+    <td class="text-end">{% if t.expected_zillow_commission is not none %}${{ '{:,.0f}'.format(t.expected_zillow_commission) }}{% else %}—{% endif %}</td>
+    <td>{{ t.close_date or '—' }}</td><td>{{ t.closing_docs or '—' }}</td></tr>
   {% else %}<tr><td colspan="8" class="text-center text-muted py-4">No Zillow transactions in this source period.</td></tr>{% endfor %}
   </tbody></table></div></div>
 </div>
@@ -93,4 +146,71 @@
   </tbody></table></div></div>
 </div>
 {% endif %}
+
+<script>
+// Generic clickable-header sort + live text filter for .zp-sortable tables.
+(function() {
+  function initTable(tableId, filterId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
+    let currentCol = null, currentDir = 'asc';
+
+    function getVal(row, col, type) {
+      const raw = row.getAttribute('data-' + col) || '';
+      if (type === 'num') {
+        const n = parseFloat(raw);
+        return isNaN(n) ? -Infinity : n;
+      }
+      return raw;
+    }
+
+    table.querySelectorAll('th.sortable').forEach(th => {
+      th.style.cursor = 'pointer';
+      th.style.userSelect = 'none';
+      if (!th.querySelector('.sort-icon')) {
+        const icon = document.createElement('span');
+        icon.className = 'sort-icon text-muted';
+        icon.style.marginLeft = '4px';
+        icon.textContent = '↕';
+        th.appendChild(icon);
+      }
+      th.addEventListener('click', () => {
+        const col = th.dataset.col, type = th.dataset.type || 'text';
+        if (col === currentCol) {
+          currentDir = currentDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          currentDir = type === 'num' ? 'desc' : 'asc';
+          currentCol = col;
+        }
+        const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.hasAttribute('data-' + col) || true);
+        rows.sort((a, b) => {
+          const av = getVal(a, col, type), bv = getVal(b, col, type);
+          if (av < bv) return currentDir === 'asc' ? -1 : 1;
+          if (av > bv) return currentDir === 'asc' ? 1 : -1;
+          return 0;
+        });
+        rows.forEach(r => tbody.appendChild(r));
+        table.querySelectorAll('.sort-icon').forEach(el => el.textContent = '↕');
+        const icon = th.querySelector('.sort-icon');
+        if (icon) icon.textContent = currentDir === 'asc' ? '↑' : '↓';
+      });
+    });
+
+    const filterInput = filterId ? document.getElementById(filterId) : null;
+    if (filterInput) {
+      filterInput.addEventListener('input', () => {
+        const q = filterInput.value.trim().toLowerCase();
+        tbody.querySelectorAll('tr').forEach(row => {
+          const haystack = row.getAttribute('data-search') || '';
+          row.style.display = !q || haystack.includes(q) ? '' : 'none';
+        });
+      });
+    }
+  }
+
+  initTable('agentTable', 'agentFilter');
+  initTable('txTable', 'txFilter');
+})();
+</script>
 {% endblock %}

@@ -51,6 +51,9 @@ def test_build_company_snapshot_uses_company_worksheets_without_agent_rollup():
     assert result["flex"]["logged_transactions"] == 8.0
     assert result["funnel"]["buyer_connections"] == 656.0
     assert result["funnel"]["showings"] == 121.0
+    assert result["funnel"]["showings_pct_of_connections"] == round(121 / 656 * 100, 1)
+    assert result["funnel"]["closed_transactions_pct_of_connections"] == round(11 / 656 * 100, 1)
+    assert "buyer_connections_pct_of_connections" not in result["funnel"]
     assert result["zhl"]["transfer_rate"] == 7.8
     assert result["zhl"]["engaged_rate"] == 100.0
     assert result["operations"]["fub_compliance"] == 100.0

@@ -63,6 +63,30 @@ def _latest_series_value(row: Optional[dict]) -> Any:
     return values[-1] if values else None
 
 
+def _funnel_with_conversion(funnel_map: Mapping[str, dict], funnel_fields: Mapping[str, str]) -> dict:
+    """Build funnel stage counts plus each stage's conversion % of Connections.
+
+    The first stage (buyer_connections) is the funnel's entry point and has no
+    conversion percentage of itself. Every later stage gets `<key>_pct_of_connections`,
+    e.g. `appointments_pct_of_connections`, representing what share of total
+    connections advanced to that stage.
+    """
+    counts = {
+        key: parse_number((funnel_map.get(label) or {}).get("Grand Total"))
+        for key, label in funnel_fields.items()
+    }
+    connections = counts.get("buyer_connections")
+    result = dict(counts)
+    for key, value in counts.items():
+        if key == "buyer_connections":
+            continue
+        pct = None
+        if connections not in (None, 0) and value is not None:
+            pct = round(value / connections * 100, 1)
+        result[f"{key}_pct_of_connections"] = pct
+    return result
+
+
 def build_company_snapshot(rows: Mapping) -> dict:
     flex_rows = _sheet(rows, "Performance", "Home_Flex_Card")
     flex = flex_rows[0] if flex_rows else {}
@@ -103,10 +127,7 @@ def build_company_snapshot(rows: Mapping) -> dict:
             "rolling_6m_target": parse_number(_latest_series_value(flex_detail_map.get("L6M Trx Target"))),
             "rolling_6m_attainment": parse_percent(_latest_series_value(flex_detail_map.get("L6M % to Trx Target"))),
         },
-        "funnel": {
-            key: parse_number((funnel_map.get(label) or {}).get("Grand Total"))
-            for key, label in funnel_fields.items()
-        },
+        "funnel": _funnel_with_conversion(funnel_map, funnel_fields),
         "zhl": {
             "buyer_connections": parse_number(_latest_series_value(zhl_map.get("Total Buyer Connections"))),
             "transfer_rate": parse_percent(_latest_series_value(zhl_map.get("Overall Transfer Rate"))),
