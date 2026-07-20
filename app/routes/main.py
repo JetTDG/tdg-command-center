@@ -24,6 +24,7 @@ from app.models import (
     ZillowAgentSnapshot, ZillowLeadAlert, ZillowZhlFollowup,
 )
 from app.conversion_stats import get_blended_defaults
+from app.luxury import sql_luxury_predicate, sql_luxury_closed_predicate, qualifies_as_luxury
 from app import db
 from datetime import datetime, date
 from sqlalchemy import func, extract, or_, and_
@@ -62,11 +63,14 @@ def home():
     # Division-based filtering — robust against transaction_type name changes
     # 'Commercial' division = all CRE deals regardless of specific type
     # 'Residential' division = all residential deals
+    # 'Luxury' = Residential subset with price >= $750k (uses qualification logic)
     def _div_filter(q, division_filter=None):
         if division_filter == 'Commercial':
             q = q.filter(Transaction.division == 'Commercial')
         elif division_filter == 'Residential':
             q = q.filter(Transaction.division == 'Residential')
+        elif division_filter == 'Luxury':
+            q = q.filter(sql_luxury_predicate())
         return q
 
     def seg_count(status, division_filter=None):
@@ -306,6 +310,30 @@ def home():
             'presigned_count':      presigned_count_comm,
             'presigned_gci':        presigned_gci_comm,
         },
+        'luxury': {
+            'ytd_closed':           closed_q_base(division_filter='Luxury').count(),
+            'ytd_gci':              closed_sum_base(Transaction.gci, division_filter='Luxury'),
+            'month_gci':            mtd_closed_gci(division_filter='Luxury'),
+            'month_closed':         mtd_closed_count(division_filter='Luxury'),
+            'pending_count':        pending_count_q(division_filter='Luxury'),
+            'projected_gci':        pending_gci_q(division_filter='Luxury'),
+            'pending_gci':          pending_gci_q(division_filter='Luxury'),
+            'pending_uc_mtd':       pending_uc_mtd_q(division_filter='Luxury'),
+            'goal_pct':             round(goal_pct, 1),
+            'team_goal':            team_goal,
+            'listings_signed':      Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Listing', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
+            'listings_signed_mtd':  Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Listing', Transaction.signed_date>=mtd_start, Transaction.signed_date<=mtd_end).count(),
+            'buyers_signed':        Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Buyer', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
+            'buyers_signed_mtd':    Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Buyer', Transaction.signed_date>=mtd_start, Transaction.signed_date<=mtd_end).count(),
+            'active_listings':      Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Listing', Transaction.status=='Active').count(),
+            'active_buyers':        Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Buyer',   Transaction.status=='Active').count(),
+            'offers_mtd':           0,
+            'acceptance_rate_mtd':  0.0,
+            'offers_ytd':           0,
+            'acceptance_rate_ytd':  0.0,
+            'presigned_count':      Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.status.in_(['Pre-Signed','Signed','Coming Soon'])).count(),
+            'presigned_gci':        float(db.session.query(func.sum(Transaction.gci)).filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.status.in_(['Pre-Signed','Signed','Coming Soon'])).scalar() or 0),
+        },
     }
 
     # Recent transactions — each segment gets its own top-10 query so Commercial
@@ -314,6 +342,7 @@ def home():
     recent_all  = _base().order_by(Transaction.signed_date.desc().nullslast()).limit(10).all()
     recent_res  = _base().filter(Transaction.division == 'Residential').order_by(Transaction.signed_date.desc().nullslast()).limit(10).all()
     recent_comm = _base().filter(Transaction.division == 'Commercial').order_by(Transaction.signed_date.desc().nullslast()).limit(10).all()
+    recent_luxury = _base().filter(sql_luxury_predicate()).order_by(Transaction.signed_date.desc().nullslast()).limit(10).all()
 
     def t_to_dict(t):
         # Buyer vs Seller label
@@ -345,6 +374,7 @@ def home():
         'combined': [t_to_dict(t) for t in recent_all[:10]],
         'res':      [t_to_dict(t) for t in recent_res],
         'comm':     [t_to_dict(t) for t in recent_comm],
+        'luxury':   [t_to_dict(t) for t in recent_luxury],
     }
 
     # Monthly trend — full year, all 12 months, Closed + Pending, Residential + Commercial
