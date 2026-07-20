@@ -54,7 +54,7 @@
 - Modify: `app/templates/base.html`
 
 1. Add `/luxury` behind login.
-2. Query non-archived Closed Residential transactions with `sale_price >= 750000`, grouped by close-date month for the current year and previous four years.
+2. Query Closed Residential transactions with `sale_price >= 750000`, grouped by close-date month for the current year and previous four years. Include archived historical rows for completed prior years (Command Center archives completed-year history), but require `archived = false` for the current year so current duplicate/orphan rows stay excluded.
 3. Render a responsive Chart.js line chart with one series per year and monthly closed-unit counts.
 4. Add desktop sidebar and mobile More-drawer navigation links.
 
