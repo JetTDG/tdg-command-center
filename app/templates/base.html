@@ -600,6 +600,10 @@
            href="{{ url_for('main.ceo_summary') }}">
           <i class="bi bi-bar-chart-line"></i> CEO Summary
         </a>
+        <a class="nav-link {% if request.endpoint == 'main.luxury' %}active{% endif %}"
+           href="{{ url_for('main.luxury') }}">
+          <i class="bi bi-gem"></i> TDG Luxury
+        </a>
         <a class="nav-link {% if 'ask' in request.endpoint %}active{% endif %}"
            href="{{ url_for('main.ask') }}">
           <i class="bi bi-chat-dots"></i> Ask TDG
@@ -688,6 +692,9 @@
         </a>
         <a href="{{ url_for('main.business_plan') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if 'business_plan' in request.endpoint %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
           <i class="bi bi-clipboard-data" style="font-size:1.1rem;{% if 'business_plan' in request.endpoint %}color:var(--tdg-gold);{% endif %}"></i>Biz Plan
+        </a>
+        <a href="{{ url_for('main.luxury') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if request.endpoint == 'main.luxury' %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
+          <i class="bi bi-gem" style="font-size:1.1rem;{% if request.endpoint == 'main.luxury' %}color:var(--tdg-gold);{% endif %}"></i>TDG Luxury
         </a>
         {% if current_user.is_admin %}
         <a href="{{ url_for('main.zillow_performance') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if request.endpoint == 'main.zillow_performance' %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">

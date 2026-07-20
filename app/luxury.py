@@ -35,9 +35,9 @@ def qualifies_as_luxury(status, sale_price, list_price, division):
         # Must have a positive sale_price >= threshold
         return sale_price is not None and sale_price >= LUXURY_THRESHOLD
     
-    # Open transactions: use sale_price if positive, else fall back to list_price
-    # Check sale_price first (if positive, use it)
-    if sale_price:  # Truthy check (None, 0, or negative all fail)
+    # Open transactions: use sale_price only when it is positive; otherwise
+    # fall back to list_price. This deliberately mirrors sql_luxury_predicate().
+    if sale_price is not None and sale_price > 0:
         return sale_price >= LUXURY_THRESHOLD
     
     # Fall back to list_price
@@ -74,6 +74,24 @@ def normalize_segment(segment):
     
     # Unknown segment — return as-is (caller will handle)
     return segment
+
+
+def apply_segment_filter(query, segment):
+    """Apply a canonical Command Center segment to a Transaction query.
+
+    ``all``/``combined`` leave the query unchanged. Luxury always uses the
+    shared status-aware price rule so every reporting surface agrees.
+    """
+    from app.models import Transaction
+
+    key = (segment or 'combined').strip().lower()
+    if key in ('res', 'residential'):
+        return query.filter(Transaction.division == 'Residential')
+    if key in ('comm', 'commercial'):
+        return query.filter(Transaction.division == 'Commercial')
+    if key == 'luxury':
+        return query.filter(sql_luxury_predicate())
+    return query
 
 
 def sql_luxury_predicate():

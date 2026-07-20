@@ -100,6 +100,15 @@ class TestLuxuryQualification:
             list_price=800000,
             division='Residential'
         ) is True
+
+        # Negative/non-positive sale_price is not a usable entered price;
+        # fall back to the list price just as the SQL predicate does.
+        assert qualifies_as_luxury(
+            status='Active',
+            sale_price=-1,
+            list_price=800000,
+            division='Residential'
+        ) is True
         
         # Open, no sale_price, $700k list_price -> does not qualify
         assert qualifies_as_luxury(

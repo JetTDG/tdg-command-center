@@ -11,6 +11,7 @@
       <button type="button" class="btn btn-outline-secondary active" id="seg-combined" onclick="setSegment('combined',this)">Combined</button>
       <button type="button" class="btn btn-outline-secondary" id="seg-res" onclick="setSegment('res',this)">Residential</button>
       <button type="button" class="btn btn-outline-secondary" id="seg-comm" onclick="setSegment('comm',this)">Commercial</button>
+      <button type="button" class="btn btn-outline-secondary" id="seg-luxury" onclick="setSegment('luxury',this)">Luxury</button>
     </div>
     <form method="GET" class="d-flex gap-2">
       <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -279,7 +280,7 @@ const usd = v => '$' + Number(v||0).toLocaleString('en-US', {maximumFractionDigi
 function setSegment(s, btn) {
   segment = s;
   // toggle active state only within the segment button group
-  ['seg-combined','seg-res','seg-comm'].forEach(id => document.getElementById(id).classList.remove('active'));
+  ['seg-combined','seg-res','seg-comm','seg-luxury'].forEach(id => document.getElementById(id).classList.remove('active'));
   btn.classList.add('active');
 
   const d = segData[s];

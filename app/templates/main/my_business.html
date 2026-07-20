@@ -16,6 +16,13 @@
   </a>
 </div>
 
+<div class="btn-group btn-group-sm mb-3" role="group" aria-label="Division view">
+  {% for value, label in [('combined','Combined'),('residential','Residential'),('commercial','Commercial'),('luxury','Luxury')] %}
+  <button type="button" class="btn {% if selected_segment == value %}btn-gold{% else %}btn-outline-secondary{% endif %}"
+          onclick="setMbSegment('{{ value }}')">{{ label }}</button>
+  {% endfor %}
+</div>
+
 {% if selected_all_years %}
 <div class="alert alert-warning py-2 px-3 mb-2" style="font-size:0.8rem;">
   <i class="bi bi-exclamation-triangle me-1"></i>
@@ -57,6 +64,7 @@
 
 <!-- Year / Month / Date filter bar -->
 <form method="GET" class="row g-2 mb-2 align-items-center flex-wrap" id="year-form" {% if selected_all_years %}style="opacity:0.45;pointer-events:none;"{% endif %}>
+  <input type="hidden" name="segment" value="{{ selected_segment }}">
   <!-- Year -->
   <div class="col-auto">
     <select name="year" class="form-select form-select-sm" onchange="monthChanged()" {% if selected_all_years %}disabled{% endif %}>
@@ -92,6 +100,12 @@
 </form>
 
 <script>
+function setMbSegment(segment) {
+  var url = new URL(window.location.href);
+  url.searchParams.set('segment', segment);
+  window.location.href = url.toString();
+}
+
 function monthChanged() {
   var m = document.getElementById('month-select').value;
   var wrap = document.getElementById('date-range-wrap');

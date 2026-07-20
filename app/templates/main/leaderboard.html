@@ -22,6 +22,15 @@
     </select>
   </div>
   {% endif %}
+  <div class="col-auto">
+    <div class="btn-group btn-group-sm" role="group" aria-label="Division view">
+      {% for value, label in [('all','Combined'),('residential','Residential'),('commercial','Commercial'),('luxury','Luxury')] %}
+      <input type="radio" class="btn-check" name="category" value="{{ value }}" id="lb-{{ value }}"
+             {% if selected_category == value %}checked{% endif %} autocomplete="off">
+      <label class="btn btn-outline-secondary" for="lb-{{ value }}">{{ label }}</label>
+      {% endfor %}
+    </div>
+  </div>
   <div class="col-auto"><button class="btn btn-sm btn-gold">Apply</button></div>
 </form>
 

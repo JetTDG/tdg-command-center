@@ -31,13 +31,12 @@
     <option value="{{ m }}" {% if month|string == m|string %}selected{% endif %}>{{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1] }}</option>
     {% endfor %}
   </select>
-  {% if has_commercial %}
   <select name="division" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
-    <option value="all" {% if division == 'all' %}selected{% endif %}>All Divisions</option>
+    <option value="all" {% if division == 'all' %}selected{% endif %}>Combined</option>
     <option value="Residential" {% if division == 'Residential' %}selected{% endif %}>Residential</option>
     <option value="Commercial" {% if division == 'Commercial' %}selected{% endif %}>Commercial</option>
+    <option value="Luxury" {% if division == 'Luxury' %}selected{% endif %}>Luxury</option>
   </select>
-  {% endif %}
 </form>
 
 {# ── KPI summary row: 3 grouped cards (Closed / Pending / Projected) ─────── #}

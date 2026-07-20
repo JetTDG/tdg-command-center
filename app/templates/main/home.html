@@ -12,6 +12,7 @@
     <button type="button" class="btn btn-gold"              id="gbtn-combined" onclick="setSegment('combined')">Combined</button>
     <button type="button" class="btn btn-outline-secondary" id="gbtn-res"      onclick="setSegment('res')">Residential</button>
     <button type="button" class="btn btn-outline-secondary" id="gbtn-comm"     onclick="setSegment('comm')">Commercial</button>
+    <button type="button" class="btn btn-outline-secondary" id="gbtn-luxury"  onclick="setSegment('luxury')">Luxury</button>
   </div>
 </div>
 
@@ -202,16 +203,19 @@ const data = {
   gci: {
     res:      { closed: trend.map(r => r.gci_closed_res),  pending: trend.map(r => r.gci_pending_res)  },
     comm:     { closed: trend.map(r => r.gci_closed_comm), pending: trend.map(r => r.gci_pending_comm) },
+    luxury:  { closed: trend.map(r => r.gci_closed_luxury), pending: trend.map(r => r.gci_pending_luxury) },
     combined: { closed: trend.map(r => r.gci_closed_res + r.gci_closed_comm), pending: trend.map(r => r.gci_pending_res + r.gci_pending_comm) }
   },
   vol: {
     res:      { closed: trend.map(r => r.vol_closed_res),  pending: trend.map(r => r.vol_pending_res)  },
     comm:     { closed: trend.map(r => r.vol_closed_comm), pending: trend.map(r => r.vol_pending_comm) },
+    luxury:  { closed: trend.map(r => r.vol_closed_luxury), pending: trend.map(r => r.vol_pending_luxury) },
     combined: { closed: trend.map(r => r.vol_closed_res + r.vol_closed_comm), pending: trend.map(r => r.vol_pending_res + r.vol_pending_comm) }
   },
   units: {
     res:      { closed: trend.map(r => r.units_closed_res),  pending: trend.map(r => r.units_pending_res)  },
     comm:     { closed: trend.map(r => r.units_closed_comm), pending: trend.map(r => r.units_pending_comm) },
+    luxury:  { closed: trend.map(r => r.units_closed_luxury), pending: trend.map(r => r.units_pending_luxury) },
     combined: { closed: trend.map(r => r.units_closed_res + r.units_closed_comm), pending: trend.map(r => r.units_pending_res + r.units_pending_comm) }
   }
 };
@@ -281,7 +285,7 @@ function refreshChart() {
   chart.data.datasets[0].data = d.closed;
   chart.data.datasets[1].data = d.pending;
   const mLabel = metric==='gci' ? 'GCI' : metric==='vol' ? 'Volume' : 'Units';
-  const sLabel = segment==='combined' ? 'Combined' : segment==='res' ? 'Residential' : 'Commercial';
+  const sLabel = segment==='combined' ? 'Combined' : segment==='res' ? 'Residential' : segment==='comm' ? 'Commercial' : 'Luxury';
   document.getElementById('chart-title').textContent = `${mLabel} Trend — Full Year {{ year }} — ${sLabel}`;
   chart.options.scales.y.ticks.callback = v => metric==='units' ? v : '$'+fmt(v);
   chart.update();
@@ -324,7 +328,7 @@ function refreshKPI() {
 
 function refreshRecent() {
   const rows = recentData[segment];
-  const segLabel = segment==='combined'?'Combined':segment==='res'?'Residential':'Commercial';
+  const segLabel = segment==='combined'?'Combined':segment==='res'?'Residential':segment==='comm'?'Commercial':'Luxury';
   document.getElementById('recent-seg-label').textContent = segLabel;
   const statusClass = s => s.replace(/\s+/g,'-');
   const tbody = document.getElementById('recent-tbody');
@@ -357,9 +361,9 @@ function refreshRecent() {
 
 function setSegment(s) {
   segment = s;
-  const segLabel = s==='combined'?'Combined':s==='res'?'Residential':'Commercial';
+  const segLabel = s==='combined'?'Combined':s==='res'?'Residential':s==='comm'?'Commercial':'Luxury';
   document.getElementById('dash-subtitle').textContent = '{{ current_month }} {{ year }} — Live Overview — ' + segLabel;
-  ['combined','res','comm'].forEach(id => {
+  ['combined','res','comm','luxury'].forEach(id => {
     const btn = document.getElementById('gbtn-' + id);
     btn.className = 'btn btn-sm ' + (id===s ? 'btn-gold' : 'btn-outline-secondary');
   });

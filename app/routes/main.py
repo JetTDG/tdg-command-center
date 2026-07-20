@@ -24,7 +24,12 @@ from app.models import (
     ZillowAgentSnapshot, ZillowLeadAlert, ZillowZhlFollowup,
 )
 from app.conversion_stats import get_blended_defaults
-from app.luxury import sql_luxury_predicate, sql_luxury_closed_predicate, qualifies_as_luxury
+from app.luxury import (
+    apply_segment_filter,
+    qualifies_as_luxury,
+    sql_luxury_closed_predicate,
+    sql_luxury_predicate,
+)
 from app import db
 from datetime import datetime, date
 from sqlalchemy import func, extract, or_, and_
@@ -476,16 +481,22 @@ def home():
             'month': calendar.month_abbr[m],
             'gci_closed_res':    msum(['Closed'],   division_filter='Residential'),
             'gci_closed_comm':   msum(['Closed'],   division_filter='Commercial'),
+            'gci_closed_luxury': msum(['Closed'],   division_filter='Luxury'),
             'gci_pending_res':   msum(['Pending'],  division_filter='Residential'),
             'gci_pending_comm':  msum(['Pending'],  division_filter='Commercial'),
+            'gci_pending_luxury':msum(['Pending'],  division_filter='Luxury'),
             'vol_closed_res':    mvolume(['Closed'],  division_filter='Residential'),
             'vol_closed_comm':   mvolume(['Closed'],  division_filter='Commercial'),
+            'vol_closed_luxury': mvolume(['Closed'],  division_filter='Luxury'),
             'vol_pending_res':   mvolume(['Pending'], division_filter='Residential'),
             'vol_pending_comm':  mvolume(['Pending'], division_filter='Commercial'),
+            'vol_pending_luxury':mvolume(['Pending'], division_filter='Luxury'),
             'units_closed_res':  mcount(['Closed'],   division_filter='Residential'),
             'units_closed_comm': mcount(['Closed'],   division_filter='Commercial'),
+            'units_closed_luxury':mcount(['Closed'],  division_filter='Luxury'),
             'units_pending_res': mcount(['Pending'],  division_filter='Residential'),
             'units_pending_comm':mcount(['Pending'],  division_filter='Commercial'),
+            'units_pending_luxury':mcount(['Pending'], division_filter='Luxury'),
         })
 
     return render_template('main/home.html',
@@ -522,7 +533,9 @@ def home():
 
 # ─── MY BUSINESS ────────────────────────────────────────────────────────────
 
-def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter, type_filter, lead_source_filter, admin_filter, all_years=False):
+def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter,
+              type_filter, lead_source_filter, admin_filter, all_years=False,
+              segment='combined'):
     """Shared query builder for My Business — used by both view and CSV export.
 
     all_years=True bypasses ALL year filtering entirely (no `year` column, no
@@ -568,7 +581,7 @@ def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter, t
     if type_filter:   query = query.filter(Transaction.transaction_type == type_filter)
     if lead_source_filter: query = query.filter(Transaction.lead_source == lead_source_filter)
     if admin_filter: query = query.filter(Transaction.admin_name == admin_filter)
-    return query
+    return apply_segment_filter(query, segment)
 
 # ─── LUXURY PAGE ────────────────────────────────────────────────────────────
 
@@ -576,9 +589,10 @@ def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter, t
 @login_required
 def luxury():
     """
-    Dedicated Luxury segment page showing monthly closed units YoY.
+    Dedicated TDG Luxury page showing monthly closed units YoY.
     Current year + prior 4 years, grouped by close_date month.
-    Only non-archived Closed Residential rows with sale_price >= 750000.
+    Prior years include archived history; the current year excludes archived
+    rows to match Command Center's established historical reporting rules.
     """
     year = current_year()
     
@@ -586,10 +600,13 @@ def luxury():
     # Only count closed transactions (sale_price >= 750k is mandatory for closed)
     start_year = year - 4
     luxury_txns = Transaction.query.filter(
-        Transaction.archived == False,
         sql_luxury_closed_predicate(),
         extract('year', Transaction.close_date) >= start_year,
         extract('year', Transaction.close_date) <= year,
+        or_(
+            extract('year', Transaction.close_date) < year,
+            Transaction.archived == False,
+        ),
     ).all()
     
     # Build monthly data structure: {year: [jan_count, feb_count, ..., dec_count]}
@@ -626,8 +643,7 @@ def luxury():
     return render_template('main/luxury.html',
                          year=year,
                          chart_labels=chart_labels,
-                         chart_datasets=datasets,
-                         total_luxury_txns=len(luxury_txns))
+                         chart_datasets=datasets)
 
 @bp.route('/my-business/export.csv')
 @login_required
@@ -643,10 +659,13 @@ def my_business_csv():
     lead_source_filter = request.args.get('lead_source', '')
     admin_filter     = request.args.get('admin_name', '')
     all_years        = request.args.get('all_years', '') == '1'
+    segment          = request.args.get('segment', 'combined').lower()
+    if segment not in ('combined', 'residential', 'commercial', 'luxury'):
+        segment = 'combined'
 
     txns = _mb_query(year, month_filter, date_from, date_to, agent_id,
                      status_filter, type_filter, lead_source_filter, admin_filter,
-                     all_years=all_years
+                     all_years=all_years, segment=segment
                     ).order_by(Transaction.id.desc()).all()
 
     def fmt_date(d): return d.strftime('%m/%d/%Y') if d else ''
@@ -714,65 +733,40 @@ def my_business():
     lead_source_filter = request.args.get('lead_source', '')
     admin_filter     = request.args.get('admin_name', '')
     all_years        = request.args.get('all_years', '') == '1'
+    segment          = request.args.get('segment', 'combined').lower()
+    if segment not in ('combined', 'residential', 'commercial', 'luxury'):
+        segment = 'combined'
 
     query = _mb_query(year, month_filter, date_from, date_to, agent_id,
                       status_filter, type_filter, lead_source_filter, admin_filter,
-                      all_years=all_years)
+                      all_years=all_years, segment=segment)
 
     transactions = query.order_by(Transaction.id.desc()).all()
 
-    # Summary counts (year column may be null on imported data; use close_date year as fallback)
-    def year_filter(model):
-        return or_(
-            model.year == year,
-            and_(model.year == None, extract('year', model.close_date) == year),
-            and_(model.year == None, model.close_date == None, extract('year', model.signed_date) == year)
-        )
-
-    # Summary counts — single query with CASE expressions instead of 5 separate COUNTs
-    from sqlalchemy import case, func as _func
-    _counts = db.session.query(
-        _func.count().filter(
-            Transaction.archived == False,
+    # Summary counts use the same selected segment as the transaction table.
+    _summary_base = apply_segment_filter(
+        Transaction.query.filter(Transaction.archived == False), segment)
+    _year_match = or_(
+        Transaction.year == year,
+        and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
+        and_(Transaction.year == None, Transaction.close_date == None,
+             extract('year', Transaction.signed_date) == year),
+    )
+    summary = {
+        'active_listings': _summary_base.filter(
             Transaction.transaction_type == 'Listing',
-            Transaction.status == 'Active',
-        ).label('active_listings'),
-        _func.count().filter(
-            Transaction.archived == False,
+            Transaction.status == 'Active').count(),
+        'active_buyers': _summary_base.filter(
             Transaction.transaction_type == 'Buyer',
-            Transaction.status == 'Active',
-        ).label('active_buyers'),
-        _func.count().filter(
-            Transaction.archived == False,
+            Transaction.status == 'Active').count(),
+        'pending': _summary_base.filter(
             Transaction.status == 'Pending',
             Transaction.projected_close_date.isnot(None),
-            extract('year', Transaction.projected_close_date) == year,
-        ).label('pending'),
-        _func.count().filter(
-            Transaction.archived == False,
-            Transaction.status == 'Closed',
-            or_(
-                Transaction.year == year,
-                and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
-                and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year),
-            ),
-        ).label('closed'),
-        _func.count().filter(
-            Transaction.archived == False,
-            Transaction.status == 'Pre-Signed',
-            or_(
-                Transaction.year == year,
-                and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
-                and_(Transaction.year == None, Transaction.close_date == None, extract('year', Transaction.signed_date) == year),
-            ),
-        ).label('pipeline'),
-    ).one()
-    summary = {
-        'active_listings': _counts.active_listings,
-        'active_buyers':   _counts.active_buyers,
-        'pending':         _counts.pending,
-        'closed':          _counts.closed,
-        'pipeline':        _counts.pipeline,
+            extract('year', Transaction.projected_close_date) == year).count(),
+        'closed': _summary_base.filter(
+            Transaction.status == 'Closed', _year_match).count(),
+        'pipeline': _summary_base.filter(
+            Transaction.status == 'Pre-Signed', _year_match).count(),
     }
 
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
@@ -811,6 +805,7 @@ def my_business():
         selected_lead_source=lead_source_filter,
         selected_admin=admin_filter,
         selected_all_years=all_years,
+        selected_segment=segment,
         years=list(range(2020, current_year()+2))
     )
 
@@ -1315,10 +1310,10 @@ def delete_lead_gen(lid):
 
 # ─── LEADERBOARD ────────────────────────────────────────────────────────────
 
-def _build_leaderboard(year, statuses, transaction_types=None, month=None):
+def _build_leaderboard(year, statuses, segment='all', month=None):
     """Return ALL active agents ranked by agent GCI for given year and list of statuses.
     Agents with 0 are included. Deduplication is by agent_id (not free-text name).
-    Optionally filter by transaction_types and month."""
+    Optionally filter by canonical division segment and month."""
     from app.models import Agent as AgentModel
     active_agents = AgentModel.query.filter_by(status='Active').order_by(AgentModel.name).all()
 
@@ -1336,8 +1331,7 @@ def _build_leaderboard(year, statuses, transaction_types=None, month=None):
                 )
             )
         )
-        if transaction_types:
-            q = q.filter(Transaction.transaction_type.in_(transaction_types))
+        q = apply_segment_filter(q, segment)
         if month:
             q = q.filter(Transaction.month == month)
         txns = q.all()
@@ -1426,20 +1420,18 @@ def leaderboard():
     for i, row in enumerate(board):
         row['rank'] = i + 1
 
-    # Category filter: all / residential / commercial
+    # Category filter: all / residential / commercial / luxury
     category = request.args.get('category', 'all')
-    tx_types = None
-    if category == 'residential':
-        tx_types = ['Listing', 'Buyer']
-    elif category == 'commercial':
-        tx_types = ['Commercial']
+    if category not in ('all', 'residential', 'commercial', 'luxury'):
+        category = 'all'
 
     lb_month = month if timeframe == 'This Month' else None
 
     # ── Three focused leaderboard lists (by primary_agent_name) ──
-    leaderboard_closed   = _build_leaderboard(year, ['Closed'],           tx_types, lb_month)
-    leaderboard_pending  = _build_leaderboard(year, ['Pending'],          tx_types, lb_month)
-    leaderboard_combined = _build_leaderboard(year, ['Closed', 'Pending'],tx_types, lb_month)
+    leaderboard_closed   = _build_leaderboard(year, ['Closed'], category, lb_month)
+    leaderboard_pending  = _build_leaderboard(year, ['Pending'], category, lb_month)
+    leaderboard_combined = _build_leaderboard(
+        year, ['Closed', 'Pending'], category, lb_month)
 
     months = [(i, calendar.month_name[i]) for i in range(1, 13)]
     return render_template('main/leaderboard.html',
@@ -1522,12 +1514,8 @@ def leaderboard_agent_deals():
     except ValueError:
         pass
     # Category filter
-    if category == 'residential':
-        filters.append(Transaction.transaction_type.in_(['Listing', 'Buyer']))
-    elif category == 'commercial':
-        filters.append(Transaction.transaction_type.in_(['Commercial']))
-
-    txns = Transaction.query.filter(*filters).order_by(
+    query = apply_segment_filter(Transaction.query.filter(*filters), category)
+    txns = query.order_by(
         Transaction.status,                   # Pending before Closed
         Transaction.projected_close_date
     ).all()
@@ -1928,8 +1916,13 @@ def ceo_summary():
     def is_comm(t): return (t.division or '') == 'Commercial'
 
     def seg_filter(rows, seg):
-        if seg == 'res':  return [t for t in rows if not is_comm(t)]
-        if seg == 'comm': return [t for t in rows if is_comm(t)]
+        if seg == 'res':
+            return [t for t in rows if not is_comm(t)]
+        if seg == 'comm':
+            return [t for t in rows if is_comm(t)]
+        if seg == 'luxury':
+            return [t for t in rows if qualifies_as_luxury(
+                t.status, t.sale_price, t.list_price, t.division)]
         return rows
 
     def build_segment(seg):
@@ -2033,6 +2026,7 @@ def ceo_summary():
         'combined': build_segment('combined'),
         'res':      build_segment('res'),
         'comm':     build_segment('comm'),
+        'luxury':  build_segment('luxury'),
     }
 
     team_gci_goal = get_team_goal(year)
@@ -2316,7 +2310,9 @@ def scorecard(agent_id):
     agent = Agent.query.get_or_404(agent_id)
     year = int(request.args.get('year', current_year()))
     month = request.args.get('month', 'all')  # 'all' or 1-12
-    division = request.args.get('division', 'all')  # 'all', 'Residential', 'Commercial'
+    division = request.args.get('division', 'all')
+    if division not in ('all', 'Residential', 'Commercial', 'Luxury'):
+        division = 'all'
 
     # All agents for switcher dropdown (admin only)
     all_agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
@@ -2330,8 +2326,7 @@ def scorecard(agent_id):
         Transaction.member4_name.ilike(f'%{agent.name}%'),
     )
     txn_q = Transaction.query.filter(txn_filter, Transaction.year == year, Transaction.archived == False)
-    if division != 'all':
-        txn_q = txn_q.filter(Transaction.division == division)
+    txn_q = apply_segment_filter(txn_q, division)
     if month != 'all':
         txn_q = txn_q.filter(Transaction.month == int(month))
 
@@ -2378,8 +2373,7 @@ def scorecard(agent_id):
     from collections import defaultdict
     # Use full-year (no month filter) for source conversion
     source_txns_q = Transaction.query.filter(txn_filter, Transaction.year == year, Transaction.archived == False)
-    if division != 'all':
-        source_txns_q = source_txns_q.filter(Transaction.division == division)
+    source_txns_q = apply_segment_filter(source_txns_q, division)
     source_txns = source_txns_q.all()
 
     source_map = defaultdict(lambda: {'received': 0, 'active': 0, 'pending': 0, 'closed': 0, 'income': 0.0})
@@ -2465,8 +2459,7 @@ def scorecard(agent_id):
         Transaction.year >= 2022,
         Transaction.year <= 2025,
     )
-    if division != 'all':
-        _seas_rows = _seas_rows.filter(Transaction.division == division)
+    _seas_rows = apply_segment_filter(_seas_rows, division)
     _seas_rows = _seas_rows.all()
 
     # Fraction of each metric's annual total that lands in month m (1-12)
@@ -2554,8 +2547,7 @@ def scorecard(agent_id):
         Transaction.status == 'Closed',
         Transaction.close_date >= _rolling_start,
     )
-    if division != 'all':
-        _rolling_q = _rolling_q.filter(Transaction.division == division)
+    _rolling_q = apply_segment_filter(_rolling_q, division)
     rolling_12_closed = _rolling_q.all()
 
     SELF_GEN_TARGET = 40_000
@@ -2600,8 +2592,7 @@ def scorecard(agent_id):
         Transaction.archived == False,
         Transaction.transaction_type != 'Referral',
     )
-    if division != 'all':
-        _comm_rolling_q = _comm_rolling_q.filter(Transaction.division == division)
+    _comm_rolling_q = apply_segment_filter(_comm_rolling_q, division)
     _comm_txns = _comm_rolling_q.all()
     _total_gci    = sum(t.gci or 0 for t in _comm_txns)
     _total_volume = sum(t.sale_price or 0 for t in _comm_txns)
@@ -2722,6 +2713,8 @@ def scorecard_drill(agent_id):
     drill_type = request.args.get('type', '')
     year = int(request.args.get('year', current_year()))
     division = request.args.get('division', 'all')
+    if division not in ('all', 'Residential', 'Commercial', 'Luxury'):
+        division = 'all'
 
     txn_filter = or_(
         Transaction.agent_id == agent_id,
@@ -2778,8 +2771,7 @@ def scorecard_drill(agent_id):
             Transaction.close_date >= _rolling_start,
             Transaction.archived == False,
         )
-        if division != 'all':
-            q = q.filter(Transaction.division == division)
+        q = apply_segment_filter(q, division)
         rows = q.order_by(Transaction.close_date.desc()).all()
         if drill_type == 'self_gen':
             txns = [t for t in rows if t.lead_type == 'Agent']
@@ -2793,8 +2785,7 @@ def scorecard_drill(agent_id):
             Transaction.status == 'Closed',
             Transaction.archived == False,
         )
-        if division != 'all':
-            q = q.filter(Transaction.division == division)
+        q = apply_segment_filter(q, division)
         txns = q.order_by(Transaction.close_date.desc()).all()
 
     elif drill_type == 'pending':
@@ -2805,8 +2796,7 @@ def scorecard_drill(agent_id):
             Transaction.status == 'Pending',
             Transaction.archived == False,
         )
-        if division != 'all':
-            q = q.filter(Transaction.division == division)
+        q = apply_segment_filter(q, division)
         txns = q.order_by(Transaction.projected_close_date.asc()).all()
 
     else:
