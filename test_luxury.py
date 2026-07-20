@@ -182,5 +182,22 @@ class TestLuxurySQLPredicate:
         assert predicate is not None
 
 
+class TestLuxuryEffectivePrice:
+    """Metrics must use the same effective price rule as qualification."""
+
+    def test_effective_price_matches_closed_and_open_rules(self):
+        from app.luxury import effective_luxury_price
+
+        assert effective_luxury_price('Closed', None, 900_000) == 0
+        assert effective_luxury_price('Pending', 700_000, 900_000) == 700_000
+        assert effective_luxury_price('Pending', None, 900_000) == 900_000
+        assert effective_luxury_price('Active', 0, 800_000) == 800_000
+
+    def test_sql_effective_price_expression_is_constructible(self):
+        from app.luxury import sql_luxury_effective_price
+
+        assert sql_luxury_effective_price() is not None
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

@@ -140,6 +140,32 @@ def test_all_reporting_surfaces_render_luxury_control_and_drilldown(app):
     assert [deal["address"] for deal in payload["deals"]] == ["Luxury Closed"]
 
 
+def test_luxury_open_volume_uses_effective_price_across_reports(app):
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    home_text = client.get("/home").get_data(as_text=True)
+    trend_match = re.search(r"const trend\s*=\s*(\[.*?\]);", home_text, re.S)
+    assert trend_match, "Home trend JSON not found"
+    july = json.loads(trend_match.group(1))[6]
+    assert july["vol_pending_luxury"] == 900000
+
+    ceo_text = client.get("/ceo-summary").get_data(as_text=True)
+    seg_match = re.search(r"const segData\s*=\s*(\{.*?\});", ceo_text, re.S)
+    assert seg_match, "CEO segment JSON not found"
+    luxury = json.loads(seg_match.group(1))["luxury"]
+    assert luxury["proj_volume"] == 900000
+    assert luxury["monthly"][6]["pending_volume"] == 900000
+
+    leaderboard = client.get("/leaderboard?category=luxury")
+    assert "$900,000" in leaderboard.get_data(as_text=True)
+
+    scorecard = client.get(
+        f"/scorecard/{app.test_ids['agent']}?division=Luxury"
+    )
+    assert "$900,000" in scorecard.get_data(as_text=True)
+
+
 def test_luxury_yoy_includes_prior_archived_but_not_current_archived(app):
     client = app.test_client()
     login(client, app.test_ids["admin"])

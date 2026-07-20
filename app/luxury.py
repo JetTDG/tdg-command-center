@@ -7,7 +7,7 @@ Luxury is a subset of Residential with a $750,000 inclusive threshold.
 - Commercial transactions NEVER qualify
 """
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, case, func, or_
 
 
 LUXURY_THRESHOLD = 750000
@@ -46,6 +46,31 @@ def qualifies_as_luxury(status, sale_price, list_price, division):
     
     # Neither available
     return False
+
+
+def effective_luxury_price(status, sale_price, list_price):
+    """Return the price represented by a qualifying Luxury transaction.
+
+    Closed rows never fall back to list price. Open rows prefer a positive
+    sale price and otherwise use list price. Keeping aggregation on this rule
+    prevents a list-price-qualified pipeline row from displaying $0 volume.
+    """
+    if status == 'Closed':
+        return sale_price or 0
+    if sale_price is not None and sale_price > 0:
+        return sale_price
+    return list_price or 0
+
+
+def sql_luxury_effective_price():
+    """SQLAlchemy expression equivalent of :func:`effective_luxury_price`."""
+    from app.models import Transaction
+
+    return case(
+        (Transaction.status == 'Closed', func.coalesce(Transaction.sale_price, 0)),
+        (Transaction.sale_price > 0, Transaction.sale_price),
+        else_=func.coalesce(Transaction.list_price, 0),
+    )
 
 
 def normalize_segment(segment):

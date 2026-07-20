@@ -26,8 +26,10 @@ from app.models import (
 from app.conversion_stats import get_blended_defaults
 from app.luxury import (
     apply_segment_filter,
+    effective_luxury_price,
     qualifies_as_luxury,
     sql_luxury_closed_predicate,
+    sql_luxury_effective_price,
     sql_luxury_predicate,
 )
 from app import db
@@ -430,7 +432,14 @@ def home():
             closed_q = _div_filter(closed_q, division_filter)
             closed_sum = float(closed_q.scalar() or 0)
 
-            pending_q = db.session.query(func.sum(Transaction.sale_price)).filter(
+            # Open Luxury rows that qualify via list price must contribute that
+            # same effective price to volume instead of displaying as $0.
+            pending_price = (
+                sql_luxury_effective_price()
+                if division_filter == 'Luxury'
+                else Transaction.sale_price
+            )
+            pending_q = db.session.query(func.sum(pending_price)).filter(
                 Transaction.archived == False,
                 Transaction.status == 'Pending',
                 Transaction.projected_close_date.isnot(None),
@@ -1337,7 +1346,13 @@ def _build_leaderboard(year, statuses, segment='all', month=None):
         txns = q.all()
         gci    = float(sum((t.primary_agent_gci or 0) for t in txns))
         units  = len(txns)
-        volume = float(sum((t.sale_price or 0) for t in txns))
+        if segment == 'luxury':
+            volume = float(sum(
+                effective_luxury_price(t.status, t.sale_price, t.list_price)
+                for t in txns
+            ))
+        else:
+            volume = float(sum((t.sale_price or 0) for t in txns))
         result.append({
             'name':     agent.name,
             'gci':      gci,
@@ -1928,6 +1943,10 @@ def ceo_summary():
     def build_segment(seg):
         closed  = seg_filter(all_closed, seg)
         pending = seg_filter(all_pending, seg)
+        def pending_price(t):
+            if seg == 'luxury':
+                return effective_luxury_price(t.status, t.sale_price, t.list_price)
+            return t.sale_price or 0
         # monthly breakdown
         monthly = []
         for m in range(1, 13):
@@ -1939,7 +1958,7 @@ def ceo_summary():
                 'closed_gci':     round(sum((t.gci or 0) for t in mc), 2),
                 'pending_gci':    round(sum((t.gci or 0) for t in mp), 2),
                 'closed_volume':  round(sum((t.sale_price or 0) for t in mc), 2),
-                'pending_volume': round(sum((t.sale_price or 0) for t in mp), 2),
+                'pending_volume': round(sum(pending_price(t) for t in mp), 2),
                 'closed_co':      round(sum(company_dollar(t) for t in mc), 2),
                 'pending_co':     round(sum(company_dollar(t) for t in mp), 2),
                 'closed_units':   len(mc),
@@ -2002,7 +2021,7 @@ def ceo_summary():
             'ytd_co_dollar':  ytd_co_dollar,
             'ytd_units':      ytd_units,
             'proj_gci':       round(sum((t.gci or 0) for t in pending), 2),
-            'proj_volume':    round(sum((t.sale_price or 0) for t in pending), 2),
+            'proj_volume':    round(sum(pending_price(t) for t in pending), 2),
             'proj_co_dollar': round(sum(company_dollar(t) for t in pending), 2),
             'proj_units':     len(pending),
             'listings_signed':    ls,
@@ -2425,7 +2444,13 @@ def scorecard(agent_id):
     # ── Pending (under-contract) actuals ─────────────────────────────────────
     _pending_txns   = [t for t in pipeline_txns if t.status == 'Pending']
     pending_units   = len(_pending_txns)
-    pending_volume  = sum(t.sale_price or 0 for t in _pending_txns)
+    if division == 'Luxury':
+        pending_volume = sum(
+            effective_luxury_price(t.status, t.sale_price, t.list_price)
+            for t in _pending_txns
+        )
+    else:
+        pending_volume = sum(t.sale_price or 0 for t in _pending_txns)
     pending_income  = sum(agent_income(t) for t in _pending_txns)
 
     # Actual pending — no fall-through discount (show real under-contract numbers)
