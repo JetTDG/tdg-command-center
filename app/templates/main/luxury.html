@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block title %}Luxury Segment — TDG Command Center{% endblock %}
+{% block content %}
+
+<style>
+  .page-title { font-size: 1.75rem; font-weight: 700; color: #000; }
+  .page-subtitle { font-size: 0.95rem; color: #666; }
+  .stat-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .stat-label { font-size: 0.85rem; color: #999; text-transform: uppercase; font-weight: 600; }
+  .stat-value { font-size: 1.8rem; font-weight: 700; color: #000; margin: 0.5rem 0; }
+  .stat-sub { font-size: 0.9rem; color: #666; }
+</style>
+
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+  <div>
+    <div class="page-title">Luxury Segment</div>
+    <div class="page-subtitle">Monthly Closed Units — Year-over-Year Comparison</div>
+  </div>
+</div>
+
+<!-- Summary Card -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Luxury Transactions</div>
+      <div class="stat-value">{{ total_luxury_txns }}</div>
+      <div class="stat-sub">Closed Residential<br/>Sale Price ≥ $750K</div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart Card -->
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">Monthly Closed Units (Last 5 Years)</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="luxuryChart" style="max-height: 400px;"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+  const ctx = document.getElementById('luxuryChart').getContext('2d');
+  
+  const chartData = {
+    labels: {{ chart_labels | tojson }},
+    datasets: {{ chart_datasets | tojson }}
+  };
+  
+  const chart = new Chart(ctx, {
+    type: 'line',
+    data: chartData,
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            padding: 15,
+            font: { size: 12, weight: 'bold' }
+          }
+        },
+        title: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: Math.ceil(Math.max(...{{ chart_datasets | tojson }}.flatMap(d => d.data || [])) * 1.2),
+          ticks: {
+            stepSize: 1,
+            font: { size: 11 }
+          },
+          title: {
+            display: true,
+            text: 'Closed Units'
+          }
+        },
+        x: {
+          ticks: {
+            font: { size: 11 }
+          }
+        }
+      }
+    }
+  });
+</script>
+
+{% endblock %}

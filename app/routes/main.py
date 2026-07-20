@@ -570,6 +570,65 @@ def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter, t
     if admin_filter: query = query.filter(Transaction.admin_name == admin_filter)
     return query
 
+# ─── LUXURY PAGE ────────────────────────────────────────────────────────────
+
+@bp.route('/luxury')
+@login_required
+def luxury():
+    """
+    Dedicated Luxury segment page showing monthly closed units YoY.
+    Current year + prior 4 years, grouped by close_date month.
+    Only non-archived Closed Residential rows with sale_price >= 750000.
+    """
+    year = current_year()
+    
+    # Query: Closed Luxury transactions, current year + 4 prior years
+    # Only count closed transactions (sale_price >= 750k is mandatory for closed)
+    start_year = year - 4
+    luxury_txns = Transaction.query.filter(
+        Transaction.archived == False,
+        sql_luxury_closed_predicate(),
+        extract('year', Transaction.close_date) >= start_year,
+        extract('year', Transaction.close_date) <= year,
+    ).all()
+    
+    # Build monthly data structure: {year: [jan_count, feb_count, ..., dec_count]}
+    monthly_data = {}
+    for y in range(start_year, year + 1):
+        monthly_data[y] = [0] * 12
+    
+    # Count closed units by (year, month)
+    for tx in luxury_txns:
+        if tx.close_date:
+            tx_year = tx.close_date.year
+            tx_month = tx.close_date.month - 1  # 0-indexed for array
+            if tx_year in monthly_data:
+                monthly_data[tx_year][tx_month] += 1
+    
+    # Build Chart.js data structure
+    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    chart_labels = months
+    
+    # One dataset per year
+    datasets = []
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']  # blue, orange, green, red, purple
+    
+    for i, y in enumerate(range(start_year, year + 1)):
+        datasets.append({
+            'label': str(y),
+            'data': monthly_data[y],
+            'borderColor': colors[i % len(colors)],
+            'backgroundColor': colors[i % len(colors)] + '20',  # transparent
+            'borderWidth': 2,
+            'tension': 0.1,
+        })
+    
+    return render_template('main/luxury.html',
+                         year=year,
+                         chart_labels=chart_labels,
+                         chart_datasets=datasets,
+                         total_luxury_txns=len(luxury_txns))
+
 @bp.route('/my-business/export.csv')
 @login_required
 def my_business_csv():
