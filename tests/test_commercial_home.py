@@ -106,3 +106,8 @@ def test_commercial_view_renders_rep_section_and_listing_volume_footer(app):
     assert "Tenant Reps Signed" in text
     assert "signed listing volume" in text
     assert "commercial-rep-section" in text and "classList.toggle" in text
+
+    signed_row_start = text.index('id="signed-kpi-row"')
+    signed_row_end = text.index("<!-- Commercial-only representation activity -->", signed_row_start)
+    signed_row = text[signed_row_start:signed_row_end]
+    assert signed_row.count('class="stat-card h-100"') == 4

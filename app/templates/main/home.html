@@ -50,9 +50,9 @@
 </div>
 
 <!-- KPI Row 2 -->
-<div class="row g-3 mb-3">
+<div class="row g-3 mb-3" id="signed-kpi-row">
   <div class="col-6 col-md-3">
-    <div class="stat-card">
+    <div class="stat-card h-100">
       <div class="stat-label">Listings Signed</div>
       <div class="stat-value" id="k-ls">{{ listings_signed }}</div>
       <div class="stat-sub">YTD &nbsp;|&nbsp; MTD: <span id="k-ls-mtd">{{ listings_signed_mtd }}</span></div>
@@ -60,21 +60,21 @@
     </div>
   </div>
   <div class="col-6 col-md-3">
-    <div class="stat-card">
+    <div class="stat-card h-100">
       <div class="stat-label">Buyers Signed</div>
       <div class="stat-value" id="k-bs">{{ buyers_signed }}</div>
       <div class="stat-sub">YTD &nbsp;|&nbsp; MTD: <span id="k-bs-mtd">{{ buyers_signed_mtd }}</span></div>
     </div>
   </div>
   <div class="col-6 col-md-3">
-    <div class="stat-card">
+    <div class="stat-card h-100">
       <div class="stat-label">Active Listings</div>
       <div class="stat-value" id="k-al">{{ active_listings }}</div>
       <div class="stat-sub">Current</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
-    <div class="stat-card">
+    <div class="stat-card h-100">
       <div class="stat-label">Active Buyers</div>
       <div class="stat-value" id="k-ab">{{ active_buyers }}</div>
       <div class="stat-sub">In pipeline</div>
