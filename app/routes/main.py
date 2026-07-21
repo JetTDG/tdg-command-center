@@ -24,7 +24,7 @@ from app.models import (
     ZillowAgentSnapshot, ZillowLeadAlert, ZillowZhlFollowup, ConversionLead,
 )
 from app.conversion_stats import get_blended_defaults
-from app.conversion import aggregate_funnel
+from app.conversion import aggregate_funnel, classify_lead
 from app.luxury import (
     apply_segment_filter,
     effective_luxury_price,
@@ -771,6 +771,49 @@ def conversion():
 
     rows = query.order_by(ConversionLead.lead_received_at.desc()).all()
 
+    # Command Center transactions are the authoritative production ledger.
+    # They remain separate from person-level FUB milestones because an unlinked
+    # transaction cannot safely be assigned to a lead by name/address guessing.
+    production_query = Transaction.query.filter(
+        Transaction.status == 'Closed',
+        Transaction.close_date >= start_date,
+        Transaction.close_date <= end_date,
+        or_(
+            Transaction.close_date < date(today.year, 1, 1),
+            Transaction.archived.isnot(True),
+        ),
+        Transaction.is_import_duplicate.isnot(True),
+    )
+    if current_user.role == 'agent':
+        production_query = production_query.filter(Transaction.agent_id == current_user.agent_id)
+    elif selected_agent_id:
+        production_query = production_query.filter(Transaction.agent_id == selected_agent_id)
+
+    def transaction_side(transaction):
+        value = (transaction.transaction_type or '').lower()
+        if 'buyer' in value or 'tenant' in value:
+            return 'Buyer'
+        if 'listing' in value or 'seller' in value or 'landlord' in value:
+            return 'Seller'
+        return 'Unknown'
+
+    production_rows = []
+    for transaction in production_query.all():
+        classified = classify_lead(transaction.lead_source)
+        if not include_soi and classified['is_soi']:
+            continue
+        if not include_bulk and classified['is_bulk']:
+            continue
+        if selected_source and classified['source'] != selected_source:
+            continue
+        if selected_family and classified['source_family'] != selected_family:
+            continue
+        if selected_side and transaction_side(transaction) != selected_side:
+            continue
+        if selected_lead_type and (transaction.lead_type or 'Team') != selected_lead_type:
+            continue
+        production_rows.append((transaction, classified))
+
     def row_dict(row):
         return {
             'fub_person_id': row.fub_person_id,
@@ -786,21 +829,38 @@ def conversion():
     agent_names = {agent.id: agent.name for agent in accessible_agents}
     by_agent = defaultdict(list)
     by_source = defaultdict(list)
+    by_family = defaultdict(list)
     for row in rows:
         agent_id = row.original_agent_id if attribution == 'original' else row.current_agent_id
         source = row.original_source if attribution == 'original' else row.current_source
+        family = row.original_source_family if attribution == 'original' else row.current_source_family
         by_agent[agent_names.get(agent_id, 'Unmatched Agent')].append(row_dict(row))
         by_source[source or 'Unknown'].append(row_dict(row))
+        by_family[family or 'Unknown'].append(row_dict(row))
 
-    def breakdown(grouped):
+    production_by_agent = defaultdict(int)
+    production_by_source = defaultdict(int)
+    production_by_family = defaultdict(int)
+    for transaction, classified in production_rows:
+        production_by_agent[agent_names.get(transaction.agent_id, 'Unmatched Agent')] += 1
+        production_by_source[classified['source']] += 1
+        production_by_family[classified['source_family']] += 1
+
+    def breakdown(grouped, production_counts):
         values = []
-        for label, grouped_rows in grouped.items():
+        for label in set(grouped) | set(production_counts):
+            grouped_rows = grouped.get(label, [])
             metrics = aggregate_funnel(grouped_rows)
-            values.append({'label': label, **metrics, 'low_sample': metrics['leads'] < 10})
+            values.append({
+                'label': label, **metrics,
+                'production_closed': production_counts.get(label, 0),
+                'low_sample': 0 < metrics['leads'] < 10,
+            })
         return sorted(values, key=lambda item: (-item['leads'], item['label'].lower()))
 
-    agent_breakdown = breakdown(by_agent)
-    source_breakdown = breakdown(by_source)
+    agent_breakdown = breakdown(by_agent, production_by_agent)
+    family_breakdown = breakdown(by_family, production_by_family)
+    source_breakdown = breakdown(by_source, production_by_source)
     observed_count = sum(1 for row in rows if row.attribution_quality == 'original_observed')
     latest_sync = max((row.last_synced_at for row in rows if row.last_synced_at), default=None)
 
@@ -813,7 +873,8 @@ def conversion():
     }
     return render_template(
         'main/conversion.html', overall=overall, agent_breakdown=agent_breakdown,
-        source_breakdown=source_breakdown, agents=accessible_agents,
+        family_breakdown=family_breakdown, source_breakdown=source_breakdown,
+        production_closed=len(production_rows), agents=accessible_agents,
         source_options=source_options, family_options=family_options,
         filters=filters, latest_sync=latest_sync, observed_count=observed_count,
         historical_count=len(rows) - observed_count,

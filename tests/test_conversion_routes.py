@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 
@@ -8,7 +8,7 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "sqlite:///" + str(tmp_path / "conversion-route.db"))
     monkeypatch.setenv("SECRET_KEY", "test-secret")
     from app import create_app, db
-    from app.models import Agent, ConversionLead, User
+    from app.models import Agent, ConversionLead, Transaction, User
 
     app = create_app()
     app.config.update(TESTING=True)
@@ -58,6 +58,35 @@ def app(tmp_path, monkeypatch):
                  closed_at=datetime(2026, 4, 1)),
             lead("5", a2, "IMPORT", "Bulk Import", is_bulk=True),
         ])
+        db.session.add_all([
+            Transaction(
+                agent_id=a1.id, transaction_type="Buyer", status="Closed", lead_type="Team",
+                lead_source="Zillow Premier", close_date=date(2026, 3, 1),
+                archived=False, is_import_duplicate=False,
+            ),
+            Transaction(
+                agent_id=a2.id, transaction_type="Listing", status="Closed", lead_type="Team",
+                lead_source="Zillow", close_date=date(2026, 4, 1),
+                archived=False, is_import_duplicate=False,
+            ),
+            Transaction(
+                agent_id=a2.id, transaction_type="Buyer", status="Closed", lead_type="Team",
+                lead_source="Referral - Partner", close_date=date(2026, 5, 1),
+                archived=False, is_import_duplicate=False,
+            ),
+            # Superseded historical/import rows must never inflate production.
+            Transaction(
+                agent_id=a1.id, transaction_type="Buyer", status="Closed", lead_type="Team",
+                lead_source="Zillow Preferred", close_date=date(2026, 3, 1),
+                archived=True, is_import_duplicate=True,
+            ),
+            # Prior-year completed rows are intentionally archived in Command Center.
+            Transaction(
+                agent_id=a1.id, transaction_type="Buyer", status="Closed", lead_type="Team",
+                lead_source="Zillow Premier", close_date=date(2025, 3, 1),
+                archived=True, is_import_duplicate=False,
+            ),
+        ])
         db.session.commit()
         app.test_ids = {"admin": admin.id, "agent_user": agent_user.id, "a1": a1.id, "a2": a2.id}
     yield app
@@ -79,6 +108,7 @@ def test_conversion_requires_login_and_renders_overall_funnel(app):
     assert "Conversion" in text
     assert 'data-metric="leads">3<' in text
     assert 'data-metric="closed">1<' in text
+    assert 'data-metric="production-closed">3<' in text
     assert "33.3%" in text
     assert "3 leads" in text
     assert "SOI and bulk imports excluded" in text
@@ -95,6 +125,7 @@ def test_agent_and_exact_source_filters_use_same_cohort(app):
     assert 'value="Zillow Premier" selected' in text
     assert 'data-metric="leads">2<' in text
     assert 'data-metric="closed">1<' in text
+    assert 'data-metric="production-closed">1<' in text
     assert "50.0%" in text
     assert "Referral - Partner" not in text
 
@@ -111,6 +142,49 @@ def test_source_family_side_and_inclusion_filters_work(app):
     assert 'data-metric="closed">2<' in text
 
 
+def test_command_center_closed_production_is_reconciled_without_being_added_to_fub_funnel(app):
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    response = client.get("/conversion?start=2026-01-01&end=2026-12-31&source_family=Zillow")
+    text = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert 'data-metric="closed">1<' in text  # FUB person milestone stays person-level.
+    assert 'data-metric="production-closed">2<' in text
+    assert 'id="conversion-family-table"' in text
+    assert "FUB Closed" in text
+    assert "CC Closed" in text
+    assert "not additive" in text
+
+
+def test_prior_year_archived_closings_remain_in_authoritative_production(app):
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    response = client.get("/conversion?start=2025-01-01&end=2025-12-31&source_family=Zillow")
+    text = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert 'data-metric="production-closed">1<' in text
+
+
+def test_every_breakdown_table_column_has_filter_and_sort_controls(app):
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    text = client.get("/conversion?start=2026-01-01&end=2026-12-31").get_data(as_text=True)
+
+    for table_id in (
+        "conversion-agent-table", "conversion-family-table", "conversion-source-table",
+    ):
+        assert f'id="{table_id}"' in text
+        assert f'data-table-id="{table_id}"' in text
+    assert text.count('class="conversion-sort"') == 30
+    assert text.count('class="form-control form-control-sm conversion-column-filter"') == 30
+    assert "filterConversionTable" in text
+    assert "sortConversionTable" in text
+
+
 def test_agent_user_is_forced_to_own_data_even_if_other_agent_requested(app):
     client = app.test_client()
     login(client, app.test_ids["agent_user"])
@@ -118,6 +192,7 @@ def test_agent_user_is_forced_to_own_data_even_if_other_agent_requested(app):
     text = response.get_data(as_text=True)
     assert response.status_code == 200
     assert 'data-metric="leads">2<' in text
+    assert 'data-metric="production-closed">1<' in text
     assert "Alpha Agent" in text
     assert "Beta Agent" not in text
 

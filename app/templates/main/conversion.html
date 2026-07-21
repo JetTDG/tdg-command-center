@@ -2,7 +2,7 @@
 {% block title %}Conversion — TDG Command Center{% endblock %}
 {% block content %}
 <style>
-  .conversion-grid { display:grid; grid-template-columns:repeat(7,minmax(130px,1fr)); gap:.75rem; }
+  .conversion-grid { display:grid; grid-template-columns:repeat(4,minmax(150px,1fr)); gap:.75rem; }
   .conversion-card { background:#fff; border:1px solid var(--tdg-border); border-radius:12px; padding:1rem; box-shadow:var(--shadow-card); }
   .conversion-card .kicker { color:var(--tdg-muted); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.055em; }
   .conversion-card .number { font-size:1.75rem; line-height:1.1; font-weight:750; margin:.35rem 0 .2rem; }
@@ -12,6 +12,13 @@
   .quality-pill { font-size:.68rem; padding:.18rem .45rem; border-radius:999px; background:var(--tdg-yellow-bg); color:#854d0e; white-space:nowrap; }
   .conversion-table td,.conversion-table th { text-align:right; }
   .conversion-table td:first-child,.conversion-table th:first-child { text-align:left; }
+  .conversion-table thead th { vertical-align:top; min-width:86px; }
+  .conversion-table thead th:first-child { min-width:190px; }
+  .conversion-sort { appearance:none; border:0; background:transparent; color:inherit; font:inherit; font-weight:700; padding:0; width:100%; text-align:inherit; white-space:nowrap; }
+  .conversion-sort::after { content:' ↕'; color:#9ca3af; font-size:.7rem; }
+  .conversion-sort[aria-sort="ascending"]::after { content:' ↑'; color:var(--tdg-blue); }
+  .conversion-sort[aria-sort="descending"]::after { content:' ↓'; color:var(--tdg-blue); }
+  .conversion-column-filter { min-width:72px; margin-top:.4rem; font-size:.7rem; }
   .metric-note { font-size:.73rem; color:var(--tdg-muted); }
   @media(max-width:1200px){ .conversion-grid{grid-template-columns:repeat(4,1fr);} }
   @media(max-width:767px){
@@ -74,11 +81,11 @@
       </select>
     </div>
     <div class="col-xl-1 col-md-3">
-      <label for="conversion-start">Received From</label>
+      <label for="conversion-start">Period From</label>
       <input class="form-control form-control-sm" id="conversion-start" type="date" name="start" value="{{ filters.start }}">
     </div>
     <div class="col-xl-1 col-md-3">
-      <label for="conversion-end">Through</label>
+      <label for="conversion-end">Period Through</label>
       <input class="form-control form-control-sm" id="conversion-end" type="date" name="end" value="{{ filters.end }}">
     </div>
     <div class="col-xl-2 col-md-4 col-mobile-full">
@@ -103,18 +110,19 @@
 <div class="alert alert-light border d-flex gap-2 align-items-start py-2 mb-3" role="status">
   <i class="bi bi-shield-check text-success"></i>
   <div class="metric-note">
-    <strong class="text-dark">Coverage:</strong> {{ observed_count }} leads have observed original attribution; {{ historical_count }} historical leads use the agent holding the lead when backfilled. Exact source labels are retained from FUB. Low-sample rows are flagged below.
+    <strong class="text-dark">Coverage:</strong> {{ observed_count }} leads have observed original attribution; {{ historical_count }} historical leads use the agent holding the lead when backfilled. FUB funnel milestones and Command Center closed transactions are shown separately because unlinked records are not safe to match by name or address. Low-sample rows are flagged below.
   </div>
 </div>
 
 <div class="conversion-grid mb-3">
-  <div class="conversion-card"><div class="kicker">Leads Received</div><div class="number" data-metric="leads">{{ overall.leads }}</div><div class="rate">Filtered cohort</div></div>
+  <div class="conversion-card"><div class="kicker">Leads Received</div><div class="number" data-metric="leads">{{ overall.leads }}</div><div class="rate">FUB received-date cohort</div></div>
   <div class="conversion-card"><div class="kicker">Contacted</div><div class="number" data-metric="contacted">{{ overall.contacted }}</div><div class="rate">{{ pct(overall.contact_rate) }} of leads</div></div>
   <div class="conversion-card"><div class="kicker">Appointments Set</div><div class="number" data-metric="appointment_set">{{ overall.appointment_set }}</div><div class="rate">{{ pct(overall.appointment_rate) }} of leads</div></div>
   <div class="conversion-card"><div class="kicker">Appointments Held</div><div class="number" data-metric="appointment_held">{{ overall.appointment_held }}</div><div class="rate">{{ pct(overall.held_rate) }} of set</div></div>
   <div class="conversion-card"><div class="kicker">Signed</div><div class="number" data-metric="signed">{{ overall.signed }}</div><div class="rate">{{ pct(overall.signed_rate) }} of held</div></div>
   <div class="conversion-card"><div class="kicker">Pending</div><div class="number" data-metric="pending">{{ overall.pending }}</div><div class="rate">{{ pct(overall.pending_rate) }} of signed</div></div>
-  <div class="conversion-card"><div class="kicker">Closed / Overall</div><div class="number" data-metric="closed">{{ overall.closed }}</div><div class="rate"><strong>{{ pct(overall.overall_rate) }}</strong> · {{ overall.leads }} leads</div></div>
+  <div class="conversion-card"><div class="kicker">FUB Closed People</div><div class="number" data-metric="closed">{{ overall.closed }}</div><div class="rate"><strong>{{ pct(overall.overall_rate) }}</strong> · {{ overall.leads }} leads</div></div>
+  <div class="conversion-card"><div class="kicker">CC Closed Transactions</div><div class="number" data-metric="production-closed">{{ production_closed }}</div><div class="rate">Authoritative close-date production</div></div>
 </div>
 
 <div class="row g-3 mb-3">
@@ -123,38 +131,131 @@
   </div>
   <div class="col-lg-7">
     <div class="card h-100"><div class="card-header"><i class="bi bi-diagram-3"></i> How to read this</div><div class="card-body">
-      <p class="mb-2">Overall conversion is <strong>closed people ÷ leads received</strong> for the selected received-date cohort. Every card, chart and table uses that same filtered set of FUB people.</p>
-      <p class="mb-2">Use <strong>Original receiving agent</strong> for lead-assignment decisions. The current-agent view is useful for workload and follow-up ownership.</p>
-      <p class="mb-0 metric-note">Appointment metrics include FUB appointments that carry a person link. They may trail contact and deal-stage coverage while historical appointments are reconciled.</p>
+      <p class="mb-2">FUB conversion is <strong>closed people ÷ leads received</strong> for the selected received-date cohort. Command Center closed production uses the same date fields as a <strong>close-date range</strong>. These measures are <strong>not additive</strong>.</p>
+      <p class="mb-2">Use <strong>Original receiving agent</strong> for lead-assignment decisions. Command Center production uses the transaction's recorded agent and source because historical transactions currently lack FUB person IDs.</p>
+      <p class="mb-0 metric-note">Appointment metrics include FUB appointments that carry a person link. Every breakdown column can be filtered; number filters accept values such as <strong>&gt;=10</strong>, <strong>&lt;5</strong>, or <strong>=3</strong>. Click any column title to sort.</p>
     </div></div>
   </div>
 </div>
 
 {% macro breakdown_table(rows, table_id, first_label) %}
-<div class="table-responsive">
-<table class="table table-hover conversion-table" id="{{ table_id }}">
-  <thead><tr><th>{{ first_label }}</th><th>Leads</th><th>Contacted</th><th>Set</th><th>Held</th><th>Signed</th><th>Pending</th><th>Closed</th><th>Overall</th></tr></thead>
+{% set columns = [
+  (first_label, 'text', 'Search'), ('Leads', 'number', 'e.g. >=10'),
+  ('Contacted', 'number', 'e.g. >=10'), ('Set', 'number', 'e.g. >=10'),
+  ('Held', 'number', 'e.g. >=10'), ('Signed', 'number', 'e.g. >=10'),
+  ('Pending', 'number', 'e.g. >=10'), ('FUB Closed', 'number', 'e.g. >=10'),
+  ('CC Closed', 'number', 'e.g. >=10'), ('Overall', 'number', 'e.g. >=5')
+] %}
+<div class="table-responsive" data-table-id="{{ table_id }}">
+<table class="table table-hover conversion-table" id="{{ table_id }}" data-table-id="{{ table_id }}">
+  <thead>
+    <tr>
+      {% for title, kind, placeholder in columns %}
+      <th><button type="button" class="conversion-sort" data-sort-index="{{ loop.index0 }}" data-sort-type="{{ kind }}" aria-sort="none" aria-label="Sort by {{ title }}">{{ title }}</button></th>
+      {% endfor %}
+    </tr>
+    <tr class="conversion-filter-row">
+      {% for title, kind, placeholder in columns %}
+      <th><input class="form-control form-control-sm conversion-column-filter" data-filter-index="{{ loop.index0 }}" data-filter-type="{{ kind }}" aria-label="Filter {{ title }}" placeholder="{{ placeholder }}"></th>
+      {% endfor %}
+    </tr>
+  </thead>
   <tbody>
   {% for row in rows %}
-    <tr>
-      <td><span class="fw-semibold">{{ row.label }}</span>{% if row.low_sample %} <span class="quality-pill" title="Fewer than 10 leads">Low sample</span>{% endif %}</td>
-      <td>{{ row.leads }}</td><td>{{ row.contacted }}</td><td>{{ row.appointment_set }}</td><td>{{ row.appointment_held }}</td><td>{{ row.signed }}</td><td>{{ row.pending }}</td><td>{{ row.closed }}</td><td class="fw-semibold">{{ pct(row.overall_rate) }}</td>
+    <tr data-row="1">
+      <td data-sort-value="{{ row.label|lower }}"><span class="fw-semibold">{{ row.label }}</span>{% if row.low_sample %} <span class="quality-pill" title="Fewer than 10 leads">Low sample</span>{% endif %}</td>
+      <td data-sort-value="{{ row.leads }}">{{ row.leads }}</td>
+      <td data-sort-value="{{ row.contacted }}">{{ row.contacted }}</td>
+      <td data-sort-value="{{ row.appointment_set }}">{{ row.appointment_set }}</td>
+      <td data-sort-value="{{ row.appointment_held }}">{{ row.appointment_held }}</td>
+      <td data-sort-value="{{ row.signed }}">{{ row.signed }}</td>
+      <td data-sort-value="{{ row.pending }}">{{ row.pending }}</td>
+      <td data-sort-value="{{ row.closed }}">{{ row.closed }}</td>
+      <td data-sort-value="{{ row.production_closed }}" class="fw-semibold">{{ row.production_closed }}</td>
+      <td data-sort-value="{{ -1 if row.overall_rate is none else row.overall_rate * 100 }}" class="fw-semibold">{{ pct(row.overall_rate) }}</td>
     </tr>
-  {% else %}<tr><td colspan="9" class="text-center text-muted py-4">No leads match these filters.</td></tr>{% endfor %}
+  {% else %}<tr class="conversion-empty-row"><td colspan="10" class="text-center text-muted py-4">No leads or closed production match these filters.</td></tr>{% endfor %}
   </tbody>
 </table>
 </div>
 {% endmacro %}
 
 <div class="card mb-3"><div class="card-header"><i class="bi bi-people"></i> Conversion by Agent</div>{{ breakdown_table(agent_breakdown, 'conversion-agent-table', 'Agent') }}</div>
+<div class="card mb-3"><div class="card-header"><i class="bi bi-collection"></i> Conversion by Source Group</div>{{ breakdown_table(family_breakdown, 'conversion-family-table', 'Source Group') }}</div>
 <div class="card"><div class="card-header"><i class="bi bi-bullseye"></i> Conversion by Exact Source</div>{{ breakdown_table(source_breakdown, 'conversion-source-table', 'Source') }}</div>
 
 <script>
 const conversionFunnel = {{ [overall.leads, overall.contacted, overall.appointment_set, overall.appointment_held, overall.signed, overall.pending, overall.closed] | tojson }};
 new Chart(document.getElementById('conversion-funnel-chart'), {
   type: 'bar',
-  data: { labels: ['Leads','Contacted','Set','Held','Signed','Pending','Closed'], datasets: [{ data: conversionFunnel, backgroundColor: ['#C9A84C','#b99535','#a8872f','#927425','#2563EB','#16A34A','#0f7a36'], borderRadius: 6 }] },
+  data: { labels: ['Leads','Contacted','Set','Held','Signed','Pending','FUB Closed'], datasets: [{ data: conversionFunnel, backgroundColor: ['#C9A84C','#b99535','#a8872f','#927425','#2563EB','#16A34A','#0f7a36'], borderRadius: 6 }] },
   options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}} }
+});
+
+function numericFilterMatches(value, expression) {
+  const query = expression.trim();
+  if (!query) return true;
+  const comparison = query.match(/^(>=|<=|>|<|=)?\s*(-?\d+(?:\.\d+)?)$/);
+  if (!comparison) return String(value).includes(query);
+  const target = Number(comparison[2]);
+  const operator = comparison[1] || '=';
+  if (operator === '>=') return value >= target;
+  if (operator === '<=') return value <= target;
+  if (operator === '>') return value > target;
+  if (operator === '<') return value < target;
+  return value === target;
+}
+
+function filterConversionTable(tableId) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const filters = Array.from(table.querySelectorAll('.conversion-column-filter'));
+  table.querySelectorAll('tbody tr[data-row]').forEach(row => {
+    const cells = row.cells;
+    const visible = filters.every(input => {
+      const query = input.value.trim().toLowerCase();
+      if (!query) return true;
+      const cell = cells[Number(input.dataset.filterIndex)];
+      if (!cell) return false;
+      if (input.dataset.filterType === 'number') {
+        return numericFilterMatches(Number(cell.dataset.sortValue), query);
+      }
+      return cell.textContent.trim().toLowerCase().includes(query);
+    });
+    row.hidden = !visible;
+  });
+}
+
+function sortConversionTable(tableId, columnIndex, type, button) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const priorIndex = table.dataset.sortIndex;
+  const nextDirection = priorIndex === String(columnIndex) && table.dataset.sortDirection === 'asc' ? 'desc' : 'asc';
+  table.dataset.sortIndex = String(columnIndex);
+  table.dataset.sortDirection = nextDirection;
+  table.querySelectorAll('.conversion-sort').forEach(control => control.setAttribute('aria-sort', 'none'));
+  button.setAttribute('aria-sort', nextDirection === 'asc' ? 'ascending' : 'descending');
+  const rows = Array.from(table.querySelectorAll('tbody tr[data-row]'));
+  rows.sort((left, right) => {
+    const leftValue = left.cells[columnIndex].dataset.sortValue || '';
+    const rightValue = right.cells[columnIndex].dataset.sortValue || '';
+    const result = type === 'number'
+      ? Number(leftValue) - Number(rightValue)
+      : leftValue.localeCompare(rightValue, undefined, {numeric:true, sensitivity:'base'});
+    return nextDirection === 'asc' ? result : -result;
+  });
+  rows.forEach(row => table.tBodies[0].appendChild(row));
+}
+
+document.querySelectorAll('.conversion-table').forEach(table => {
+  table.querySelectorAll('.conversion-column-filter').forEach(input => {
+    input.addEventListener('input', () => filterConversionTable(table.id));
+  });
+  table.querySelectorAll('.conversion-sort').forEach(button => {
+    button.addEventListener('click', () => sortConversionTable(
+      table.id, Number(button.dataset.sortIndex), button.dataset.sortType, button
+    ));
+  });
 });
 </script>
 {% endblock %}
