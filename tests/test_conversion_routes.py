@@ -183,6 +183,7 @@ def test_every_breakdown_table_column_has_filter_and_sort_controls(app):
     assert text.count('class="form-control form-control-sm conversion-column-filter"') == 30
     assert "filterConversionTable" in text
     assert "sortConversionTable" in text
+    assert text.count('class="form-control form-control-sm conversion-date"') == 2
 
 
 def test_agent_user_is_forced_to_own_data_even_if_other_agent_requested(app):

@@ -19,6 +19,7 @@
   .conversion-sort[aria-sort="ascending"]::after { content:' ↑'; color:var(--tdg-blue); }
   .conversion-sort[aria-sort="descending"]::after { content:' ↓'; color:var(--tdg-blue); }
   .conversion-column-filter { min-width:72px; margin-top:.4rem; font-size:.7rem; }
+  .conversion-date { font-size:.72rem; padding-left:.25rem; padding-right:.1rem; }
   .metric-note { font-size:.73rem; color:var(--tdg-muted); }
   @media(max-width:1200px){ .conversion-grid{grid-template-columns:repeat(4,1fr);} }
   @media(max-width:767px){
@@ -82,11 +83,11 @@
     </div>
     <div class="col-xl-1 col-md-3">
       <label for="conversion-start">Period From</label>
-      <input class="form-control form-control-sm" id="conversion-start" type="date" name="start" value="{{ filters.start }}">
+      <input class="form-control form-control-sm conversion-date" id="conversion-start" type="date" name="start" value="{{ filters.start }}">
     </div>
     <div class="col-xl-1 col-md-3">
       <label for="conversion-end">Period Through</label>
-      <input class="form-control form-control-sm" id="conversion-end" type="date" name="end" value="{{ filters.end }}">
+      <input class="form-control form-control-sm conversion-date" id="conversion-end" type="date" name="end" value="{{ filters.end }}">
     </div>
     <div class="col-xl-2 col-md-4 col-mobile-full">
       <label for="conversion-attribution">Agent Attribution</label>
