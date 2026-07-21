@@ -165,6 +165,7 @@ def test_commercial_signed_numbers_are_drillable_and_drawer_is_rendered(app):
     assert "segment !== 'comm'" in text
     assert 'onclick="closeHomeDrill()"' in text
     assert 'aria-label="Close signed activity rows"' in text
+    assert '&times;' in text
     assert 'z-index:2000' in text
     assert 'overflow-x:hidden' in text
     assert 'flex-shrink:0' in text
