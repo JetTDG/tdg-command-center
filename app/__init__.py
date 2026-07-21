@@ -72,8 +72,10 @@ def create_app():
     app.jinja_env.filters['fmt_et'] = fmt_et
     app.jinja_env.filters['show_value'] = lambda value: '—' if value is None else value
 
-    # Ensure all tables exist (safe — only creates missing ones)
-    with app.app_context():
-        db.create_all()
+    # Ensure all tables exist for normal app startup. Migration/inspection tools
+    # can explicitly skip this so Alembic remains the only schema writer.
+    if os.environ.get('SKIP_DB_CREATE_ALL') != '1':
+        with app.app_context():
+            db.create_all()
 
     return app

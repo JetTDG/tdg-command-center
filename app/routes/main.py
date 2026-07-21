@@ -21,9 +21,10 @@ def log_change(record_id, field_name, old_value, new_value, table_name='transact
 from app.models import (
     Agent, Transaction, LeadGenLog, BusinessPlan, Pipeline, TeamGoal,
     AgentConversionStats, ZillowSyncRun, ZillowCompanySnapshot,
-    ZillowAgentSnapshot, ZillowLeadAlert, ZillowZhlFollowup,
+    ZillowAgentSnapshot, ZillowLeadAlert, ZillowZhlFollowup, ConversionLead,
 )
 from app.conversion_stats import get_blended_defaults
+from app.conversion import aggregate_funnel
 from app.luxury import (
     apply_segment_filter,
     effective_luxury_price,
@@ -690,6 +691,134 @@ def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter,
     if lead_source_filter: query = query.filter(Transaction.lead_source == lead_source_filter)
     if admin_filter: query = query.filter(Transaction.admin_name == admin_filter)
     return apply_segment_filter(query, segment)
+
+# ─── CONVERSION PAGE ────────────────────────────────────────────────────────
+
+@bp.route('/conversion')
+@login_required
+def conversion():
+    """Person-level lead conversion, filterable by attribution, agent and source."""
+    from collections import defaultdict
+    from datetime import timedelta
+
+    def parse_date_arg(name, fallback):
+        try:
+            return datetime.strptime(request.args.get(name, ''), '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            return fallback
+
+    today = date.today()
+    start_date = parse_date_arg('start', date(today.year, 1, 1))
+    end_date = parse_date_arg('end', today)
+    if end_date < start_date:
+        start_date, end_date = end_date, start_date
+
+    attribution = request.args.get('attribution', 'original').lower()
+    if attribution not in {'original', 'current'}:
+        attribution = 'original'
+    agent_column = ConversionLead.original_agent_id if attribution == 'original' else ConversionLead.current_agent_id
+    source_column = ConversionLead.original_source if attribution == 'original' else ConversionLead.current_source
+    family_column = ConversionLead.original_source_family if attribution == 'original' else ConversionLead.current_source_family
+
+    accessible_agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
+    if current_user.role == 'agent':
+        accessible_agents = [agent for agent in accessible_agents if agent.id == current_user.agent_id]
+        selected_agent_id = current_user.agent_id
+    else:
+        try:
+            selected_agent_id = int(request.args.get('agent_id')) if request.args.get('agent_id') else None
+        except (TypeError, ValueError):
+            selected_agent_id = None
+
+    allowed_agent_ids = {agent.id for agent in accessible_agents}
+    if selected_agent_id and selected_agent_id not in allowed_agent_ids:
+        selected_agent_id = current_user.agent_id if current_user.role == 'agent' else None
+
+    query = ConversionLead.query.filter(
+        ConversionLead.lead_received_at >= datetime.combine(start_date, datetime.min.time()),
+        ConversionLead.lead_received_at < datetime.combine(end_date + timedelta(days=1), datetime.min.time()),
+    )
+    if current_user.role == 'agent':
+        query = query.filter(agent_column == current_user.agent_id)
+    elif selected_agent_id:
+        query = query.filter(agent_column == selected_agent_id)
+
+    include_soi = request.args.get('include_soi') == '1'
+    include_bulk = request.args.get('include_bulk') == '1'
+    if not include_soi:
+        query = query.filter(ConversionLead.is_soi.is_(False))
+    if not include_bulk:
+        query = query.filter(ConversionLead.is_bulk.is_(False))
+
+    # Dropdowns follow the selected date/agent universe but remain available
+    # before exact source/family narrowing.
+    option_rows = query.with_entities(source_column, family_column).distinct().all()
+    source_options = sorted({row[0] or 'Unknown' for row in option_rows}, key=str.lower)
+    family_options = sorted({row[1] or 'Unknown' for row in option_rows}, key=str.lower)
+
+    selected_source = request.args.get('source', '').strip()
+    selected_family = request.args.get('source_family', '').strip()
+    selected_side = request.args.get('side', '').strip()
+    selected_lead_type = request.args.get('lead_type', '').strip()
+    if selected_source:
+        query = query.filter(source_column == selected_source)
+    if selected_family:
+        query = query.filter(family_column == selected_family)
+    if selected_side:
+        query = query.filter(ConversionLead.side == selected_side)
+    if selected_lead_type:
+        query = query.filter(ConversionLead.lead_type == selected_lead_type)
+
+    rows = query.order_by(ConversionLead.lead_received_at.desc()).all()
+
+    def row_dict(row):
+        return {
+            'fub_person_id': row.fub_person_id,
+            'contacted_at': row.contacted_at,
+            'appointment_set_at': row.appointment_set_at,
+            'appointment_held_at': row.appointment_held_at,
+            'signed_at': row.signed_at,
+            'pending_at': row.pending_at,
+            'closed_at': row.closed_at,
+        }
+
+    overall = aggregate_funnel(row_dict(row) for row in rows)
+    agent_names = {agent.id: agent.name for agent in accessible_agents}
+    by_agent = defaultdict(list)
+    by_source = defaultdict(list)
+    for row in rows:
+        agent_id = row.original_agent_id if attribution == 'original' else row.current_agent_id
+        source = row.original_source if attribution == 'original' else row.current_source
+        by_agent[agent_names.get(agent_id, 'Unmatched Agent')].append(row_dict(row))
+        by_source[source or 'Unknown'].append(row_dict(row))
+
+    def breakdown(grouped):
+        values = []
+        for label, grouped_rows in grouped.items():
+            metrics = aggregate_funnel(grouped_rows)
+            values.append({'label': label, **metrics, 'low_sample': metrics['leads'] < 10})
+        return sorted(values, key=lambda item: (-item['leads'], item['label'].lower()))
+
+    agent_breakdown = breakdown(by_agent)
+    source_breakdown = breakdown(by_source)
+    observed_count = sum(1 for row in rows if row.attribution_quality == 'original_observed')
+    latest_sync = max((row.last_synced_at for row in rows if row.last_synced_at), default=None)
+
+    filters = {
+        'start': start_date.isoformat(), 'end': end_date.isoformat(),
+        'agent_id': selected_agent_id, 'source': selected_source,
+        'source_family': selected_family, 'side': selected_side,
+        'lead_type': selected_lead_type, 'attribution': attribution,
+        'include_soi': include_soi, 'include_bulk': include_bulk,
+    }
+    return render_template(
+        'main/conversion.html', overall=overall, agent_breakdown=agent_breakdown,
+        source_breakdown=source_breakdown, agents=accessible_agents,
+        source_options=source_options, family_options=family_options,
+        filters=filters, latest_sync=latest_sync, observed_count=observed_count,
+        historical_count=len(rows) - observed_count,
+    )
+
 
 # ─── LUXURY PAGE ────────────────────────────────────────────────────────────
 

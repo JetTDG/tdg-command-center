@@ -588,6 +588,10 @@
            href="{{ url_for('main.lead_gen') }}">
           <i class="bi bi-telephone-outbound"></i> Lead Gen
         </a>
+        <a class="nav-link {% if request.endpoint == 'main.conversion' %}active{% endif %}"
+           href="{{ url_for('main.conversion') }}">
+          <i class="bi bi-funnel"></i> Conversion
+        </a>
         <a class="nav-link {% if 'business_plan' in request.endpoint %}active{% endif %}"
            href="{{ url_for('main.business_plan') }}">
           <i class="bi bi-clipboard-data"></i> Business Plan
@@ -689,6 +693,9 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;padding:0 0.75rem 0.5rem;">
         <a href="{{ url_for('main.lead_gen') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if 'lead_gen' in request.endpoint %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
           <i class="bi bi-telephone-outbound" style="font-size:1.1rem;{% if 'lead_gen' in request.endpoint %}color:var(--tdg-gold);{% endif %}"></i>Lead Gen
+        </a>
+        <a href="{{ url_for('main.conversion') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if request.endpoint == 'main.conversion' %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
+          <i class="bi bi-funnel" style="font-size:1.1rem;{% if request.endpoint == 'main.conversion' %}color:var(--tdg-gold);{% endif %}"></i>Conversion
         </a>
         <a href="{{ url_for('main.business_plan') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if 'business_plan' in request.endpoint %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
           <i class="bi bi-clipboard-data" style="font-size:1.1rem;{% if 'business_plan' in request.endpoint %}color:var(--tdg-gold);{% endif %}"></i>Biz Plan

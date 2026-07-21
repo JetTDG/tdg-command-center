@@ -281,6 +281,82 @@ class BusinessPlan(db.Model):
         return f'<BusinessPlan {self.agent.name} {self.year}>'
 
 
+class ConversionLead(db.Model):
+    """Canonical person-level lead used for agent × source conversion reporting."""
+    __tablename__ = 'conversion_leads'
+    __table_args__ = (
+        db.Index('ix_conversion_leads_received', 'lead_received_at'),
+        db.Index('ix_conversion_leads_original_agent_source', 'original_agent_id', 'original_source'),
+        db.Index('ix_conversion_leads_current_agent_source', 'current_agent_id', 'current_source'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    fub_person_id = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    lead_received_at = db.Column(db.DateTime, nullable=False)
+    fub_created_at = db.Column(db.DateTime)
+    fub_updated_at = db.Column(db.DateTime)
+
+    original_agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True)
+    current_agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True)
+    original_fub_user_id = db.Column(db.String(50))
+    current_fub_user_id = db.Column(db.String(50))
+    original_source = db.Column(db.String(200), default='Unknown', nullable=False)
+    original_source_family = db.Column(db.String(100), default='Unknown', nullable=False)
+    current_source = db.Column(db.String(200), default='Unknown', nullable=False)
+    current_source_family = db.Column(db.String(100), default='Unknown', nullable=False)
+    attribution_quality = db.Column(db.String(40), default='current_agent_backfill', nullable=False)
+
+    lead_type = db.Column(db.String(30), default='Team')
+    side = db.Column(db.String(30), default='Unknown')
+    stage = db.Column(db.String(100))
+    deal_status = db.Column(db.String(100))
+    is_soi = db.Column(db.Boolean, default=False, nullable=False)
+    is_bulk = db.Column(db.Boolean, default=False, nullable=False)
+
+    contacted_at = db.Column(db.DateTime)
+    appointment_set_at = db.Column(db.DateTime)
+    appointment_held_at = db.Column(db.DateTime)
+    signed_at = db.Column(db.DateTime)
+    pending_at = db.Column(db.DateTime)
+    closed_at = db.Column(db.DateTime)
+    transaction_id = db.Column(db.Integer, db.ForeignKey('transactions.id'), nullable=True)
+
+    first_seen_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_synced_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    original_agent = db.relationship('Agent', foreign_keys=[original_agent_id])
+    current_agent = db.relationship('Agent', foreign_keys=[current_agent_id])
+    transaction = db.relationship('Transaction', foreign_keys=[transaction_id])
+    assignments = db.relationship(
+        'ConversionAssignment', backref='conversion_lead', lazy='dynamic',
+        cascade='all, delete-orphan', order_by='ConversionAssignment.assigned_at'
+    )
+
+
+class ConversionAssignment(db.Model):
+    """Observed assignment timeline; events are append-only."""
+    __tablename__ = 'conversion_assignments'
+    __table_args__ = (
+        db.UniqueConstraint(
+            'conversion_lead_id', 'fub_user_id', 'assigned_at',
+            name='uq_conversion_assignment_observation'
+        ),
+        db.Index('ix_conversion_assignments_lead_date', 'conversion_lead_id', 'assigned_at'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    conversion_lead_id = db.Column(
+        db.Integer, db.ForeignKey('conversion_leads.id', ondelete='CASCADE'), nullable=False
+    )
+    agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=True)
+    fub_user_id = db.Column(db.String(50), nullable=False)
+    assigned_at = db.Column(db.DateTime, nullable=False)
+    source = db.Column(db.String(40), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    agent = db.relationship('Agent', foreign_keys=[agent_id])
+
+
 class AgentConversionStats(db.Model):
     """Trailing-window funnel conversion rates per agent (Set→Held→Signed→Closed),
     computed nightly by compute_agent_conversion_stats.py. One row per agent,
