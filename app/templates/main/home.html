@@ -36,21 +36,21 @@
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">YTD Closed Units</div>
-      <div class="stat-value" id="k-ytd-closed">{{ ytd_closed }}</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="k-ytd-closed" data-luxury-drill="closed" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">{{ ytd_closed }}</button></div>
       <div class="stat-sub">This month: <span id="k-month-closed">{{ month_closed }}</span></div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">YTD GCI</div>
-      <div class="stat-value" id="k-ytd-gci">${{ "{:,.0f}".format(ytd_gci) }}</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="k-ytd-gci" data-luxury-drill="closed" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">${{ "{:,.0f}".format(ytd_gci) }}</button></div>
       <div class="stat-sub">This month: $<span id="k-month-gci">{{ "{:,.0f}".format(month_gci) }}</span></div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">Pending (Projected)</div>
-      <div class="stat-value" id="k-pending-count">{{ pending_count }}</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="k-pending-count" data-luxury-drill="pending" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">{{ pending_count }}</button></div>
       <div class="stat-sub">This month: <span id="k-pending-uc-mtd">{{ pending_uc_mtd }}</span></div>
     </div>
   </div>
@@ -69,7 +69,7 @@
   <div class="col-6 col-md-3">
     <div class="stat-card h-100">
       <div class="stat-label">Listings Signed</div>
-      <div class="stat-value"><button type="button" class="home-drill-number" id="k-ls" data-drill-type="listings" disabled>{{ listings_signed }}</button></div>
+      <div class="stat-value"><button type="button" class="home-drill-number transaction-drill-number" id="k-ls" data-drill-type="listings" data-luxury-drill="listings" data-drill-surface="home" data-drill-year="{{ year }}" disabled aria-disabled="true">{{ listings_signed }}</button></div>
       <div class="stat-sub">YTD &nbsp;|&nbsp; MTD: <span id="k-ls-mtd">{{ listings_signed_mtd }}</span></div>
       <div class="stat-sub d-none" id="k-ls-volume-row"><button type="button" class="home-drill-number" id="k-ls-volume" data-drill-type="listings" disabled>$0</button> signed listing volume</div>
     </div>
@@ -77,21 +77,21 @@
   <div class="col-6 col-md-3">
     <div class="stat-card h-100">
       <div class="stat-label">Buyers Signed</div>
-      <div class="stat-value"><button type="button" class="home-drill-number" id="k-bs" data-drill-type="buyers" disabled>{{ buyers_signed }}</button></div>
+      <div class="stat-value"><button type="button" class="home-drill-number transaction-drill-number" id="k-bs" data-drill-type="buyers" data-luxury-drill="buyers" data-drill-surface="home" data-drill-year="{{ year }}" disabled aria-disabled="true">{{ buyers_signed }}</button></div>
       <div class="stat-sub">YTD &nbsp;|&nbsp; MTD: <span id="k-bs-mtd">{{ buyers_signed_mtd }}</span></div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card h-100">
       <div class="stat-label">Active Listings</div>
-      <div class="stat-value" id="k-al">{{ active_listings }}</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="k-al" data-luxury-drill="active_listings" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">{{ active_listings }}</button></div>
       <div class="stat-sub">Current</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card h-100">
       <div class="stat-label">Active Buyers</div>
-      <div class="stat-value" id="k-ab">{{ active_buyers }}</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="k-ab" data-luxury-drill="active_buyers" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">{{ active_buyers }}</button></div>
       <div class="stat-sub">In pipeline</div>
     </div>
   </div>
@@ -120,7 +120,7 @@
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">Pending GCI</div>
-      <div class="stat-value" id="k-pending-gci">${{ "{:,.0f}".format(pending_gci) }}</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="k-pending-gci" data-luxury-drill="pending" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">${{ "{:,.0f}".format(pending_gci) }}</button></div>
       <div class="stat-sub"><span id="k-pending-count2">{{ pending_count }}</span> deals in pending</div>
     </div>
   </div>
@@ -141,8 +141,8 @@
   <div class="col-6 col-md-3">
     <div class="stat-card">
       <div class="stat-label">Pre-Signed Pipeline</div>
-      <div class="stat-value" id="k-presigned">{{ presigned_count }}</div>
-      <div class="stat-sub">$<span id="k-presigned-gci">{{ "{:,.0f}".format(presigned_gci) }}</span> projected GCI</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="k-presigned" data-luxury-drill="presigned" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">{{ presigned_count }}</button></div>
+      <div class="stat-sub"><button type="button" class="transaction-drill-number" data-luxury-drill="presigned" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">$<span id="k-presigned-gci">{{ "{:,.0f}".format(presigned_gci) }}</span></button> projected GCI</div>
     </div>
   </div>
 </div>
@@ -224,6 +224,8 @@
     </div>
   </div>
 </div>
+
+{% include 'main/_transaction_drill_drawer.html' %}
 
 <div id="home-drill-overlay" onclick="closeHomeDrill()"
      style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1990;"></div>
@@ -382,9 +384,11 @@ function refreshKPI() {
   document.getElementById('k-presigned').textContent    = fmtInt(k.presigned_count);
   document.getElementById('k-presigned-gci').textContent = Number(k.presigned_gci).toLocaleString('en-US', {maximumFractionDigits:0});
   document.querySelectorAll('.home-drill-number').forEach(btn => {
-    btn.disabled = segment !== 'comm';
+    const enabled = segment === 'comm' || (segment === 'luxury' && btn.hasAttribute('data-luxury-drill'));
+    btn.disabled = !enabled;
     btn.classList.toggle('is-active', segment === 'comm');
   });
+  refreshLuxuryDrillControls();
 }
 
 function refreshRecent() {

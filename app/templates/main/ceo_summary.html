@@ -26,8 +26,8 @@
   <div class="col-md-4">
     <div class="stat-card">
       <div class="stat-label">Total GCI</div>
-      <div class="stat-value" id="c-ytd-gci">{{ "${:,.0f}".format(ytd_gci) }}</div>
-      <div class="stat-sub">+ <span id="c-proj-gci">{{ "${:,.0f}".format(proj_gci) }}</span> pending</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="c-ytd-gci" data-luxury-drill="closed" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ "${:,.0f}".format(ytd_gci) }}</button></div>
+      <div class="stat-sub">+ <button type="button" class="transaction-drill-number" id="c-proj-gci" data-luxury-drill="pending" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ "${:,.0f}".format(proj_gci) }}</button> pending</div>
       <div class="stat-sub mt-1">Goal: <span id="c-gci-goal-display">{{ "${:,.0f}".format(team_gci_goal) }}</span> &nbsp;·&nbsp; <strong id="c-goal-pct">{{ goal_pct }}%</strong>
         {% if current_user.is_admin %}
         <button class="btn btn-link btn-sm p-0 ms-1" style="font-size:0.75rem;line-height:1;vertical-align:middle;" onclick="openGoalEditor()" title="Edit goals">✏️</button>
@@ -43,9 +43,9 @@
   <div class="col-md-4">
     <div class="stat-card">
       <div class="stat-label">Total Volume</div>
-      <div class="stat-value" id="c-ytd-volume">{{ "${:,.0f}".format(ytd_volume) }}</div>
-      <div class="stat-sub">+ <span id="c-proj-volume">{{ "${:,.0f}".format(proj_volume) }}</span> pending</div>
-      <div class="stat-sub mt-1"><span id="c-ytd-units">{{ ytd_units }}</span> closed &nbsp;·&nbsp; <span id="c-proj-units">{{ proj_units }}</span> pending</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="c-ytd-volume" data-luxury-drill="closed" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ "${:,.0f}".format(ytd_volume) }}</button></div>
+      <div class="stat-sub">+ <button type="button" class="transaction-drill-number" id="c-proj-volume" data-luxury-drill="pending" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ "${:,.0f}".format(proj_volume) }}</button> pending</div>
+      <div class="stat-sub mt-1"><button type="button" class="transaction-drill-number" id="c-ytd-units" data-luxury-drill="closed" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ ytd_units }}</button> closed &nbsp;·&nbsp; <button type="button" class="transaction-drill-number" id="c-proj-units" data-luxury-drill="pending" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ proj_units }}</button> pending</div>
       <div class="stat-sub mt-2">vs {{ "${:,.0f}".format(prior_volume) }} same day 2025 &nbsp;
         {% if volume_yoy_pct >= 0 %}<span class="text-success" id="c-volume-yoy">▲ {{ volume_yoy_pct }}%</span>
         {% else %}<span class="text-danger" id="c-volume-yoy">▼ {{ volume_yoy_pct|abs }}%</span>{% endif %}
@@ -55,8 +55,8 @@
   <div class="col-md-4">
     <div class="stat-card">
       <div class="stat-label">Company Dollar</div>
-      <div class="stat-value" id="c-ytd-co">{{ "${:,.0f}".format(ytd_co_dollar) }}</div>
-      <div class="stat-sub">+ <span id="c-proj-co">{{ "${:,.0f}".format(proj_co_dollar) }}</span> pending</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="c-ytd-co" data-luxury-drill="closed" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ "${:,.0f}".format(ytd_co_dollar) }}</button></div>
+      <div class="stat-sub">+ <button type="button" class="transaction-drill-number" id="c-proj-co" data-luxury-drill="pending" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ "${:,.0f}".format(proj_co_dollar) }}</button> pending</div>
       <div class="stat-sub mt-1">GCI minus agent splits, fees &amp; referrals</div>
       <div class="stat-sub mt-2">vs {{ "${:,.0f}".format(prior_co_dollar) }} same day 2025 &nbsp;
         {% if co_yoy_pct >= 0 %}<span class="text-success" id="c-co-yoy">▲ {{ co_yoy_pct }}%</span>
@@ -71,7 +71,7 @@
   <div class="col-md-3">
     <div class="stat-card">
       <div class="stat-label">Closed Units</div>
-      <div class="stat-value" id="c-units2">{{ ytd_units }}</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="c-units2" data-luxury-drill="closed" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ ytd_units }}</button></div>
       <div class="stat-sub">vs {{ prior_units }} same day 2025 &nbsp;
         {% if units_yoy_pct >= 0 %}<span class="text-success" id="c-units-yoy">▲ {{ units_yoy_pct }}%</span>
         {% else %}<span class="text-danger" id="c-units-yoy">▼ {{ units_yoy_pct|abs }}%</span>{% endif %}
@@ -81,14 +81,14 @@
   <div class="col-md-3">
     <div class="stat-card">
       <div class="stat-label">Pending Units</div>
-      <div class="stat-value" id="c-proj-units2">{{ proj_units }}</div>
-      <div class="stat-sub"><span id="c-proj-gci2">{{ "${:,.0f}".format(proj_gci) }}</span> projected GCI</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="c-proj-units2" data-luxury-drill="pending" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ proj_units }}</button></div>
+      <div class="stat-sub"><button type="button" class="transaction-drill-number" id="c-proj-gci2" data-luxury-drill="pending" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ "${:,.0f}".format(proj_gci) }}</button> projected GCI</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="stat-card">
       <div class="stat-label">Listings Signed</div>
-      <div class="stat-value" id="c-listings">{{ listings_signed }}</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="c-listings" data-luxury-drill="listings" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ listings_signed }}</button></div>
       <div class="stat-sub">vs {{ prior_ls }} same day {{ year - 1 }} &nbsp;
         {% if ls_yoy_pct >= 0 %}<span class="text-success" id="c-ls-yoy">▲ {{ ls_yoy_pct }}%</span>
         {% else %}<span class="text-danger" id="c-ls-yoy">▼ {{ ls_yoy_pct|abs }}%</span>{% endif %}
@@ -98,7 +98,7 @@
   <div class="col-md-3">
     <div class="stat-card">
       <div class="stat-label">Buyers Signed</div>
-      <div class="stat-value" id="c-buyers">{{ buyers_signed }}</div>
+      <div class="stat-value"><button type="button" class="transaction-drill-number" id="c-buyers" data-luxury-drill="buyers" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ buyers_signed }}</button></div>
       <div class="stat-sub">vs {{ prior_bs }} same day {{ year - 1 }} &nbsp;
         {% if bs_yoy_pct >= 0 %}<span class="text-success" id="c-bs-yoy">▲ {{ bs_yoy_pct }}%</span>
         {% else %}<span class="text-danger" id="c-bs-yoy">▼ {{ bs_yoy_pct|abs }}%</span>{% endif %}
@@ -146,6 +146,8 @@
     </div>
   </div>
 </div>
+
+{% include 'main/_transaction_drill_drawer.html' %}
 
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -298,6 +300,7 @@ function setSegment(s, btn) {
   document.getElementById('c-proj-gci2').textContent  = usd(d.proj_gci);
   document.getElementById('c-listings').textContent   = d.listings_signed;
   document.getElementById('c-buyers').textContent     = d.buyers_signed;
+  refreshLuxuryDrillControls();
 
   // YoY comparison lines
   function yoySpan(pct) {

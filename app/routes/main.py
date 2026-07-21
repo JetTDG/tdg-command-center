@@ -640,6 +640,140 @@ def home_commercial_signed_drill():
         'rows': deals,
     })
 
+@bp.route('/luxury-drill')
+@login_required
+def luxury_drill():
+    """Return the exact Luxury rows behind Home and CEO Summary KPIs."""
+    surface = request.args.get('surface', '')
+    drill_type = request.args.get('type', '')
+    allowed = {
+        'home': {
+            'closed', 'pending', 'listings', 'buyers',
+            'active_listings', 'active_buyers', 'presigned',
+        },
+        'ceo': {'closed', 'pending', 'listings', 'buyers'},
+    }
+    if surface not in allowed or drill_type not in allowed[surface]:
+        return jsonify({'error': 'invalid drill scope'}), 400
+
+    try:
+        year = int(request.args.get('year', current_year()))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'invalid year'}), 400
+    if year < 2000 or year > 2100:
+        return jsonify({'error': 'invalid year'}), 400
+
+    start_date = date(year, 1, 1)
+    end_date = date(year, 12, 31)
+    query = Transaction.query.filter(
+        Transaction.archived == False,
+        sql_luxury_predicate(),
+    )
+
+    if drill_type == 'closed':
+        query = query.filter(Transaction.status == 'Closed')
+        if surface == 'home':
+            query = query.filter(
+                Transaction.close_date >= start_date,
+                Transaction.close_date <= end_date,
+            )
+        else:
+            query = query.filter(or_(
+                Transaction.year == year,
+                and_(Transaction.year == None, extract('year', Transaction.close_date) == year),
+                and_(Transaction.year == None, Transaction.close_date == None,
+                     extract('year', Transaction.signed_date) == year),
+            ))
+    elif drill_type == 'pending':
+        query = query.filter(
+            Transaction.status == 'Pending',
+            Transaction.projected_close_date.isnot(None),
+            extract('year', Transaction.projected_close_date) == year,
+        )
+    elif drill_type in ('listings', 'buyers'):
+        query = query.filter(
+            Transaction.transaction_type == ('Listing' if drill_type == 'listings' else 'Buyer'),
+            Transaction.signed_date >= start_date,
+            Transaction.signed_date <= end_date,
+        )
+    elif drill_type in ('active_listings', 'active_buyers'):
+        query = query.filter(
+            Transaction.transaction_type == ('Listing' if drill_type == 'active_listings' else 'Buyer'),
+            Transaction.status == 'Active',
+        )
+    elif drill_type == 'presigned':
+        query = query.filter(
+            Transaction.status.in_(['Pre-Signed', 'Signed', 'Coming Soon'])
+        )
+
+    rows = query.all()
+    rows.sort(
+        key=lambda t: (
+            t.close_date or t.projected_close_date or t.signed_date or date.min,
+            t.id or 0,
+        ),
+        reverse=True,
+    )
+
+    def company_dollar(t):
+        return (
+            (t.gci or 0)
+            + (t.transaction_fee or 0)
+            + (t.bonus or 0)
+            - (t.primary_agent_gci or 0)
+            - (t.secondary_agent_gci or 0)
+            - (t.member3_gci or 0)
+            - (t.member4_gci or 0)
+            - (t.referral_fee or 0)
+            - (t.eo_fee or 0)
+        )
+
+    deals = []
+    for t in rows:
+        price = effective_luxury_price(t.status, t.sale_price, t.list_price)
+        close_or_projected = (
+            t.close_date if t.status == 'Closed' else t.projected_close_date
+        )
+        deals.append({
+            'id': t.id,
+            'address': t.address or 'No address',
+            'client': t.client_name or '—',
+            'agent': t.primary_agent_name or '—',
+            'division': t.division or 'Residential',
+            'type': t.transaction_type or '—',
+            'status': t.status or '—',
+            'source': t.lead_source or '—',
+            'signed_date': t.signed_date.isoformat() if t.signed_date else None,
+            'close_or_projected_date': close_or_projected.isoformat() if close_or_projected else None,
+            'price': float(price or 0),
+            'gci': float(t.gci or 0),
+            'company_dollar': float(company_dollar(t)),
+        })
+
+    titles = {
+        'closed': 'Luxury Closed Transactions',
+        'pending': 'Luxury Pending Transactions',
+        'listings': 'Luxury Listings Signed',
+        'buyers': 'Luxury Buyers Signed',
+        'active_listings': 'Luxury Active Listings',
+        'active_buyers': 'Luxury Active Buyers',
+        'presigned': 'Luxury Pre-Signed Pipeline',
+    }
+    scope_label = 'Current' if drill_type in {
+        'active_listings', 'active_buyers', 'presigned'
+    } else str(year)
+    return jsonify({
+        'surface': surface,
+        'drill_type': drill_type,
+        'title': f'{titles[drill_type]} — {scope_label}',
+        'count': len(deals),
+        'total_volume': sum(row['price'] for row in deals),
+        'total_gci': sum(row['gci'] for row in deals),
+        'total_company_dollar': sum(row['company_dollar'] for row in deals),
+        'rows': deals,
+    })
+
+
 # ─── MY BUSINESS ────────────────────────────────────────────────────────────
 
 def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter,

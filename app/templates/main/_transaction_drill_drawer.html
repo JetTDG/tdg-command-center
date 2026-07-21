@@ -1,0 +1,134 @@
+<style>
+  .transaction-drill-number {
+    appearance:none;border:0;background:transparent;padding:0;margin:0;
+    color:inherit;font:inherit;line-height:inherit;
+  }
+  .transaction-drill-number.is-luxury-active {
+    color:var(--tdg-gold);cursor:pointer;text-decoration:underline dotted;
+    text-underline-offset:3px;
+  }
+  .transaction-drill-number.is-luxury-active:focus-visible {
+    outline:2px solid var(--tdg-gold);outline-offset:3px;border-radius:2px;
+  }
+  #transaction-drill-drawer.open { display:flex !important; }
+</style>
+
+<div id="transaction-drill-overlay" onclick="closeTransactionDrill()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1990;"></div>
+<div id="transaction-drill-drawer" role="dialog" aria-modal="true"
+     aria-labelledby="transaction-drill-title"
+     style="display:none;position:fixed;top:0;right:0;height:100vh;height:100dvh;width:min(860px,100vw);max-width:100vw;overflow-x:hidden;background:#fff;z-index:2000;box-shadow:-8px 0 28px rgba(0,0,0,.2);flex-direction:column;">
+  <div class="d-flex justify-content-between align-items-start gap-3 p-3 border-bottom" style="flex:0 0 auto;">
+    <div style="min-width:0;">
+      <div class="fw-bold" id="transaction-drill-title" style="font-size:1.05rem;">Luxury transactions</div>
+      <div class="text-muted small" id="transaction-drill-summary">Loading…</div>
+    </div>
+    <button type="button" class="btn p-0 border-0 text-secondary"
+            onclick="closeTransactionDrill()" aria-label="Close transaction rows"
+            style="flex-shrink:0;font-size:2rem;line-height:.75;width:32px;height:32px;">&times;</button>
+  </div>
+  <div id="transaction-drill-body" class="p-0"
+       style="overflow-y:auto;overflow-x:hidden;flex:1 1 auto;max-width:100%;">
+    <div class="text-muted text-center py-5">Loading…</div>
+  </div>
+</div>
+
+<script>
+function escapeTransactionDrill(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  })[ch]);
+}
+
+function formatTransactionDrillDate(value) {
+  if (!value) return '—';
+  const parts = value.split('-');
+  return parts.length === 3 ? `${Number(parts[1])}/${Number(parts[2])}/${parts[0]}` : value;
+}
+
+function formatTransactionDrillMoney(value) {
+  return '$' + Number(value || 0).toLocaleString('en-US', {maximumFractionDigits:0});
+}
+
+function refreshLuxuryDrillControls() {
+  const enabled = typeof segment !== 'undefined' && segment === 'luxury';
+  document.querySelectorAll('.transaction-drill-number').forEach(button => {
+    button.classList.toggle('is-luxury-active', enabled);
+    button.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+  });
+}
+
+async function openTransactionDrill(button) {
+  if (typeof segment === 'undefined' || segment !== 'luxury') return;
+  const drillType = button.dataset.luxuryDrill;
+  const surface = button.dataset.drillSurface;
+  const year = button.dataset.drillYear;
+  const overlay = document.getElementById('transaction-drill-overlay');
+  const drawer = document.getElementById('transaction-drill-drawer');
+  const title = document.getElementById('transaction-drill-title');
+  const summary = document.getElementById('transaction-drill-summary');
+  const body = document.getElementById('transaction-drill-body');
+
+  overlay.style.display = 'block';
+  drawer.classList.add('open');
+  title.textContent = 'Luxury transactions';
+  summary.textContent = 'Loading…';
+  body.innerHTML = '<div class="text-muted text-center py-5">Loading…</div>';
+
+  try {
+    const query = new URLSearchParams({surface, type: drillType, year});
+    const response = await fetch(`/luxury-drill?${query.toString()}`);
+    if (!response.ok) throw new Error(`Request failed (${response.status})`);
+    const payload = await response.json();
+    title.textContent = payload.title;
+    summary.textContent = `${Number(payload.count).toLocaleString('en-US')} rows · ${formatTransactionDrillMoney(payload.total_volume)} volume · ${formatTransactionDrillMoney(payload.total_gci)} GCI · ${formatTransactionDrillMoney(payload.total_company_dollar)} company dollar`;
+
+    if (!payload.rows.length) {
+      body.innerHTML = '<div class="text-muted text-center py-5">No Luxury records found.</div>';
+      return;
+    }
+
+    body.innerHTML = `
+      <div id="transaction-drill-table-wrap" class="table-responsive"
+           style="width:100%;max-width:100%;overflow-x:auto;">
+        <table class="table table-hover align-middle mb-0" style="min-width:1080px;">
+          <thead class="table-light" style="position:sticky;top:0;z-index:1;">
+            <tr>
+              <th>Address / Client</th><th>Agent</th><th>Type / Status</th><th>Source</th>
+              <th>Signed</th><th>Close / Projected</th><th class="text-end">Price</th><th class="text-end">GCI</th><th class="text-end">Company $</th>
+            </tr>
+          </thead>
+          <tbody>${payload.rows.map(row => `
+            <tr>
+              <td><div class="fw-semibold">${escapeTransactionDrill(row.address)}</div><div class="text-muted small">${escapeTransactionDrill(row.client)}</div></td>
+              <td>${escapeTransactionDrill(row.agent)}</td>
+              <td><div>${escapeTransactionDrill(row.type)}</div><div class="text-muted small">${escapeTransactionDrill(row.status)}</div></td>
+              <td>${escapeTransactionDrill(row.source)}</td>
+              <td style="white-space:nowrap;">${formatTransactionDrillDate(row.signed_date)}</td>
+              <td style="white-space:nowrap;">${formatTransactionDrillDate(row.close_or_projected_date)}</td>
+              <td class="text-end" style="white-space:nowrap;">${formatTransactionDrillMoney(row.price)}</td>
+              <td class="text-end" style="white-space:nowrap;">${formatTransactionDrillMoney(row.gci)}</td>
+              <td class="text-end" style="white-space:nowrap;">${formatTransactionDrillMoney(row.company_dollar)}</td>
+            </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  } catch (error) {
+    summary.textContent = 'Unable to load rows';
+    body.innerHTML = `<div class="text-danger text-center py-5">${escapeTransactionDrill(error.message)}</div>`;
+  }
+}
+
+function closeTransactionDrill() {
+  document.getElementById('transaction-drill-overlay').style.display = 'none';
+  document.getElementById('transaction-drill-drawer').classList.remove('open');
+}
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('.transaction-drill-number');
+  if (button && button.getAttribute('aria-disabled') !== 'true') openTransactionDrill(button);
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeTransactionDrill();
+});
+document.addEventListener('DOMContentLoaded', refreshLuxuryDrillControls);
+</script>

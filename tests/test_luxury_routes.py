@@ -117,6 +117,139 @@ def test_transaction_pages_and_csv_use_luxury_segment(app):
     assert set(addresses) == {"Luxury Closed", "Luxury Active", "Luxury Pending"}
 
 
+def test_luxury_drill_endpoint_reconciles_home_and_ceo_rows(app):
+    from app import db
+    from app.models import Transaction
+
+    with app.app_context():
+        db.session.add_all([
+            Transaction(
+                agent_id=app.test_ids["agent"], primary_agent_id=app.test_ids["agent"],
+                primary_agent_name="Luxury Agent", address="Luxury Buyer Active",
+                client_name="Buyer Client", lead_source="Sphere", status="Active",
+                division="Residential", list_price=850000, gci=12000,
+                signed_date=date(2026, 4, 1), transaction_type="Buyer",
+                year=2026, month=4, archived=False,
+            ),
+            Transaction(
+                agent_id=app.test_ids["agent"], primary_agent_id=app.test_ids["agent"],
+                primary_agent_name="Luxury Agent", address="Luxury Coming Soon",
+                client_name="Seller Client", lead_source="Referral", status="Coming Soon",
+                division="Residential", list_price=950000, gci=15000,
+                signed_date=date(2026, 5, 1), transaction_type="Listing",
+                year=2026, month=5, archived=False,
+            ),
+        ])
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    home_text = client.get("/home").get_data(as_text=True)
+    home_match = re.search(r"const kpi\s*=\s*(\{.*?\});", home_text, re.S)
+    assert home_match, "Home KPI JSON not found"
+    home_luxury = json.loads(home_match.group(1))["luxury"]
+
+    ceo_text = client.get("/ceo-summary?year=2026").get_data(as_text=True)
+    ceo_match = re.search(r"const segData\s*=\s*(\{.*?\});", ceo_text, re.S)
+    assert ceo_match, "CEO segment JSON not found"
+    ceo_luxury = json.loads(ceo_match.group(1))["luxury"]
+
+    expected = {
+        "closed": {"Luxury Closed"},
+        "pending": {"Luxury Pending"},
+        "listings": {
+            "Luxury Closed", "Luxury Active", "Luxury Pending", "Luxury Coming Soon"
+        },
+        "buyers": {"Luxury Buyer Active"},
+        "active_listings": {"Luxury Active"},
+        "active_buyers": {"Luxury Buyer Active"},
+        "presigned": {"Luxury Coming Soon"},
+    }
+    home_counts = {
+        "closed": home_luxury["ytd_closed"],
+        "pending": home_luxury["pending_count"],
+        "listings": home_luxury["listings_signed"],
+        "buyers": home_luxury["buyers_signed"],
+        "active_listings": home_luxury["active_listings"],
+        "active_buyers": home_luxury["active_buyers"],
+        "presigned": home_luxury["presigned_count"],
+    }
+
+    for drill_type, addresses in expected.items():
+        response = client.get(
+            f"/luxury-drill?surface=home&type={drill_type}&year=2026"
+        )
+        assert response.status_code == 200, drill_type
+        payload = response.get_json()
+        assert payload["count"] == home_counts[drill_type] == len(payload["rows"])
+        assert {row["address"] for row in payload["rows"]} == addresses
+
+    home_closed = client.get(
+        "/luxury-drill?surface=home&type=closed&year=2026"
+    ).get_json()
+    home_pending = client.get(
+        "/luxury-drill?surface=home&type=pending&year=2026"
+    ).get_json()
+    assert home_closed["total_gci"] == home_luxury["ytd_gci"]
+    assert home_pending["total_gci"] == home_luxury["pending_gci"]
+
+    ceo_counts = {
+        "closed": ceo_luxury["ytd_units"],
+        "pending": ceo_luxury["proj_units"],
+        "listings": ceo_luxury["listings_signed"],
+        "buyers": ceo_luxury["buyers_signed"],
+    }
+    for drill_type, count in ceo_counts.items():
+        payload = client.get(
+            f"/luxury-drill?surface=ceo&type={drill_type}&year=2026"
+        ).get_json()
+        assert payload["count"] == count == len(payload["rows"])
+        assert {row["address"] for row in payload["rows"]} == expected[drill_type]
+        if drill_type == "closed":
+            assert payload["total_gci"] == ceo_luxury["ytd_gci"]
+            assert payload["total_volume"] == ceo_luxury["ytd_volume"]
+            assert payload["total_company_dollar"] == ceo_luxury["ytd_co_dollar"]
+        elif drill_type == "pending":
+            assert payload["total_gci"] == ceo_luxury["proj_gci"]
+            assert payload["total_volume"] == ceo_luxury["proj_volume"]
+            assert payload["total_company_dollar"] == ceo_luxury["proj_co_dollar"]
+
+
+def test_luxury_drill_controls_render_on_home_and_ceo(app):
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    home = client.get("/home").get_data(as_text=True)
+    ceo = client.get("/ceo-summary?year=2026").get_data(as_text=True)
+
+    for drill_type in (
+        "closed", "pending", "listings", "buyers",
+        "active_listings", "active_buyers", "presigned",
+    ):
+        assert f'data-luxury-drill="{drill_type}"' in home
+    for drill_type in ("closed", "pending", "listings", "buyers"):
+        assert f'data-luxury-drill="{drill_type}"' in ceo
+
+    for text in (home, ceo):
+        assert 'id="transaction-drill-drawer"' in text
+        assert 'id="transaction-drill-overlay"' in text
+        assert 'aria-label="Close transaction rows"' in text
+        assert '&times;' in text
+        assert "/luxury-drill" in text
+        assert "refreshLuxuryDrillControls" in text
+        assert "segment === 'luxury'" in text
+
+
+def test_luxury_drill_rejects_invalid_scope(app):
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    assert client.get("/luxury-drill?surface=nope&type=closed&year=2026").status_code == 400
+    assert client.get("/luxury-drill?surface=home&type=nope&year=2026").status_code == 400
+    assert client.get("/luxury-drill?surface=home&type=closed&year=bad").status_code == 400
+
+
 def test_all_reporting_surfaces_render_luxury_control_and_drilldown(app):
     client = app.test_client()
     login(client, app.test_ids["admin"])
