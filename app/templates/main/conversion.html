@@ -141,11 +141,11 @@
 
 {% macro breakdown_table(rows, table_id, first_label) %}
 {% set columns = [
-  (first_label, 'text', 'Search'), ('Leads', 'number', 'e.g. >=10'),
-  ('Contacted', 'number', 'e.g. >=10'), ('Set', 'number', 'e.g. >=10'),
-  ('Held', 'number', 'e.g. >=10'), ('Signed', 'number', 'e.g. >=10'),
-  ('Pending', 'number', 'e.g. >=10'), ('FUB Closed', 'number', 'e.g. >=10'),
-  ('CC Closed', 'number', 'e.g. >=10'), ('Overall', 'number', 'e.g. >=5')
+  (first_label, 'text', 'Search'), ('Leads', 'number', '>=10'),
+  ('Contacted', 'number', '>=10'), ('Set', 'number', '>=10'),
+  ('Held', 'number', '>=10'), ('Signed', 'number', '>=10'),
+  ('Pending', 'number', '>=10'), ('FUB Closed', 'number', '>=10'),
+  ('CC Closed', 'number', '>=10'), ('Overall', 'number', '>=5')
 ] %}
 <div class="table-responsive" data-table-id="{{ table_id }}">
 <table class="table table-hover conversion-table" id="{{ table_id }}" data-table-id="{{ table_id }}">

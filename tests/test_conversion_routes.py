@@ -181,6 +181,8 @@ def test_every_breakdown_table_column_has_filter_and_sort_controls(app):
         assert f'data-table-id="{table_id}"' in text
     assert text.count('class="conversion-sort"') == 30
     assert text.count('class="form-control form-control-sm conversion-column-filter"') == 30
+    assert text.count('placeholder="&gt;=10"') == 24
+    assert text.count('placeholder="&gt;=5"') == 3
     assert "filterConversionTable" in text
     assert "sortConversionTable" in text
     assert text.count('class="form-control form-control-sm conversion-date"') == 2
