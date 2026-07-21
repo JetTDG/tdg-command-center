@@ -230,14 +230,13 @@ def test_luxury_yoy_includes_prior_archived_but_not_current_archived(app):
     assert "TDG Luxury" in text
     assert "Historical Luxury" not in text  # chart only, no transaction disclosure
 
-    match = re.search(r"datasets:\s*(\[.*?\])\s*\n};", text, re.S)
-    assert match, "chart datasets JSON not found"
-    datasets = json.loads(match.group(1))
-    by_year = {int(dataset["label"]): dataset["data"] for dataset in datasets}
-    assert by_year[2025][4] == 1
-    assert by_year[2026][1] == 1
-    assert by_year[2026][7] == 0
-    assert sum(by_year[2026]) == 1
+    match = re.search(r"const luxuryMetricData\s*=\s*(\{.*?\});", text, re.S)
+    assert match, "chart metric JSON not found"
+    by_year = json.loads(match.group(1))
+    assert by_year["2025"]["units"][4] == 1
+    assert by_year["2026"]["units"][1] == 1
+    assert by_year["2026"]["units"][7] == 0
+    assert sum(by_year["2026"]["units"]) == 1
 
 
 def test_luxury_navigation_is_present_on_desktop_and_mobile(app):
@@ -245,3 +244,87 @@ def test_luxury_navigation_is_present_on_desktop_and_mobile(app):
     login(client, app.test_ids["admin"])
     text = client.get("/luxury").get_data(as_text=True)
     assert text.count("TDG Luxury") >= 3  # title, desktop nav, mobile drawer
+
+
+def test_luxury_dashboard_has_three_metric_series_banners_and_pending_rows(app):
+    from app import db
+    from app.models import Transaction
+
+    with app.app_context():
+        pending = Transaction.query.filter_by(address="Luxury Pending").one()
+        pending.lead_source = "Sphere"
+        pending.client_name = "Pending Client"
+        pending.under_contract_date = date(2026, 6, 20)
+        pending.primary_agent_gci = 21000
+
+        volume_winner = Transaction(
+            agent_id=app.test_ids["agent"], primary_agent_id=app.test_ids["agent"],
+            primary_agent_name="Luxury Agent", primary_agent_gci=14000,
+            address="Volume Winner", client_name="Volume Client",
+            lead_source="Referral", status="Closed", division="Residential",
+            sale_price=1500000, list_price=1550000, gci=20000,
+            close_date=date(2026, 4, 15), signed_date=date(2026, 1, 1),
+            transaction_type="Listing", year=2026, month=4, archived=False,
+        )
+        gci_winner = Transaction(
+            agent_id=app.test_ids["agent"], primary_agent_id=app.test_ids["agent"],
+            primary_agent_name="Luxury Agent", primary_agent_gci=35000,
+            address="GCI Winner", client_name="GCI Client",
+            lead_source="Zillow", status="Closed", division="Residential",
+            sale_price=800000, list_price=825000, gci=50000,
+            close_date=date(2026, 4, 20), signed_date=date(2026, 1, 1),
+            transaction_type="Buyer", year=2026, month=4, archived=False,
+        )
+        db.session.add_all([volume_winner, gci_winner])
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    response = client.get("/luxury")
+    assert response.status_code == 200
+    text = response.get_data(as_text=True)
+
+    assert 'id="luxuryUnitsChart"' in text
+    assert 'id="luxuryVolumeChart"' in text
+    assert 'id="luxuryGciChart"' in text
+
+    metric_match = re.search(r"const luxuryMetricData\s*=\s*(\{.*?\});", text, re.S)
+    assert metric_match, "Luxury metric chart JSON not found"
+    metric_data = json.loads(metric_match.group(1))
+    current = metric_data["2026"]
+    assert current["units"][3] == 2
+    assert current["volume"][3] == 2300000
+    assert current["gci"][3] == 70000
+
+    assert "Top Luxury Sale" in text
+    assert "Volume Winner" in text
+    assert "$1,500,000" in text
+    assert "Top Luxury GCI" in text
+    assert "GCI Winner" in text
+    assert "$50,000" in text
+
+    assert "Current Luxury Pendings" in text
+    for value in [
+        "Sphere", "Luxury Agent", "Pending Client", "Luxury Pending",
+        "$900,000", "Pending", "Jun 20, 2026", "Jul 10, 2026", "$10,000",
+    ]:
+        assert value in text
+    assert "Entered Low Sale" not in text
+
+
+def test_luxury_closings_rows_support_selecting_multiple_years(app):
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    current = client.get("/luxury")
+    current_text = current.get_data(as_text=True)
+    assert "Luxury Closings" in current_text
+    assert "Luxury Closed" in current_text
+    assert "Historical Luxury" not in current_text
+
+    multiple = client.get("/luxury?years=2025&years=2026")
+    multiple_text = multiple.get_data(as_text=True)
+    assert "Luxury Closed" in multiple_text
+    assert "Historical Luxury" in multiple_text
+    assert re.search(r'name="years" value="2025"[^>]*checked', multiple_text)
+    assert re.search(r'name="years" value="2026"[^>]*checked', multiple_text)

@@ -1,58 +1,245 @@
 {% extends 'base.html' %}
 {% block title %}TDG Luxury — TDG Command Center{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
-  <div>
-    <div class="page-title">TDG Luxury</div>
-    <div class="page-subtitle">Residential closings at $750,000 or more — monthly year-over-year</div>
+<style>
+  .luxury-header { margin-bottom: 1.25rem; }
+  .luxury-kicker { color: var(--tdg-gold-dark); font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .luxury-highlights { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin-bottom:1.25rem; }
+  .luxury-highlight { position:relative; overflow:hidden; border:1px solid #ead9aa; border-radius:14px; background:linear-gradient(135deg,#fffdf7 0%,#fff 62%); padding:1.25rem; box-shadow:var(--shadow-sm); }
+  .luxury-highlight::after { content:''; position:absolute; width:110px; height:110px; right:-35px; top:-42px; border-radius:50%; background:rgba(201,168,76,.12); }
+  .luxury-highlight-label { color:#8a6a20; font-size:.7rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:.4rem; }
+  .luxury-highlight-value { color:var(--tdg-text); font-size:1.65rem; font-weight:750; letter-spacing:-.035em; line-height:1.15; }
+  .luxury-highlight-address { font-size:.9rem; font-weight:650; margin-top:.55rem; }
+  .luxury-highlight-date { color:var(--tdg-muted); font-size:.78rem; margin-top:.12rem; }
+  .luxury-chart-card { margin-bottom:1rem; }
+  .luxury-chart-wrap { position:relative; height:340px; min-height:280px; }
+  .luxury-section-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; padding:1rem 1.15rem; border-bottom:1px solid var(--tdg-border); }
+  .luxury-section-title { font-size:.98rem; font-weight:700; margin:0; }
+  .luxury-section-subtitle { color:var(--tdg-muted); font-size:.76rem; margin-top:.15rem; }
+  .luxury-summary { display:flex; flex-wrap:wrap; gap:.45rem; }
+  .luxury-summary span { border:1px solid var(--tdg-border); background:var(--tdg-bg); border-radius:999px; padding:.3rem .65rem; color:var(--tdg-muted); font-size:.72rem; font-weight:600; white-space:nowrap; }
+  .luxury-year-form { display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; }
+  .luxury-year-check { position:absolute; opacity:0; pointer-events:none; }
+  .luxury-year-label { cursor:pointer; border:1px solid var(--tdg-border); border-radius:999px; background:#fff; color:var(--tdg-muted); padding:.35rem .7rem; font-size:.76rem; font-weight:650; transition:.15s; }
+  .luxury-year-check:checked + .luxury-year-label { border-color:var(--tdg-gold); background:var(--tdg-gold-light); color:#765916; }
+  .luxury-table { min-width:1120px; font-size:.78rem; }
+  .luxury-table thead th { background:#f9fafb; color:var(--tdg-muted); font-size:.66rem; letter-spacing:.045em; text-transform:uppercase; white-space:nowrap; border-bottom:1px solid var(--tdg-border); }
+  .luxury-table td { vertical-align:middle; white-space:nowrap; }
+  .luxury-table .address-cell { min-width:210px; max-width:280px; white-space:normal; font-weight:600; }
+  .luxury-empty { text-align:center; padding:2.75rem 1rem; color:var(--tdg-muted); }
+  .status-pending { display:inline-flex; border-radius:999px; background:#fef3c7; color:#92400e; padding:.22rem .55rem; font-size:.68rem; font-weight:700; }
+  .status-closed { display:inline-flex; border-radius:999px; background:#dcfce7; color:#166534; padding:.22rem .55rem; font-size:.68rem; font-weight:700; }
+  @media (max-width:767px) {
+    .luxury-highlights { grid-template-columns:1fr; }
+    .luxury-highlight-value { font-size:1.4rem; }
+    .luxury-chart-wrap { height:300px; }
+    .luxury-section-head { padding:.9rem; }
+  }
+</style>
+
+<div class="luxury-header">
+  <div class="luxury-kicker">Performance Dashboard</div>
+  <div class="page-title">TDG Luxury</div>
+  <div class="page-subtitle">Residential transactions at $750,000 or more</div>
+</div>
+
+<div class="luxury-highlights">
+  <div class="luxury-highlight">
+    <div class="luxury-highlight-label"><i class="bi bi-trophy me-1"></i>Top Luxury Sale · {{ year }}</div>
+    {% if top_volume_sale %}
+      <div class="luxury-highlight-value">${{ '{:,.0f}'.format(top_volume_sale.sale_price or 0) }}</div>
+      <div class="luxury-highlight-address">{{ top_volume_sale.address or 'Address unavailable' }}</div>
+      <div class="luxury-highlight-date">Closed {{ top_volume_sale.close_date.strftime('%b %-d, %Y') }}</div>
+    {% else %}
+      <div class="luxury-highlight-value">—</div>
+      <div class="luxury-highlight-date">No Luxury closings yet this year</div>
+    {% endif %}
+  </div>
+  <div class="luxury-highlight">
+    <div class="luxury-highlight-label"><i class="bi bi-gem me-1"></i>Top Luxury GCI · {{ year }}</div>
+    {% if top_gci_sale %}
+      <div class="luxury-highlight-value">${{ '{:,.0f}'.format(top_gci_sale.gci or 0) }}</div>
+      <div class="luxury-highlight-address">{{ top_gci_sale.address or 'Address unavailable' }}</div>
+      <div class="luxury-highlight-date">Closed {{ top_gci_sale.close_date.strftime('%b %-d, %Y') }}</div>
+    {% else %}
+      <div class="luxury-highlight-value">—</div>
+      <div class="luxury-highlight-date">No Luxury closings yet this year</div>
+    {% endif %}
   </div>
 </div>
 
-<div class="card">
-  <div class="card-body p-3 p-md-4">
-    <div style="position:relative;height:420px;min-height:320px;">
-      <canvas id="luxuryChart" aria-label="TDG Luxury monthly closed units by year" role="img"></canvas>
+{% for chart in [
+  ('Units', 'luxuryUnitsChart', 'Monthly closed units · year-over-year'),
+  ('Volume', 'luxuryVolumeChart', 'Monthly closed sales volume · year-over-year'),
+  ('GCI', 'luxuryGciChart', 'Monthly gross commission income · year-over-year')
+] %}
+<div class="card luxury-chart-card">
+  <div class="luxury-section-head">
+    <div>
+      <h2 class="luxury-section-title">Luxury {{ chart[0] }}</h2>
+      <div class="luxury-section-subtitle">{{ chart[2] }}</div>
     </div>
   </div>
+  <div class="card-body p-3 p-md-4">
+    <div class="luxury-chart-wrap">
+      <canvas id="{{ chart[1] }}" aria-label="TDG Luxury monthly {{ chart[0]|lower }} by year" role="img"></canvas>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<div class="card mb-4">
+  <div class="luxury-section-head">
+    <div>
+      <h2 class="luxury-section-title">Luxury Closings</h2>
+      <div class="luxury-section-subtitle">Choose one or more years to see each closing as a row</div>
+    </div>
+    {% if available_years %}
+    <form method="get" class="luxury-year-form" aria-label="Filter Luxury closings by year">
+      {% for y in available_years %}
+        <input class="luxury-year-check" type="checkbox" name="years" value="{{ y }}" id="lux-year-{{ y }}" {% if y in selected_years %}checked{% endif %}>
+        <label class="luxury-year-label" for="lux-year-{{ y }}">{{ y }}</label>
+      {% endfor %}
+      <button class="btn btn-sm btn-dark ms-1" type="submit">Show Years</button>
+    </form>
+    {% endif %}
+    <div class="luxury-summary w-100">
+      <span>{{ closing_totals.units }} closing{{ '' if closing_totals.units == 1 else 's' }}</span>
+      <span>${{ '{:,.0f}'.format(closing_totals.volume) }} volume</span>
+      <span>${{ '{:,.0f}'.format(closing_totals.gci) }} GCI</span>
+    </div>
+  </div>
+  {% if closings %}
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 luxury-table">
+      <thead><tr>
+        <th class="ps-3">Close Date</th><th>Source</th><th>Agent</th><th>Client</th><th>Address</th>
+        <th>Type</th><th class="text-end">List Price</th><th class="text-end">Sale Price</th>
+        <th>Status</th><th class="text-end pe-3">GCI</th>
+      </tr></thead>
+      <tbody>
+      {% for t in closings %}
+        <tr>
+          <td class="ps-3">{{ t.close_date.strftime('%b %-d, %Y') }}</td>
+          <td>{{ t.lead_source or '—' }}</td>
+          <td>{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</td>
+          <td>{{ t.client_name or '—' }}</td>
+          <td class="address-cell">{{ t.address or '—' }}</td>
+          <td>{{ t.transaction_type or '—' }}</td>
+          <td class="text-end">{{ '$' ~ '{:,.0f}'.format(t.list_price) if t.list_price else '—' }}</td>
+          <td class="text-end fw-semibold">${{ '{:,.0f}'.format(t.sale_price or 0) }}</td>
+          <td><span class="status-closed">Closed</span></td>
+          <td class="text-end pe-3 fw-semibold">${{ '{:,.0f}'.format(t.gci or 0) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="luxury-empty"><i class="bi bi-house-check d-block fs-3 mb-2"></i>No Luxury closings for the selected year{{ '' if selected_years|length == 1 else 's' }}.</div>
+  {% endif %}
+</div>
+
+<div class="card mb-4">
+  <div class="luxury-section-head">
+    <div>
+      <h2 class="luxury-section-title">Current Luxury Pendings</h2>
+      <div class="luxury-section-subtitle">All active Residential pendings currently qualifying at $750,000+</div>
+    </div>
+    <div class="luxury-summary">
+      <span>{{ pending_totals.units }} pending</span>
+      <span>${{ '{:,.0f}'.format(pending_totals.volume) }} volume</span>
+      <span>${{ '{:,.0f}'.format(pending_totals.gci) }} GCI</span>
+    </div>
+  </div>
+  {% if pending_txns %}
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 luxury-table">
+      <thead><tr>
+        <th class="ps-3">Source</th><th>Agent</th><th>Client</th><th>Address</th><th>Type</th>
+        <th class="text-end">List Price</th><th class="text-end">Sale Price</th><th>Status</th>
+        <th>Under Contract</th><th>Projected Close</th><th class="text-end pe-3">GCI</th>
+      </tr></thead>
+      <tbody>
+      {% for t in pending_txns %}
+        <tr>
+          <td class="ps-3">{{ t.lead_source or '—' }}</td>
+          <td>{{ t.primary_agent_name or (t.agent.name if t.agent else '—') }}</td>
+          <td>{{ t.client_name or '—' }}</td>
+          <td class="address-cell">{{ t.address or '—' }}</td>
+          <td>{{ t.transaction_type or '—' }}</td>
+          <td class="text-end fw-semibold">{{ '$' ~ '{:,.0f}'.format(t.list_price) if t.list_price else '—' }}</td>
+          <td class="text-end">{{ '$' ~ '{:,.0f}'.format(t.sale_price) if t.sale_price else '—' }}</td>
+          <td><span class="status-pending">{{ t.status }}</span></td>
+          <td>{{ t.under_contract_date.strftime('%b %-d, %Y') if t.under_contract_date else '—' }}</td>
+          <td>{{ t.projected_close_date.strftime('%b %-d, %Y') if t.projected_close_date else '—' }}</td>
+          <td class="text-end pe-3 fw-semibold">${{ '{:,.0f}'.format(t.gci or 0) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="luxury-empty"><i class="bi bi-hourglass-split d-block fs-3 mb-2"></i>No current Luxury pendings.</div>
+  {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-const luxuryData = {
-  labels: {{ chart_labels | tojson }},
-  datasets: {{ chart_datasets | tojson }}
-};
+const luxuryMetricData = {{ metric_data | tojson }};
+const luxuryLabels = {{ chart_labels | tojson }};
+const luxuryYears = {{ chart_years | tojson }};
+const luxuryColors = ['#94a3b8', '#60a5fa', '#34d399', '#a78bfa', '#c9a84c'];
 
-new Chart(document.getElementById('luxuryChart'), {
-  type: 'line',
-  data: luxuryData,
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: {
-        position: 'bottom',
-        labels: { usePointStyle: true, boxWidth: 9, padding: 18 }
+function compactCurrency(value) {
+  const abs = Math.abs(value || 0);
+  if (abs >= 1000000) return '$' + (value / 1000000).toFixed(abs >= 10000000 ? 0 : 1) + 'M';
+  if (abs >= 1000) return '$' + (value / 1000).toFixed(abs >= 100000 ? 0 : 1) + 'K';
+  return '$' + Math.round(value || 0).toLocaleString();
+}
+
+function datasetsFor(metric) {
+  return luxuryYears.map((year, i) => ({
+    label: String(year),
+    data: luxuryMetricData[String(year)][metric],
+    backgroundColor: luxuryColors[i],
+    borderColor: luxuryColors[i],
+    borderWidth: 0,
+    borderRadius: 4,
+    maxBarThickness: 26
+  }));
+}
+
+function buildLuxuryChart(canvasId, metric) {
+  const isCurrency = metric !== 'units';
+  new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    data: { labels: luxuryLabels, datasets: datasetsFor(metric) },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 16 } },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${isCurrency ? compactCurrency(ctx.parsed.y) : ctx.parsed.y}` } },
+        datalabels: { display: false }
       },
-      tooltip: {
-        callbacks: {
-          label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} closing${ctx.parsed.y === 1 ? '' : 's'}`
-        }
-      },
-      datalabels: { display: false }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: { precision: 0, stepSize: 1 },
-        title: { display: true, text: 'Closed Units' },
-        grid: { color: '#eef0f3' }
-      },
-      x: { grid: { display: false } }
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { precision: 0, callback: value => isCurrency ? compactCurrency(value) : value },
+          grid: { color: '#eef0f3' }
+        },
+        x: { grid: { display: false } }
+      }
     }
-  }
-});
+  });
+}
+
+buildLuxuryChart('luxuryUnitsChart', 'units');
+buildLuxuryChart('luxuryVolumeChart', 'volume');
+buildLuxuryChart('luxuryGciChart', 'gci');
 </script>
 {% endblock %}

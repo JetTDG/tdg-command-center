@@ -597,62 +597,102 @@ def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter,
 @bp.route('/luxury')
 @login_required
 def luxury():
-    """
-    Dedicated TDG Luxury page showing monthly closed units YoY.
-    Current year + prior 4 years, grouped by close_date month.
-    Prior years include archived history; the current year excludes archived
-    rows to match Command Center's established historical reporting rules.
-    """
+    """Dedicated TDG Luxury performance, closings, and pending dashboard."""
     year = current_year()
-    
-    # Query: Closed Luxury transactions, current year + 4 prior years
-    # Only count closed transactions (sale_price >= 750k is mandatory for closed)
+    today = date.today()
     start_year = year - 4
-    luxury_txns = Transaction.query.filter(
+
+    # Historical completed rows are archived in Command Center, so prior years
+    # must include archived transactions. Current-year archived rows remain
+    # excluded to avoid counting superseded/import-duplicate records.
+    all_closings = Transaction.query.filter(
         sql_luxury_closed_predicate(),
-        extract('year', Transaction.close_date) >= start_year,
-        extract('year', Transaction.close_date) <= year,
+        Transaction.close_date.isnot(None),
+        Transaction.close_date <= today,
         or_(
             extract('year', Transaction.close_date) < year,
             Transaction.archived == False,
         ),
+    ).order_by(Transaction.close_date.desc()).all()
+
+    metric_data = {
+        str(y): {'units': [0] * 12, 'volume': [0.0] * 12, 'gci': [0.0] * 12}
+        for y in range(start_year, year + 1)
+    }
+    for tx in all_closings:
+        tx_year = tx.close_date.year
+        if str(tx_year) not in metric_data:
+            continue
+        month_index = tx.close_date.month - 1
+        metric_data[str(tx_year)]['units'][month_index] += 1
+        metric_data[str(tx_year)]['volume'][month_index] += float(tx.sale_price or 0)
+        metric_data[str(tx_year)]['gci'][month_index] += float(tx.gci or 0)
+
+    current_closings = [tx for tx in all_closings if tx.close_date.year == year]
+    top_volume_sale = max(current_closings, key=lambda tx: tx.sale_price or 0, default=None)
+    top_gci_sale = max(current_closings, key=lambda tx: tx.gci or 0, default=None)
+
+    available_years = sorted(
+        {year} | {tx.close_date.year for tx in all_closings if tx.close_date},
+        reverse=True,
+    )
+    raw_years = request.args.getlist('years')
+    selected_years = []
+    for raw_year in raw_years:
+        try:
+            parsed_year = int(raw_year)
+        except (TypeError, ValueError):
+            continue
+        if parsed_year in available_years and parsed_year not in selected_years:
+            selected_years.append(parsed_year)
+    if not selected_years:
+        selected_years = [year] if year in available_years else available_years[:1]
+    selected_years = sorted(selected_years, reverse=True)
+
+    selected_closings = [
+        tx for tx in all_closings if tx.close_date.year in selected_years
+    ]
+    closing_totals = {
+        'units': len(selected_closings),
+        'volume': sum(float(tx.sale_price or 0) for tx in selected_closings),
+        'gci': sum(float(tx.gci or 0) for tx in selected_closings),
+    }
+
+    pending_txns = Transaction.query.filter(
+        Transaction.archived == False,
+        Transaction.status == 'Pending',
+        sql_luxury_predicate(),
     ).all()
-    
-    # Build monthly data structure: {year: [jan_count, feb_count, ..., dec_count]}
-    monthly_data = {}
-    for y in range(start_year, year + 1):
-        monthly_data[y] = [0] * 12
-    
-    # Count closed units by (year, month)
-    for tx in luxury_txns:
-        if tx.close_date:
-            tx_year = tx.close_date.year
-            tx_month = tx.close_date.month - 1  # 0-indexed for array
-            if tx_year in monthly_data:
-                monthly_data[tx_year][tx_month] += 1
-    
-    # Build Chart.js data structure
-    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    chart_labels = months
-    
-    # One dataset per year
-    datasets = []
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']  # blue, orange, green, red, purple
-    
-    for i, y in enumerate(range(start_year, year + 1)):
-        datasets.append({
-            'label': str(y),
-            'data': monthly_data[y],
-            'borderColor': colors[i % len(colors)],
-            'backgroundColor': colors[i % len(colors)] + '20',  # transparent
-            'borderWidth': 2,
-            'tension': 0.1,
-        })
-    
-    return render_template('main/luxury.html',
-                         year=year,
-                         chart_labels=chart_labels,
-                         chart_datasets=datasets)
+    pending_txns.sort(key=lambda tx: (
+        tx.projected_close_date is None,
+        tx.projected_close_date or date.max,
+        (tx.address or '').lower(),
+    ))
+    pending_totals = {
+        'units': len(pending_txns),
+        'volume': sum(
+            float(effective_luxury_price(tx.status, tx.sale_price, tx.list_price) or 0)
+            for tx in pending_txns
+        ),
+        'gci': sum(float(tx.gci or 0) for tx in pending_txns),
+    }
+
+    return render_template(
+        'main/luxury.html',
+        year=year,
+        chart_labels=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+        metric_data=metric_data,
+        chart_years=list(range(start_year, year + 1)),
+        top_volume_sale=top_volume_sale,
+        top_gci_sale=top_gci_sale,
+        available_years=available_years,
+        selected_years=selected_years,
+        closings=selected_closings,
+        closing_totals=closing_totals,
+        pending_txns=pending_txns,
+        pending_totals=pending_totals,
+    )
 
 @bp.route('/my-business/export.csv')
 @login_required
