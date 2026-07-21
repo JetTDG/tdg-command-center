@@ -18,10 +18,16 @@
   .luxury-section-subtitle { color:var(--tdg-muted); font-size:.76rem; margin-top:.15rem; }
   .luxury-summary { display:flex; flex-wrap:wrap; gap:.45rem; }
   .luxury-summary span { border:1px solid var(--tdg-border); background:var(--tdg-bg); border-radius:999px; padding:.3rem .65rem; color:var(--tdg-muted); font-size:.72rem; font-weight:600; white-space:nowrap; }
-  .luxury-year-form { display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; }
+  .luxury-year-controls { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:.45rem; }
+  .luxury-year-links, .luxury-year-form { display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; }
   .luxury-year-check { position:absolute; opacity:0; pointer-events:none; }
   .luxury-year-label { cursor:pointer; border:1px solid var(--tdg-border); border-radius:999px; background:#fff; color:var(--tdg-muted); padding:.35rem .7rem; font-size:.76rem; font-weight:650; transition:.15s; }
-  .luxury-year-check:checked + .luxury-year-label { border-color:var(--tdg-gold); background:var(--tdg-gold-light); color:#765916; }
+  .luxury-year-label:hover { color:#765916; border-color:var(--tdg-gold); }
+  .luxury-year-check:checked + .luxury-year-label, .luxury-year-label.active { border-color:var(--tdg-gold); background:var(--tdg-gold-light); color:#765916; }
+  .luxury-compare { position:relative; }
+  .luxury-compare summary { list-style:none; cursor:pointer; }
+  .luxury-compare summary::-webkit-details-marker { display:none; }
+  .luxury-compare[open] .luxury-year-form { margin-top:.55rem; justify-content:flex-end; }
   .luxury-table { min-width:1120px; font-size:.78rem; }
   .luxury-table thead th { background:#f9fafb; color:var(--tdg-muted); font-size:.66rem; letter-spacing:.045em; text-transform:uppercase; white-space:nowrap; border-bottom:1px solid var(--tdg-border); }
   .luxury-table td { vertical-align:middle; white-space:nowrap; }
@@ -95,13 +101,25 @@
       <div class="luxury-section-subtitle">Choose one or more years to see each closing as a row</div>
     </div>
     {% if available_years %}
-    <form method="get" class="luxury-year-form" aria-label="Filter Luxury closings by year">
-      {% for y in available_years %}
-        <input class="luxury-year-check" type="checkbox" name="years" value="{{ y }}" id="lux-year-{{ y }}" {% if y in selected_years %}checked{% endif %}>
-        <label class="luxury-year-label" for="lux-year-{{ y }}">{{ y }}</label>
-      {% endfor %}
-      <button class="btn btn-sm btn-dark ms-1" type="submit">Show Years</button>
-    </form>
+    <div class="luxury-year-controls">
+      <nav class="luxury-year-links" aria-label="Show Luxury closings for one year">
+        {% for y in available_years %}
+          <a href="{{ url_for('main.luxury', years=y) }}"
+             class="luxury-year-label text-decoration-none{% if selected_years == [y] %} active{% endif %}"
+             {% if selected_years == [y] %}aria-current="page"{% endif %}>{{ y }}</a>
+        {% endfor %}
+      </nav>
+      <details class="luxury-compare" {% if selected_years|length > 1 %}open{% endif %}>
+        <summary class="btn btn-sm btn-dark">Compare Years</summary>
+        <form method="get" class="luxury-year-form" aria-label="Compare Luxury closings across years">
+          {% for y in available_years %}
+            <input class="luxury-year-check" type="checkbox" name="years" value="{{ y }}" id="lux-compare-year-{{ y }}" {% if y in selected_years %}checked{% endif %}>
+            <label class="luxury-year-label" for="lux-compare-year-{{ y }}">{{ y }}</label>
+          {% endfor %}
+          <button class="btn btn-sm btn-dark ms-1" type="submit">Show Selected</button>
+        </form>
+      </details>
+    </div>
     {% endif %}
     <div class="luxury-summary w-100">
       <span>{{ closing_totals.units }} closing{{ '' if closing_totals.units == 1 else 's' }}</span>

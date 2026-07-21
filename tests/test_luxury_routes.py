@@ -312,6 +312,25 @@ def test_luxury_dashboard_has_three_metric_series_banners_and_pending_rows(app):
     assert "Entered Low Sale" not in text
 
 
+def test_luxury_closings_year_chip_immediately_loads_that_year(app):
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    page = client.get("/luxury?years=2025")
+    text = page.get_data(as_text=True)
+
+    assert 'href="/luxury?years=2025"' in text
+    assert re.search(r'href="/luxury\?years=2025"[^>]*class="[^"]*active', text)
+    closings_section = text.split(
+        '<h2 class="luxury-section-title">Luxury Closings</h2>', 1
+    )[1].split(
+        '<h2 class="luxury-section-title">Current Luxury Pendings</h2>', 1
+    )[0]
+    assert "Historical Luxury" in closings_section
+    assert "Luxury Closed" not in closings_section
+    assert "Compare Years" in text
+
+
 def test_luxury_closings_rows_support_selecting_multiple_years(app):
     client = app.test_client()
     login(client, app.test_ids["admin"])
