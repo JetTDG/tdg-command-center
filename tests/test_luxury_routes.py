@@ -140,6 +140,61 @@ def test_all_reporting_surfaces_render_luxury_control_and_drilldown(app):
     assert [deal["address"] for deal in payload["deals"]] == ["Luxury Closed"]
 
 
+def test_leaderboard_luxury_filter_is_immediate_clear_and_persistent(app):
+    from app import db
+    from app.models import Agent, Transaction
+
+    with app.app_context():
+        regular_agent = Agent(
+            name="High GCI Non-Luxury Agent",
+            email="regular@example.com",
+            status="Active",
+        )
+        db.session.add(regular_agent)
+        db.session.flush()
+        db.session.add(Transaction(
+            agent_id=regular_agent.id,
+            primary_agent_id=regular_agent.id,
+            primary_agent_name=regular_agent.name,
+            primary_agent_gci=70000,
+            address="High GCI Below Luxury",
+            status="Closed",
+            division="Residential",
+            sale_price=500000,
+            list_price=500000,
+            close_date=date(2026, 2, 15),
+            signed_date=date(2026, 1, 1),
+            transaction_type="Listing",
+            year=2026,
+            month=2,
+            gci=100000,
+            archived=False,
+        ))
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    response = client.get("/leaderboard?year=2026&timeframe=YTD&category=luxury")
+    assert response.status_code == 200
+    text = response.get_data(as_text=True)
+
+    # The high-GCI below-threshold deal must not outrank the actual Luxury agent.
+    assert text.index("Luxury Agent") < text.index("High GCI Non-Luxury Agent")
+    assert "$70,000" not in text
+
+    # Selecting a division should apply immediately rather than requiring a
+    # second, easy-to-miss click on Apply.
+    assert 'name="category" value="luxury" id="lb-luxury"' in text
+    assert 'onchange="this.form.requestSubmit()"' in text
+
+    # The rendered page must make the active ranking scope unmistakable.
+    assert "Luxury GCI Rankings — 2026" in text
+
+    # Drilling into an agent must retain the Luxury segment on the scorecard.
+    assert re.search(r'/scorecard/\d+\?division=Luxury', text)
+
+
 def test_luxury_open_volume_uses_effective_price_across_reports(app):
     client = app.test_client()
     login(client, app.test_ids["admin"])
