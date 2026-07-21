@@ -221,6 +221,38 @@ def home():
     listings_signed_mtd = int(lg_mtd[0] or 0)
     buyers_signed_mtd   = int(lg_mtd[1] or 0)
 
+    # Commercial signed activity is category-specific.  Do not fold landlord
+    # reps into listings or tenant reps into buyers: each KPI answers a
+    # different question and all are anchored to Date Signed.
+    def commercial_signed_q(transaction_type, start_date=ytd_start, end_date=ytd_end):
+        return Transaction.query.filter(
+            Transaction.archived == False,
+            Transaction.division == 'Commercial',
+            Transaction.transaction_type == transaction_type,
+            Transaction.signed_date >= start_date,
+            Transaction.signed_date <= end_date,
+        )
+
+    commercial_listings_signed = commercial_signed_q('CRE Listing').count()
+    commercial_listings_signed_mtd = commercial_signed_q(
+        'CRE Listing', mtd_start, mtd_end
+    ).count()
+    commercial_listings_signed_volume = float(
+        db.session.query(func.sum(Transaction.list_price)).filter(
+            Transaction.archived == False,
+            Transaction.division == 'Commercial',
+            Transaction.transaction_type == 'CRE Listing',
+            Transaction.signed_date >= ytd_start,
+            Transaction.signed_date <= ytd_end,
+        ).scalar() or 0
+    )
+    commercial_buyers_signed = commercial_signed_q('CRE Buyer').count()
+    commercial_buyers_signed_mtd = commercial_signed_q(
+        'CRE Buyer', mtd_start, mtd_end
+    ).count()
+    commercial_landlord_reps_signed = commercial_signed_q('CRE Landlord Rep').count()
+    commercial_tenant_reps_signed = commercial_signed_q('CRE Tenant Rep').count()
+
     # ── Offers Out MTD + acceptance rate — from offers_cache table (synced hourly from Master Tracker) ──
     def get_offers_from_db(start_date, end_date):
         total    = db.session.execute(
@@ -258,8 +290,11 @@ def home():
             'team_goal':            team_goal,
             'listings_signed':      listings_signed,
             'listings_signed_mtd':  listings_signed_mtd,
+            'listings_signed_volume': 0,
             'buyers_signed':        buyers_signed,
             'buyers_signed_mtd':    buyers_signed_mtd,
+            'landlord_reps_signed': 0,
+            'tenant_reps_signed':   0,
             'active_listings':      active_listings,
             'active_buyers':        active_buyers,
             'offers_mtd':           offers_mtd,
@@ -282,8 +317,11 @@ def home():
             'team_goal':            team_goal,
             'listings_signed':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.transaction_type=='Listing', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
             'listings_signed_mtd':  listings_signed_mtd,
+            'listings_signed_volume': 0,
             'buyers_signed':        Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.transaction_type=='Buyer', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
             'buyers_signed_mtd':    buyers_signed_mtd,
+            'landlord_reps_signed': 0,
+            'tenant_reps_signed':   0,
             'active_listings':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.transaction_type=='Listing', Transaction.status=='Active').count(),
             'active_buyers':        Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.transaction_type=='Buyer',   Transaction.status=='Active').count(),
             'offers_mtd':           offers_mtd,
@@ -304,10 +342,13 @@ def home():
             'pending_uc_mtd':       pending_uc_mtd_q(division_filter='Commercial'),
             'goal_pct':             round(goal_pct, 1),
             'team_goal':            team_goal,
-            'listings_signed':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.transaction_type.in_(['CRE Listing','CRE Landlord Rep']), Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
-            'listings_signed_mtd':  Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.transaction_type.in_(['CRE Listing','CRE Landlord Rep']), Transaction.signed_date>=mtd_start, Transaction.signed_date<=mtd_end).count(),
-            'buyers_signed':        Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.transaction_type.in_(['CRE Buyer','CRE Tenant Rep']), Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
-            'buyers_signed_mtd':    Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.transaction_type.in_(['CRE Buyer','CRE Tenant Rep']), Transaction.signed_date>=mtd_start, Transaction.signed_date<=mtd_end).count(),
+            'listings_signed':      commercial_listings_signed,
+            'listings_signed_mtd':  commercial_listings_signed_mtd,
+            'listings_signed_volume': commercial_listings_signed_volume,
+            'buyers_signed':        commercial_buyers_signed,
+            'buyers_signed_mtd':    commercial_buyers_signed_mtd,
+            'landlord_reps_signed': commercial_landlord_reps_signed,
+            'tenant_reps_signed':   commercial_tenant_reps_signed,
             'active_listings':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.status=='Active').count(),
             'active_buyers':        Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.status=='Active', Transaction.transaction_type.in_(['CRE Buyer', 'CRE Tenant Rep'])).count(),
             'offers_mtd':           0,
@@ -330,8 +371,11 @@ def home():
             'team_goal':            team_goal,
             'listings_signed':      Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Listing', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
             'listings_signed_mtd':  Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Listing', Transaction.signed_date>=mtd_start, Transaction.signed_date<=mtd_end).count(),
+            'listings_signed_volume': 0,
             'buyers_signed':        Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Buyer', Transaction.signed_date>=ytd_start, Transaction.signed_date<=ytd_end).count(),
             'buyers_signed_mtd':    Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Buyer', Transaction.signed_date>=mtd_start, Transaction.signed_date<=mtd_end).count(),
+            'landlord_reps_signed': 0,
+            'tenant_reps_signed':   0,
             'active_listings':      Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Listing', Transaction.status=='Active').count(),
             'active_buyers':        Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Buyer',   Transaction.status=='Active').count(),
             'offers_mtd':           0,

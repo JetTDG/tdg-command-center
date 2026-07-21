@@ -56,6 +56,7 @@
       <div class="stat-label">Listings Signed</div>
       <div class="stat-value" id="k-ls">{{ listings_signed }}</div>
       <div class="stat-sub">YTD &nbsp;|&nbsp; MTD: <span id="k-ls-mtd">{{ listings_signed_mtd }}</span></div>
+      <div class="stat-sub d-none" id="k-ls-volume-row"><span id="k-ls-volume">$0</span> signed listing volume</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
@@ -77,6 +78,24 @@
       <div class="stat-label">Active Buyers</div>
       <div class="stat-value" id="k-ab">{{ active_buyers }}</div>
       <div class="stat-sub">In pipeline</div>
+    </div>
+  </div>
+</div>
+
+<!-- Commercial-only representation activity -->
+<div class="row g-3 mb-3 d-none" id="commercial-rep-section">
+  <div class="col-6">
+    <div class="stat-card">
+      <div class="stat-label">Landlord Reps Signed</div>
+      <div class="stat-value" id="k-landlord-reps">0</div>
+      <div class="stat-sub">YTD by Date Signed</div>
+    </div>
+  </div>
+  <div class="col-6">
+    <div class="stat-card">
+      <div class="stat-label">Tenant Reps Signed</div>
+      <div class="stat-value" id="k-tenant-reps">0</div>
+      <div class="stat-sub">YTD by Date Signed</div>
     </div>
   </div>
 </div>
@@ -312,8 +331,13 @@ function refreshKPI() {
   document.getElementById('k-team-goal').textContent   = Number(k.team_goal).toLocaleString('en-US', {maximumFractionDigits:0});
   document.getElementById('k-ls').textContent     = fmtInt(k.listings_signed);
   document.getElementById('k-ls-mtd').textContent = fmtInt(k.listings_signed_mtd);
+  document.getElementById('k-ls-volume').textContent = fmtDollar(k.listings_signed_volume || 0);
+  document.getElementById('k-ls-volume-row').classList.toggle('d-none', segment !== 'comm');
   document.getElementById('k-bs').textContent     = fmtInt(k.buyers_signed);
   document.getElementById('k-bs-mtd').textContent = fmtInt(k.buyers_signed_mtd);
+  document.getElementById('k-landlord-reps').textContent = fmtInt(k.landlord_reps_signed || 0);
+  document.getElementById('k-tenant-reps').textContent = fmtInt(k.tenant_reps_signed || 0);
+  document.getElementById('commercial-rep-section').classList.toggle('d-none', segment !== 'comm');
   document.getElementById('k-al').textContent     = fmtInt(k.active_listings);
   document.getElementById('k-ab').textContent     = fmtInt(k.active_buyers);
   document.getElementById('k-pending-gci').textContent  = '$' + Number(k.pending_gci).toLocaleString('en-US', {maximumFractionDigits:0});
