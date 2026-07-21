@@ -74,6 +74,23 @@ def login(client, user_id):
         session["_fresh"] = True
 
 
+def test_ceo_summary_uses_normalized_commercial_signed_types(app):
+    client = app.test_client()
+    login(client, app.test_admin_id)
+
+    response = client.get("/ceo-summary?year=2026")
+    assert response.status_code == 200
+    text = response.get_data(as_text=True)
+    match = re.search(r"const segData\s*=\s*(\{.*?\});", text, re.S)
+    assert match, "CEO segment JSON not found"
+    segments = json.loads(match.group(1))
+
+    assert segments["comm"]["listings_signed"] == 2
+    assert segments["comm"]["buyers_signed"] == 1
+    assert segments["combined"]["listings_signed"] == 2
+    assert segments["combined"]["buyers_signed"] == 1
+
+
 def test_commercial_signed_kpis_use_date_signed_and_keep_rep_types_separate(app):
     client = app.test_client()
     login(client, app.test_admin_id)

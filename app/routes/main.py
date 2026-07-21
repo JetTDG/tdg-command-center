@@ -2293,36 +2293,50 @@ def ceo_summary():
                 'closed_units':   len(mc),
                 'pending_units':  len(mp),
             })
-        # signed counts — use signed_date within the year (same source as home dashboard)
+        # signed counts — use signed_date within the year (same source and
+        # normalized transaction categories as the Home dashboard). Commercial
+        # listings/buyers use explicit CRE types; representation categories stay
+        # separate and are not folded into these two cards.
         from datetime import date as _d2
         ytd_start_tx  = _d2(year, 1, 1)
         ytd_end_tx    = _d2(year, 12, 31)
         prior_start_tx = _d2(year-1, 1, 1)
         prior_end_tx   = _d2(year-1, prior_cutoff_month, prior_cutoff_day)
+
+        if seg == 'comm':
+            listing_types = ('CRE Listing',)
+            buyer_types = ('CRE Buyer',)
+        elif seg == 'combined':
+            listing_types = ('Listing', 'CRE Listing')
+            buyer_types = ('Buyer', 'CRE Buyer')
+        else:
+            listing_types = ('Listing',)
+            buyer_types = ('Buyer',)
+
         ls = sum(1 for t in seg_filter(
             Transaction.query.filter(
                 Transaction.archived == False,
-                Transaction.transaction_type == 'Listing',
+                Transaction.transaction_type.in_(listing_types),
                 Transaction.signed_date >= ytd_start_tx,
                 Transaction.signed_date <= ytd_end_tx,
             ).all(), 'combined' if seg=='combined' else seg))
         bs = sum(1 for t in seg_filter(
             Transaction.query.filter(
                 Transaction.archived == False,
-                Transaction.transaction_type == 'Buyer',
+                Transaction.transaction_type.in_(buyer_types),
                 Transaction.signed_date >= ytd_start_tx,
                 Transaction.signed_date <= ytd_end_tx,
             ).all(), 'combined' if seg=='combined' else seg))
         # prior-year same-day for listings/buyers signed
         prior_ls = sum(1 for t in seg_filter(
             Transaction.query.filter(
-                Transaction.transaction_type == 'Listing',
+                Transaction.transaction_type.in_(listing_types),
                 Transaction.signed_date >= prior_start_tx,
                 Transaction.signed_date <= prior_end_tx,
             ).all(), 'combined' if seg=='combined' else seg))
         prior_bs = sum(1 for t in seg_filter(
             Transaction.query.filter(
-                Transaction.transaction_type == 'Buyer',
+                Transaction.transaction_type.in_(buyer_types),
                 Transaction.signed_date >= prior_start_tx,
                 Transaction.signed_date <= prior_end_tx,
             ).all(), 'combined' if seg=='combined' else seg))
