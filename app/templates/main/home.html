@@ -2,6 +2,21 @@
 {% block title %}Home — TDG Command Center{% endblock %}
 {% block content %}
 
+<style>
+  .home-drill-number {
+    appearance:none;border:0;background:transparent;padding:0;margin:0;
+    color:inherit;font:inherit;line-height:inherit;
+  }
+  .home-drill-number.is-active {
+    color:var(--tdg-gold);cursor:pointer;text-decoration:underline dotted;
+    text-underline-offset:3px;
+  }
+  .home-drill-number.is-active:focus-visible {
+    outline:2px solid var(--tdg-gold);outline-offset:3px;border-radius:2px;
+  }
+  #home-drill-drawer.open { display:flex !important; }
+</style>
+
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <div>
     <div class="page-title">Dashboard</div>
@@ -54,15 +69,15 @@
   <div class="col-6 col-md-3">
     <div class="stat-card h-100">
       <div class="stat-label">Listings Signed</div>
-      <div class="stat-value" id="k-ls">{{ listings_signed }}</div>
+      <div class="stat-value"><button type="button" class="home-drill-number" id="k-ls" data-drill-type="listings" disabled>{{ listings_signed }}</button></div>
       <div class="stat-sub">YTD &nbsp;|&nbsp; MTD: <span id="k-ls-mtd">{{ listings_signed_mtd }}</span></div>
-      <div class="stat-sub d-none" id="k-ls-volume-row"><span id="k-ls-volume">$0</span> signed listing volume</div>
+      <div class="stat-sub d-none" id="k-ls-volume-row"><button type="button" class="home-drill-number" id="k-ls-volume" data-drill-type="listings" disabled>$0</button> signed listing volume</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card h-100">
       <div class="stat-label">Buyers Signed</div>
-      <div class="stat-value" id="k-bs">{{ buyers_signed }}</div>
+      <div class="stat-value"><button type="button" class="home-drill-number" id="k-bs" data-drill-type="buyers" disabled>{{ buyers_signed }}</button></div>
       <div class="stat-sub">YTD &nbsp;|&nbsp; MTD: <span id="k-bs-mtd">{{ buyers_signed_mtd }}</span></div>
     </div>
   </div>
@@ -87,14 +102,14 @@
   <div class="col-6">
     <div class="stat-card">
       <div class="stat-label">Landlord Reps Signed</div>
-      <div class="stat-value" id="k-landlord-reps">0</div>
+      <div class="stat-value"><button type="button" class="home-drill-number" id="k-landlord-reps" data-drill-type="landlord_reps" disabled>0</button></div>
       <div class="stat-sub">YTD by Date Signed</div>
     </div>
   </div>
   <div class="col-6">
     <div class="stat-card">
       <div class="stat-label">Tenant Reps Signed</div>
-      <div class="stat-value" id="k-tenant-reps">0</div>
+      <div class="stat-value"><button type="button" class="home-drill-number" id="k-tenant-reps" data-drill-type="tenant_reps" disabled>0</button></div>
       <div class="stat-sub">YTD by Date Signed</div>
     </div>
   </div>
@@ -207,6 +222,22 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<div id="home-drill-overlay" onclick="closeHomeDrill()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1040;"></div>
+<div id="home-drill-drawer" role="dialog" aria-modal="true" aria-labelledby="home-drill-title"
+     style="display:none;position:fixed;top:0;right:0;height:100vh;width:min(820px,100vw);background:#fff;z-index:1050;box-shadow:-8px 0 28px rgba(0,0,0,.2);flex-direction:column;">
+  <div class="d-flex justify-content-between align-items-start gap-3 p-3 border-bottom" style="flex:0 0 auto;">
+    <div>
+      <div class="fw-bold" id="home-drill-title" style="font-size:1.05rem;">Commercial signed activity</div>
+      <div class="text-muted small" id="home-drill-summary">Loading…</div>
+    </div>
+    <button type="button" class="btn-close" onclick="closeHomeDrill()" aria-label="Close drill-down"></button>
+  </div>
+  <div id="home-drill-body" class="p-0" style="overflow:auto;flex:1 1 auto;">
+    <div class="text-muted text-center py-5">Loading…</div>
   </div>
 </div>
 {% endblock %}
@@ -348,6 +379,10 @@ function refreshKPI() {
   document.getElementById('k-accept-ytd').textContent   = k.acceptance_rate_ytd + '%';
   document.getElementById('k-presigned').textContent    = fmtInt(k.presigned_count);
   document.getElementById('k-presigned-gci').textContent = Number(k.presigned_gci).toLocaleString('en-US', {maximumFractionDigits:0});
+  document.querySelectorAll('.home-drill-number').forEach(btn => {
+    btn.disabled = segment !== 'comm';
+    btn.classList.toggle('is-active', segment === 'comm');
+  });
 }
 
 function refreshRecent() {
@@ -382,6 +417,83 @@ function refreshRecent() {
     </tr>`;
   }).join('');
 }
+
+function escapeHomeDrill(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  })[ch]);
+}
+
+function formatHomeDrillDate(value) {
+  if (!value) return '—';
+  const parts = value.split('-');
+  return parts.length === 3 ? `${Number(parts[1])}/${Number(parts[2])}/${parts[0]}` : value;
+}
+
+async function openHomeDrill(drillType) {
+  if (segment !== 'comm') return;
+  const overlay = document.getElementById('home-drill-overlay');
+  const drawer = document.getElementById('home-drill-drawer');
+  const title = document.getElementById('home-drill-title');
+  const summary = document.getElementById('home-drill-summary');
+  const body = document.getElementById('home-drill-body');
+  overlay.style.display = 'block';
+  drawer.classList.add('open');
+  title.textContent = 'Commercial signed activity';
+  summary.textContent = 'Loading…';
+  body.innerHTML = '<div class="text-muted text-center py-5">Loading…</div>';
+
+  try {
+    const response = await fetch(`/home/commercial-signed-drill?type=${encodeURIComponent(drillType)}&year={{ year }}`);
+    if (!response.ok) throw new Error(`Request failed (${response.status})`);
+    const payload = await response.json();
+    title.textContent = payload.title;
+    summary.textContent = payload.drill_type === 'listings'
+      ? `${fmtInt(payload.count)} rows · ${fmtDollar(payload.total_volume)} signed listing volume`
+      : `${fmtInt(payload.count)} rows`;
+
+    if (!payload.rows.length) {
+      body.innerHTML = '<div class="text-muted text-center py-5">No signed records found.</div>';
+      return;
+    }
+    body.innerHTML = `
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light" style="position:sticky;top:0;z-index:1;">
+            <tr>
+              <th>Address / Client</th><th>Agent</th><th>Type / Status</th>
+              <th>Source</th><th>Signed</th><th class="text-end">Price</th>
+            </tr>
+          </thead>
+          <tbody>${payload.rows.map(row => `
+            <tr>
+              <td><div class="fw-semibold">${escapeHomeDrill(row.address)}</div><div class="text-muted small">${escapeHomeDrill(row.client)}</div></td>
+              <td>${escapeHomeDrill(row.agent)}</td>
+              <td><div>${escapeHomeDrill(row.type)}</div><div class="text-muted small">${escapeHomeDrill(row.status)}</div></td>
+              <td>${escapeHomeDrill(row.source)}</td>
+              <td style="white-space:nowrap;">${formatHomeDrillDate(row.signed_date)}</td>
+              <td class="text-end" style="white-space:nowrap;">${fmtDollar(row.list_price)}</td>
+            </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  } catch (error) {
+    summary.textContent = 'Unable to load rows';
+    body.innerHTML = `<div class="text-danger text-center py-5">${escapeHomeDrill(error.message)}</div>`;
+  }
+}
+
+function closeHomeDrill() {
+  document.getElementById('home-drill-overlay').style.display = 'none';
+  document.getElementById('home-drill-drawer').classList.remove('open');
+}
+
+document.addEventListener('click', function(event) {
+  const button = event.target.closest('.home-drill-number');
+  if (button && !button.disabled) openHomeDrill(button.dataset.drillType);
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeHomeDrill();
+});
 
 function setSegment(s) {
   segment = s;

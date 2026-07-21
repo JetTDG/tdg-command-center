@@ -111,3 +111,55 @@ def test_commercial_view_renders_rep_section_and_listing_volume_footer(app):
     signed_row_end = text.index("<!-- Commercial-only representation activity -->", signed_row_start)
     signed_row = text[signed_row_start:signed_row_end]
     assert signed_row.count('class="stat-card h-100"') == 4
+
+
+def test_commercial_signed_drilldown_returns_exact_rows_for_each_kpi(app):
+    client = app.test_client()
+    login(client, app.test_admin_id)
+
+    expected = {
+        "listings": (2, 3_000_000, {"CRE Listing 2026-01-10", "CRE Listing 2026-07-10"}),
+        "buyers": (1, 0, {"CRE Buyer 2026-02-01"}),
+        "landlord_reps": (
+            2,
+            0,
+            {"CRE Landlord Rep 2026-03-01", "CRE Landlord Rep 2026-04-01"},
+        ),
+        "tenant_reps": (1, 0, {"CRE Tenant Rep 2026-05-01"}),
+    }
+
+    for drill_type, (count, volume, addresses) in expected.items():
+        response = client.get(
+            f"/home/commercial-signed-drill?type={drill_type}&year=2026"
+        )
+        assert response.status_code == 200, drill_type
+        payload = response.get_json()
+        assert payload["count"] == count
+        assert payload["total_volume"] == volume
+        assert {row["address"] for row in payload["rows"]} == addresses
+        assert all(row["signed_date"] for row in payload["rows"])
+        assert all(row["division"] == "Commercial" for row in payload["rows"])
+
+
+def test_commercial_signed_drilldown_rejects_unknown_metric(app):
+    client = app.test_client()
+    login(client, app.test_admin_id)
+    response = client.get(
+        "/home/commercial-signed-drill?type=not-a-real-metric&year=2026"
+    )
+    assert response.status_code == 400
+
+
+def test_commercial_signed_numbers_are_drillable_and_drawer_is_rendered(app):
+    client = app.test_client()
+    login(client, app.test_admin_id)
+    text = client.get("/home").get_data(as_text=True)
+
+    for drill_type in ("listings", "buyers", "landlord_reps", "tenant_reps"):
+        assert f'data-drill-type="{drill_type}"' in text
+    assert text.count('data-drill-type="listings"') >= 2  # count + volume
+    assert 'id="home-drill-drawer"' in text
+    assert 'id="home-drill-overlay"' in text
+    assert "/home/commercial-signed-drill" in text
+    assert "openHomeDrill" in text
+    assert "segment !== 'comm'" in text

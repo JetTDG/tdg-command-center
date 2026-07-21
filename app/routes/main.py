@@ -584,6 +584,61 @@ def home():
         year=year
     )
 
+
+@bp.route('/home/commercial-signed-drill')
+@login_required
+def home_commercial_signed_drill():
+    """Return the exact Commercial YTD rows behind a signed-activity KPI."""
+    drill_type = request.args.get('type', '')
+    type_map = {
+        'listings': ('CRE Listing', 'Commercial Listings Signed'),
+        'buyers': ('CRE Buyer', 'Commercial Buyers Signed'),
+        'landlord_reps': ('CRE Landlord Rep', 'Commercial Landlord Reps Signed'),
+        'tenant_reps': ('CRE Tenant Rep', 'Commercial Tenant Reps Signed'),
+    }
+    if drill_type not in type_map:
+        return jsonify({'error': 'invalid drill type'}), 400
+
+    try:
+        year = int(request.args.get('year', current_year()))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'invalid year'}), 400
+    if year < 2000 or year > 2100:
+        return jsonify({'error': 'invalid year'}), 400
+
+    transaction_type, title = type_map[drill_type]
+    start_date = date(year, 1, 1)
+    end_date = date(year, 12, 31)
+    rows = Transaction.query.filter(
+        Transaction.archived == False,
+        Transaction.division == 'Commercial',
+        Transaction.transaction_type == transaction_type,
+        Transaction.signed_date >= start_date,
+        Transaction.signed_date <= end_date,
+    ).order_by(Transaction.signed_date.desc(), Transaction.id.desc()).all()
+
+    deals = [{
+        'id': t.id,
+        'address': t.address or 'No address',
+        'client': t.client_name or '—',
+        'agent': t.primary_agent_name or '—',
+        'division': t.division,
+        'type': t.transaction_type,
+        'status': t.status or '—',
+        'source': t.lead_source or '—',
+        'signed_date': t.signed_date.isoformat(),
+        'list_price': float(t.list_price or 0),
+    } for t in rows]
+    total_volume = sum(row['list_price'] for row in deals) if drill_type == 'listings' else 0
+
+    return jsonify({
+        'drill_type': drill_type,
+        'title': f'{title} — {year}',
+        'count': len(deals),
+        'total_volume': total_volume,
+        'rows': deals,
+    })
+
 # ─── MY BUSINESS ────────────────────────────────────────────────────────────
 
 def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter,
