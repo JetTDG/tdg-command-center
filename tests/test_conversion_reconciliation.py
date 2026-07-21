@@ -1,7 +1,9 @@
 from reconcile_conversion_transactions import (
     choose_fub_person,
-    is_canonical_zillow_closing,
+    deal_candidate_person_ids,
+    is_canonical_my_business_closing,
     match_zillow_transaction,
+    person_deal_variants,
 )
 
 
@@ -66,11 +68,12 @@ def test_exact_premier_agent_contact_id_is_an_explicit_fub_match():
         person(id=999, name="Nathan Figueroa", sourceUrl=""),
     ])
 
-    assert match == {
-        "person_id": "278169",
-        "method": "exact_pa_contact_id",
-        "confidence": "explicit",
-    }
+    assert match is not None
+    assert match["person_id"] == "278169"
+    assert match["method"] == "exact_pa_contact_id"
+    assert match["confidence"] == "explicit"
+    assert "exact_pa_contact_id" in match["evidence"]
+    assert match["score"] >= 120
 
 
 def test_duplicate_people_with_same_premier_agent_contact_id_are_rejected():
@@ -104,11 +107,13 @@ def test_unique_name_address_deal_match_is_high_confidence_without_zillow_row():
 
     match = choose_fub_person(transaction, None, [candidate])
 
-    assert match == {
-        "person_id": "213789",
-        "method": "corroborated_fub_deal",
-        "confidence": "high",
-    }
+    assert match is not None
+    assert match["person_id"] == "213789"
+    assert match["method"] == "corroborated_fub_deal"
+    assert match["confidence"] == "high"
+    assert "name" in match["evidence"]
+    assert {"fub_address", "deal_address"} & set(match["evidence"])
+    assert match["score"] >= 150
 
 
 def test_ambiguous_name_only_candidates_are_never_linked():
@@ -121,20 +126,124 @@ def test_ambiguous_name_only_candidates_are_never_linked():
     assert choose_fub_person(transaction, None, candidates) is None
 
 
-def test_reconciliation_scope_is_current_year_canonical_my_business_zillow_only():
+def test_reconciliation_scope_is_all_canonical_my_business_sources():
     current = tx(status="Closed", archived=False, is_import_duplicate=False)
-    assert is_canonical_zillow_closing(current, report_year=2026, current_year=2026)
-    assert not is_canonical_zillow_closing(
-        {**current, "close_date": "2025-12-31"}, report_year=2026, current_year=2026,
-    )
-    assert not is_canonical_zillow_closing(
-        {**current, "archived": True}, report_year=2026, current_year=2026,
-    )
-    assert not is_canonical_zillow_closing(
-        {**current, "is_import_duplicate": True}, report_year=2026, current_year=2026,
-    )
-    assert not is_canonical_zillow_closing(
+    assert is_canonical_my_business_closing(current, report_year=2026, current_year=2026)
+    assert is_canonical_my_business_closing(
         {**current, "lead_source": "Referral"}, report_year=2026, current_year=2026,
     )
+    assert is_canonical_my_business_closing(
+        {**current, "lead_source": None}, report_year=2026, current_year=2026,
+    )
+    assert not is_canonical_my_business_closing(
+        {**current, "close_date": "2025-12-31"}, report_year=2026, current_year=2026,
+    )
+    assert not is_canonical_my_business_closing(
+        {**current, "archived": True}, report_year=2026, current_year=2026,
+    )
+    assert not is_canonical_my_business_closing(
+        {**current, "is_import_duplicate": True}, report_year=2026, current_year=2026,
+    )
     historical = {**current, "close_date": "2025-06-01", "archived": True}
-    assert is_canonical_zillow_closing(historical, report_year=2025, current_year=2026)
+    assert is_canonical_my_business_closing(historical, report_year=2025, current_year=2026)
+
+
+def test_non_zillow_deal_match_uses_unique_person_name_property_date_and_price():
+    transaction = tx(
+        client_name="Taylor Client",
+        address="100 Main St Royal Oak MI 48067",
+        close_date="2026-04-10",
+        sale_price=325000,
+        lead_source="Veterans United",
+    )
+    candidate = person(
+        id=501,
+        name="Taylor Client",
+        source="Veterans United",
+        sourceUrl="",
+        stage="Closed",
+        dealName="Taylor Client purchase",
+        dealAddress="100 Main Street Royal Oak MI 48067",
+        dealCloseDate="2026-04-12",
+        dealPrice=325000,
+        addresses=[],
+    )
+
+    match = choose_fub_person(transaction, None, [candidate])
+
+    assert match is not None
+    assert match["person_id"] == "501"
+    assert match["method"] == "corroborated_fub_deal"
+    assert match["confidence"] == "high"
+    assert {
+        "name", "deal_address", "deal_close_7d", "deal_price_5pct",
+    }.issubset(match["evidence"])
+
+
+def test_best_of_multiple_deals_for_one_person_is_used_without_self_ambiguity():
+    transaction = tx(
+        client_name="Taylor Client",
+        address="100 Main St Royal Oak MI 48067",
+        close_date="2026-04-10",
+        sale_price=325000,
+        lead_source="Referral",
+    )
+    unrelated = person(
+        id=501, name="Taylor Client", source="Referral", sourceUrl="",
+        dealName="Old sale", dealAddress="900 Other St", dealCloseDate="2024-01-01",
+        dealPrice=100000, addresses=[],
+    )
+    matching = person(
+        id=501, name="Taylor Client", source="Referral", sourceUrl="",
+        dealName="Taylor Client purchase", dealAddress="100 Main Street Royal Oak MI 48067",
+        dealCloseDate="2026-04-10", dealPrice=325000, addresses=[],
+    )
+
+    match = choose_fub_person(transaction, None, [unrelated, matching])
+    assert match is not None
+    assert match["person_id"] == "501"
+    assert match["method"] == "corroborated_fub_deal"
+    assert match["confidence"] == "high"
+    assert match["margin"] >= 30
+
+
+def test_global_deal_feed_can_discover_person_by_property_when_name_search_misses():
+    transaction = tx(
+        client_name="Business Entity LLC",
+        address="100 Main St Royal Oak MI 48067",
+        close_date="2026-04-10",
+    )
+    deals = [{
+        "name": "Different contact label",
+        "customAddressMaverick": "100 Main Street Royal Oak MI 48067",
+        "people": [{"id": 501, "name": "Taylor Client"}],
+    }]
+
+    assert deal_candidate_person_ids(transaction, deals) == {"501"}
+
+
+def test_person_deal_variants_map_all_deals_to_one_person_identity():
+    variants = person_deal_variants(
+        {"id": 501, "name": "Taylor Client", "source": "Referral"},
+        [{
+            "id": 9001,
+            "name": "Taylor Client purchase",
+            "customAddressMaverick": "100 Main St",
+            "projectedCloseDate": "2026-04-10",
+            "price": 325000,
+            "stageName": "Closed",
+            "customLeadSourceMaverick": "Referral",
+        }, {
+            "id": 9002,
+            "name": "Older sale",
+            "customAddressMaverick": "900 Other St",
+            "projectedCloseDate": "2024-01-01",
+            "price": 100000,
+            "stageName": "Closed",
+        }],
+    )
+
+    assert len(variants) == 2
+    assert {str(row["id"]) for row in variants} == {"501"}
+    assert {row["dealAddress"] for row in variants} == {"100 Main St", "900 Other St"}
+    assert variants[0]["dealSource"] == "Referral"

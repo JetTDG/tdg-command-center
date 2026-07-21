@@ -113,7 +113,7 @@ def test_conversion_requires_login_and_renders_overall_funnel(app):
     assert 'data-metric="production-closed">3<' in text
     assert "66.7%" in text
     assert "3 leads" in text
-    assert "SOI excluded; non-Zillow bulk imports excluded" in text
+    assert "SOI excluded; Bulk Import source family excluded" in text
 
 
 def test_agent_and_exact_source_filters_use_same_cohort(app):
@@ -126,9 +126,9 @@ def test_agent_and_exact_source_filters_use_same_cohort(app):
     assert response.status_code == 200
     assert 'value="Zillow Premier" selected' in text
     assert 'data-metric="leads">2<' in text
-    assert 'data-metric="closed">2<' in text
+    assert 'data-metric="closed">1<' in text
     assert 'data-metric="production-closed">1<' in text
-    assert "100.0%" in text
+    assert "50.0%" in text
     assert "Referral - Partner" not in text
 
 
@@ -166,6 +166,55 @@ def test_zillow_attributed_bulk_backfill_remains_in_zillow_cohort(app):
     ).get_data(as_text=True)
 
     assert 'data-metric="leads">3<' in text
+
+
+def test_any_source_attributed_bulk_backfill_remains_in_its_source_cohort(app):
+    from app import db
+    from app.models import ConversionLead
+
+    with app.app_context():
+        db.session.add(ConversionLead(
+            fub_person_id="referral-imported", lead_received_at=datetime(2026, 5, 1),
+            fub_created_at=datetime(2026, 5, 1), original_source="Referral - Partner",
+            current_source="Referral - Partner", original_source_family="Referral",
+            current_source_family="Referral", attribution_quality="current_agent_backfill",
+            lead_type="Team", side="Seller", is_soi=False, is_bulk=True,
+            last_synced_at=datetime(2026, 7, 21, 8),
+        ))
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    text = client.get(
+        "/conversion?start=2026-01-01&end=2026-12-31&source_family=Referral"
+    ).get_data(as_text=True)
+
+    assert 'data-metric="leads">2<' in text
+
+
+def test_source_filtered_cohort_closures_use_same_my_business_source_universe(app):
+    from app import db
+    from app.models import Transaction
+
+    with app.app_context():
+        db.session.add(Transaction(
+            agent_id=app.test_ids["a2"], transaction_type="Listing", status="Closed",
+            lead_type="Team", lead_source="Zillow", close_date=date(2026, 6, 1),
+            archived=False, is_import_duplicate=False, fub_id="3",
+            client_name="Source Mismatch", address="30 Main St", sale_price=275000,
+        ))
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    text = client.get(
+        "/conversion?start=2026-01-01&end=2026-12-31&source_family=Referral"
+    ).get_data(as_text=True)
+
+    assert 'data-metric="leads">1<' in text
+    assert 'data-metric="closed">0<' in text
+    assert 'data-metric="production-closed">1<' in text
+    assert 'data-metric="linked-production">0 of 1<' in text
 
 
 def test_my_business_closings_drive_authoritative_linked_cohort_and_match_coverage(app):

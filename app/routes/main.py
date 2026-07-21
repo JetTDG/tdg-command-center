@@ -882,13 +882,13 @@ def conversion():
     if not include_soi:
         query = query.filter(ConversionLead.is_soi.is_(False))
     if not include_bulk:
-        # Zillow-attributed records remain part of the Zillow received-lead
-        # cohort even when FUB tags indicate they arrived through a historical
-        # import. The complete Zillow population is the requested denominator;
-        # generic prospect-list imports from other source families stay out.
+        # Bulk/import is an inclusion dimension, not a replacement source.
+        # Keep records durably attributed to any governed source family while
+        # excluding only records whose actual family is Bulk Import.
         query = query.filter(or_(
             ConversionLead.is_bulk.is_(False),
-            family_column == 'Zillow',
+            family_column.is_(None),
+            family_column != 'Bulk Import',
         ))
 
     # Dropdowns follow the selected date/agent universe but remain available
@@ -945,7 +945,7 @@ def conversion():
             continue
         if (
             not include_bulk and classified['is_bulk']
-            and classified['source_family'] != 'Zillow'
+            and classified['source_family'] == 'Bulk Import'
         ):
             continue
         if selected_source and classified['source'] != selected_source:
@@ -962,22 +962,13 @@ def conversion():
     # cohort. Command Center remains authoritative for whether a closing is real;
     # FUB supplies the person link, not the closing status.
     cohort_fub_ids = {row.fub_person_id for row in rows if row.fub_person_id}
-    cohort_closed_fub_ids = set()
-    if cohort_fub_ids:
-        cohort_transactions = Transaction.query.filter(
-            Transaction.status == 'Closed',
-            Transaction.fub_id.in_(cohort_fub_ids),
-            Transaction.close_date.isnot(None),
-            Transaction.close_date <= end_date,
-            or_(
-                Transaction.close_date < date(today.year, 1, 1),
-                Transaction.archived.isnot(True),
-            ),
-            Transaction.is_import_duplicate.isnot(True),
-        ).all()
-        cohort_closed_fub_ids = {
-            transaction.fub_id for transaction in cohort_transactions if transaction.fub_id
-        }
+    # My Business is authoritative not only for whether a closing exists, but
+    # also for its source, agent, side, and reporting-period membership. The
+    # person numerator must therefore intersect the same filtered transaction
+    # universe used by the production cards and reconciliation table.
+    cohort_closed_fub_ids = cohort_fub_ids & {
+        transaction.fub_id for transaction, _ in production_rows if transaction.fub_id
+    }
 
     linked_production_rows = [
         transaction for transaction, _ in production_rows if transaction.fub_id

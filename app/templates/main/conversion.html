@@ -99,7 +99,7 @@
     <div class="col-xl-8 col-md-8 d-flex flex-wrap gap-3 align-items-center pt-2">
       <div class="form-check"><input class="form-check-input" type="checkbox" name="include_soi" value="1" id="include-soi" {% if filters.include_soi %}checked{% endif %}><label class="form-check-label text-reset" for="include-soi">Include SOI / past clients</label></div>
       <div class="form-check"><input class="form-check-input" type="checkbox" name="include_bulk" value="1" id="include-bulk" {% if filters.include_bulk %}checked{% endif %}><label class="form-check-label text-reset" for="include-bulk">Include bulk imports</label></div>
-      <span class="metric-note">{% if not filters.include_soi and not filters.include_bulk %}SOI excluded; non-Zillow bulk imports excluded{% elif not filters.include_soi %}SOI excluded{% elif not filters.include_bulk %}Non-Zillow bulk imports excluded{% else %}All lead types included{% endif %}</span>
+      <span class="metric-note">{% if not filters.include_soi and not filters.include_bulk %}SOI excluded; Bulk Import source family excluded{% elif not filters.include_soi %}SOI excluded{% elif not filters.include_bulk %}Bulk Import source family excluded{% else %}All lead types included{% endif %}</span>
     </div>
     <div class="col-xl-4 col-md-4 d-flex justify-content-md-end gap-2">
       <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.conversion') }}">Reset</a>
