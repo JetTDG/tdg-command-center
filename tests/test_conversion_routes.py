@@ -214,7 +214,7 @@ def test_source_filtered_cohort_closures_use_same_my_business_source_universe(ap
     assert 'data-metric="leads">1<' in text
     assert 'data-metric="closed">0<' in text
     assert 'data-metric="production-closed">1<' in text
-    assert 'data-metric="linked-production">0 of 1<' in text
+    assert 'data-metric="linked-production">0 linked of 1<' in text
 
 
 def test_my_business_closings_drive_authoritative_linked_cohort_and_match_coverage(app):
@@ -227,7 +227,7 @@ def test_my_business_closings_drive_authoritative_linked_cohort_and_match_covera
     assert response.status_code == 200
     assert 'data-metric="closed">2<' in text
     assert 'data-metric="production-closed">2<' in text
-    assert 'data-metric="linked-production">2 of 2<' in text
+    assert 'data-metric="linked-production">2 linked of 2<' in text
     assert 'id="conversion-family-table"' in text
     assert "Cohort Closed Leads" in text
     assert "My Business Closings" in text
@@ -235,6 +235,37 @@ def test_my_business_closings_drive_authoritative_linked_cohort_and_match_covera
     assert "Linked Buyer Two" in text
     assert "poweredbyinfinity.followupboss.com/2/people/view/1" in text
     assert "poweredbyinfinity.followupboss.com/2/people/view/2" in text
+
+
+def test_reviewed_non_fub_closing_is_shown_as_not_applicable_coverage(app):
+    from app import db
+    from app.models import AuditLog, Transaction
+
+    with app.app_context():
+        transaction = Transaction(
+            transaction_type="Referral", status="Closed", lead_type="Agent",
+            lead_source="Agent Referral", close_date=date(2026, 6, 15),
+            archived=False, is_import_duplicate=False, fub_id=None,
+            client_name="Inbound Referral Check", address="Out of Area", sale_price=0,
+        )
+        db.session.add(transaction)
+        db.session.flush()
+        db.session.add(AuditLog(
+            table_name="transactions", record_id=transaction.id,
+            field_name="conversion_tracking", old_value=None,
+            new_value="excluded_no_fub", changed_by="conversion_review",
+            note="Reviewed as inbound referral check only",
+        ))
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    text = client.get(
+        "/conversion?start=2026-01-01&end=2026-12-31&source_family=Referral&include_soi=1"
+    ).get_data(as_text=True)
+
+    assert '1 N/A' in text
+    assert 'reviewed as not applicable to FUB tracking' in text
 
 
 def test_prior_period_lead_closing_is_reconciled_without_inflating_received_cohort(app):

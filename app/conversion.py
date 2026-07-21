@@ -9,6 +9,7 @@ _BULK_SOURCE_TOKENS = ("import", "farm", "mailing list", "database upload")
 _BULK_TAG_TOKENS = ("bulk import", "farm", "mailing list", "database upload")
 _COMMERCIAL_PROSPECTING_TOKENS = (
     "industrial owners", "retail owners", "commercial owners", "commercial prospect",
+    "cold calling",
 )
 
 
@@ -22,6 +23,10 @@ def normalize_source_family(source: str | None) -> str:
         return "Zillow"
     if value == "soi" or value.startswith("soi ") or value.endswith(" soi") or "sphere" in value:
         return "SOI"
+    # CRE GLS is its own commercial campaign family. Check it before the
+    # generic Google/website rule so the channel suffix does not erase intent.
+    if "cre gls" in value:
+        return "TDG CRE GLS"
     if "golden letter" in value or value.startswith("gls"):
         return "Golden Letter"
     if "referral" in value:

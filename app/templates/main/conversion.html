@@ -111,7 +111,7 @@
 <div class="alert alert-light border d-flex gap-2 align-items-start py-2 mb-3" role="status">
   <i class="bi bi-shield-check text-success"></i>
   <div class="metric-note">
-    <strong class="text-dark">Coverage:</strong> {{ observed_count }} leads have observed original attribution; {{ historical_count }} historical leads use the current assignee where available. For records first observed after reassignment to VA Support or an unmatched user, the historical receiving agent is unavailable and is not guessed. My Business is authoritative for closings. FUB supplies the person link and received-date cohort; a closing never counts as a converted lead unless its My Business transaction has a FUB person ID. Low-sample rows are flagged below.
+    <strong class="text-dark">Coverage:</strong> {{ observed_count }} leads have observed original attribution; {{ historical_count }} historical leads use the current assignee where available. For records first observed after reassignment to VA Support or an unmatched user, the historical receiving agent is unavailable and is not guessed. My Business is authoritative for closings. FUB supplies the person link and received-date cohort; a closing never counts as a converted lead unless its My Business transaction has a FUB person ID. {% if conversion_excluded_count %}{{ conversion_excluded_count }} closing{{ '' if conversion_excluded_count == 1 else 's' }} reviewed as not applicable to FUB tracking {{ 'is' if conversion_excluded_count == 1 else 'are' }} included in coverage separately.{% endif %} Low-sample rows are flagged below.
   </div>
 </div>
 
@@ -124,7 +124,7 @@
   <div class="conversion-card"><div class="kicker">Pending</div><div class="number" data-metric="pending">{{ overall.pending }}</div><div class="rate">{{ pct(overall.pending_rate) }} of signed</div></div>
   <div class="conversion-card"><div class="kicker">Cohort Closed Leads</div><div class="number" data-metric="closed">{{ overall.closed }}</div><div class="rate"><strong>{{ pct(overall.overall_rate) }}</strong> · My Business-linked people</div></div>
   <div class="conversion-card"><div class="kicker">My Business Closings</div><div class="number" data-metric="production-closed">{{ production_closed }}</div><div class="rate">Authoritative close-date production</div></div>
-  <div class="conversion-card"><div class="kicker">Matched to FUB</div><div class="number compact-number" data-metric="linked-production">{{ linked_production_count }} of {{ production_closed }}</div><div class="rate">Auditable closing-to-person links</div></div>
+  <div class="conversion-card"><div class="kicker">FUB Coverage</div><div class="number compact-number" data-metric="linked-production">{{ linked_production_count }} linked{% if conversion_excluded_count %} + {{ conversion_excluded_count }} N/A{% endif %} of {{ production_closed }}</div><div class="rate">Auditable links and reviewed exclusions</div></div>
   <div class="conversion-card"><div class="kicker">Prior-Period Lead Closings</div><div class="number" data-metric="prior-period-closings">{{ prior_period_closings }}</div><div class="rate">Closed in range; received before range</div></div>
 </div>
 

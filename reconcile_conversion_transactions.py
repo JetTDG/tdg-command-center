@@ -663,13 +663,21 @@ def run(
     app = create_app()
     summary = {
         "year": report_year, "eligible": 0, "linked": 0, "explicit": 0,
-        "high": 0, "unresolved": 0, "people_ingested": 0,
+        "high": 0, "unresolved": 0, "excluded_no_fub": 0, "people_ingested": 0,
         "families": {}, "apply": apply,
     }
     if details:
         summary["matches"] = []
     incremental_cutoff = datetime.utcnow() - timedelta(days=since_days)
     with app.app_context():
+        excluded_no_fub_ids = {
+            row[0] for row in db.session.query(AuditLog.record_id).filter(
+                AuditLog.table_name == "transactions",
+                AuditLog.field_name == "conversion_tracking",
+                AuditLog.new_value == "excluded_no_fub",
+            ).all()
+        }
+        summary["excluded_no_fub"] = len(excluded_no_fub_ids)
         preflight = Transaction.query.filter(
             Transaction.status == "Closed",
             or_(Transaction.fub_id.is_(None), Transaction.fub_id == ""),
@@ -677,6 +685,8 @@ def run(
             Transaction.close_date <= date(report_year, 12, 31),
             Transaction.is_import_duplicate.isnot(True),
         )
+        if excluded_no_fub_ids:
+            preflight = preflight.filter(~Transaction.id.in_(excluded_no_fub_ids))
         if report_year == date.today().year:
             preflight = preflight.filter(Transaction.archived.isnot(True))
         if not full_scan:
@@ -731,6 +741,10 @@ def run(
             Transaction.close_date <= date(report_year, 12, 31),
             Transaction.is_import_duplicate.isnot(True),
         )
+        if excluded_no_fub_ids:
+            transaction_query = transaction_query.filter(
+                ~Transaction.id.in_(excluded_no_fub_ids)
+            )
         if report_year == date.today().year:
             transaction_query = transaction_query.filter(Transaction.archived.isnot(True))
         if not full_scan:

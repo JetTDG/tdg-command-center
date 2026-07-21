@@ -939,6 +939,13 @@ def conversion():
         return 'Unknown'
 
     production_rows = []
+    conversion_excluded_ids = {
+        row[0] for row in db.session.query(AuditLog.record_id).filter(
+            AuditLog.table_name == 'transactions',
+            AuditLog.field_name == 'conversion_tracking',
+            AuditLog.new_value == 'excluded_no_fub',
+        ).all()
+    }
     for transaction in production_query.all():
         classified = classify_lead(transaction.lead_source)
         if not include_soi and classified['is_soi']:
@@ -967,12 +974,17 @@ def conversion():
     # person numerator must therefore intersect the same filtered transaction
     # universe used by the production cards and reconciliation table.
     cohort_closed_fub_ids = cohort_fub_ids & {
-        transaction.fub_id for transaction, _ in production_rows if transaction.fub_id
+        transaction.fub_id for transaction, _ in production_rows
+        if transaction.fub_id and transaction.id not in conversion_excluded_ids
     }
 
     linked_production_rows = [
-        transaction for transaction, _ in production_rows if transaction.fub_id
+        transaction for transaction, _ in production_rows
+        if transaction.fub_id and transaction.id not in conversion_excluded_ids
     ]
+    conversion_excluded_count = sum(
+        transaction.id in conversion_excluded_ids for transaction, _ in production_rows
+    )
     linked_ids = {transaction.fub_id for transaction in linked_production_rows}
     linked_leads = {
         lead.fub_person_id: lead for lead in ConversionLead.query.filter(
@@ -1060,6 +1072,7 @@ def conversion():
         filters=filters, latest_sync=latest_sync, observed_count=observed_count,
         historical_count=len(rows) - observed_count,
         linked_production_count=len(linked_production_rows),
+        conversion_excluded_count=conversion_excluded_count,
         prior_period_closings=prior_period_closings,
         production_rows=sorted(
             (transaction for transaction, _ in production_rows),
