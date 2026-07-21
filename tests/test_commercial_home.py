@@ -141,7 +141,7 @@ def test_commercial_signed_drilldown_returns_exact_rows_for_each_kpi(app):
         assert all(row["division"] == "Commercial" for row in payload["rows"])
 
 
-def test_commercial_signed_drilldown_rejects_unknown_metric(app):
+def test_commercial_signed_drilldown_rejects_unknown_type(app):
     client = app.test_client()
     login(client, app.test_admin_id)
     response = client.get(
@@ -163,3 +163,10 @@ def test_commercial_signed_numbers_are_drillable_and_drawer_is_rendered(app):
     assert "/home/commercial-signed-drill" in text
     assert "openHomeDrill" in text
     assert "segment !== 'comm'" in text
+    assert 'onclick="closeHomeDrill()"' in text
+    assert 'aria-label="Close signed activity rows"' in text
+    assert 'z-index:2000' in text
+    assert 'overflow-x:hidden' in text
+    assert 'flex-shrink:0' in text
+    assert 'home-drill-table-wrap' in text
+    assert 'max-width:100%' in text
