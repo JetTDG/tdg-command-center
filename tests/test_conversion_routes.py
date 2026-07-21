@@ -62,12 +62,14 @@ def app(tmp_path, monkeypatch):
             Transaction(
                 agent_id=a1.id, transaction_type="Buyer", status="Closed", lead_type="Team",
                 lead_source="Zillow Premier", close_date=date(2026, 3, 1),
-                archived=False, is_import_duplicate=False,
+                archived=False, is_import_duplicate=False, fub_id="1",
+                client_name="Linked Buyer One", address="1 Main St", sale_price=250000,
             ),
             Transaction(
                 agent_id=a2.id, transaction_type="Listing", status="Closed", lead_type="Team",
                 lead_source="Zillow", close_date=date(2026, 4, 1),
-                archived=False, is_import_duplicate=False,
+                archived=False, is_import_duplicate=False, fub_id="2",
+                client_name="Linked Buyer Two", address="2 Main St", sale_price=300000,
             ),
             Transaction(
                 agent_id=a2.id, transaction_type="Buyer", status="Closed", lead_type="Team",
@@ -107,11 +109,11 @@ def test_conversion_requires_login_and_renders_overall_funnel(app):
     text = response.get_data(as_text=True)
     assert "Conversion" in text
     assert 'data-metric="leads">3<' in text
-    assert 'data-metric="closed">1<' in text
+    assert 'data-metric="closed">2<' in text
     assert 'data-metric="production-closed">3<' in text
-    assert "33.3%" in text
+    assert "66.7%" in text
     assert "3 leads" in text
-    assert "SOI and bulk imports excluded" in text
+    assert "SOI excluded; non-Zillow bulk imports excluded" in text
 
 
 def test_agent_and_exact_source_filters_use_same_cohort(app):
@@ -124,9 +126,9 @@ def test_agent_and_exact_source_filters_use_same_cohort(app):
     assert response.status_code == 200
     assert 'value="Zillow Premier" selected' in text
     assert 'data-metric="leads">2<' in text
-    assert 'data-metric="closed">1<' in text
+    assert 'data-metric="closed">2<' in text
     assert 'data-metric="production-closed">1<' in text
-    assert "50.0%" in text
+    assert "100.0%" in text
     assert "Referral - Partner" not in text
 
 
@@ -142,7 +144,31 @@ def test_source_family_side_and_inclusion_filters_work(app):
     assert 'data-metric="closed">2<' in text
 
 
-def test_command_center_closed_production_is_reconciled_without_being_added_to_fub_funnel(app):
+def test_zillow_attributed_bulk_backfill_remains_in_zillow_cohort(app):
+    from app import db
+    from app.models import ConversionLead
+
+    with app.app_context():
+        db.session.add(ConversionLead(
+            fub_person_id="zillow-imported", lead_received_at=datetime(2026, 5, 1),
+            fub_created_at=datetime(2026, 5, 1), original_source="Zillow Preferred",
+            current_source="Zillow Preferred", original_source_family="Zillow",
+            current_source_family="Zillow", attribution_quality="current_agent_backfill",
+            lead_type="Team", side="Buyer", is_soi=False, is_bulk=True,
+            last_synced_at=datetime(2026, 7, 21, 8),
+        ))
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    text = client.get(
+        "/conversion?start=2026-01-01&end=2026-12-31&source_family=Zillow"
+    ).get_data(as_text=True)
+
+    assert 'data-metric="leads">3<' in text
+
+
+def test_my_business_closings_drive_authoritative_linked_cohort_and_match_coverage(app):
     client = app.test_client()
     login(client, app.test_ids["admin"])
 
@@ -150,12 +176,48 @@ def test_command_center_closed_production_is_reconciled_without_being_added_to_f
     text = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert 'data-metric="closed">1<' in text  # FUB person milestone stays person-level.
+    assert 'data-metric="closed">2<' in text
     assert 'data-metric="production-closed">2<' in text
+    assert 'data-metric="linked-production">2 of 2<' in text
     assert 'id="conversion-family-table"' in text
-    assert "FUB Closed" in text
-    assert "CC Closed" in text
-    assert "not additive" in text
+    assert "Cohort Closed Leads" in text
+    assert "My Business Closings" in text
+    assert "Linked Buyer One" in text
+    assert "Linked Buyer Two" in text
+    assert "poweredbyinfinity.followupboss.com/2/people/view/1" in text
+    assert "poweredbyinfinity.followupboss.com/2/people/view/2" in text
+
+
+def test_prior_period_lead_closing_is_reconciled_without_inflating_received_cohort(app):
+    from app import db
+    from app.models import ConversionLead, Transaction
+
+    with app.app_context():
+        db.session.add(ConversionLead(
+            fub_person_id="prior", lead_received_at=datetime(2025, 9, 1),
+            fub_created_at=datetime(2025, 9, 1), original_source="Zillow Premier",
+            current_source="Zillow Premier", original_source_family="Zillow",
+            current_source_family="Zillow", attribution_quality="current_agent_backfill",
+            lead_type="Team", side="Buyer", is_soi=False, is_bulk=False,
+            last_synced_at=datetime(2026, 7, 21, 8),
+        ))
+        db.session.add(Transaction(
+            transaction_type="Buyer", status="Closed", lead_type="Team",
+            lead_source="Zillow Preferred", close_date=date(2026, 6, 1),
+            archived=False, is_import_duplicate=False, fub_id="prior",
+            client_name="Prior Cohort Buyer", address="3 Main St", sale_price=200000,
+        ))
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    text = client.get(
+        "/conversion?start=2026-01-01&end=2026-12-31&source_family=Zillow"
+    ).get_data(as_text=True)
+
+    assert 'data-metric="closed">2<' in text
+    assert 'data-metric="production-closed">3<' in text
+    assert 'data-metric="prior-period-closings">1<' in text
 
 
 def test_prior_year_archived_closings_remain_in_authoritative_production(app):
@@ -176,12 +238,13 @@ def test_every_breakdown_table_column_has_filter_and_sort_controls(app):
 
     for table_id in (
         "conversion-agent-table", "conversion-family-table", "conversion-source-table",
+        "conversion-closing-table",
     ):
         assert f'id="{table_id}"' in text
         assert f'data-table-id="{table_id}"' in text
-    assert text.count('class="conversion-sort"') == 30
-    assert text.count('class="form-control form-control-sm conversion-column-filter"') == 30
-    assert text.count('placeholder="&gt;=10"') == 24
+    assert text.count('class="conversion-sort"') == 37
+    assert text.count('class="form-control form-control-sm conversion-column-filter"') == 37
+    assert text.count('placeholder="&gt;=10"') == 25
     assert text.count('placeholder="&gt;=5"') == 3
     assert "filterConversionTable" in text
     assert "sortConversionTable" in text

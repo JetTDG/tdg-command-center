@@ -184,9 +184,9 @@ def _get_json(session: requests.Session, url: str, params=None, max_attempts: in
     raise RuntimeError("FUB rate limit persisted after retries")
 
 
-def iter_people(session: requests.Session, fub_user_id: str, date_filter: dict, limit_pages=None):
+def iter_people(session: requests.Session, date_filter: dict, limit_pages=None):
     url = f"{FUB_BASE}/people"
-    params = {"limit": 200, "assignedUserId": fub_user_id, **date_filter}
+    params = {"limit": 200, **date_filter}
     page = 0
     while url:
         data = _get_json(session, url, params=params)
@@ -197,6 +197,13 @@ def iter_people(session: requests.Session, fub_user_id: str, date_filter: dict, 
         if limit_pages and page >= limit_pages:
             break
         url = (data.get("_metadata") or {}).get("nextLink")
+
+
+def build_people_filters(*, since: str, full_2026: bool, sources=None) -> list[dict]:
+    updated_after = "2026-01-01T00:00:00Z" if full_2026 else since
+    if sources:
+        return [{"updatedAfter": updated_after, "source": source} for source in sources]
+    return [{"updatedAfter": updated_after}]
 
 
 def enrich_appointments(session, fub_user_ids: Iterable[str], start_from: str, dry_run: bool) -> int:
@@ -242,7 +249,10 @@ def enrich_appointments(session, fub_user_ids: Iterable[str], start_from: str, d
     return updated
 
 
-def run_sync(*, since: str, full_2026: bool, dry_run: bool, limit_pages=None) -> dict:
+def run_sync(
+    *, since: str, full_2026: bool, dry_run: bool, limit_pages=None,
+    sources=None, skip_appointments: bool = False,
+) -> dict:
     sys.path.insert(0, "/Users/edentdg/.hermes/scripts")
     from vault_cache_reader import read_credential
     from app import create_app, db
@@ -279,12 +289,18 @@ def run_sync(*, since: str, full_2026: bool, dry_run: bool, limit_pages=None) ->
                 summary["unmatched_agents"] += 1
         summary["matched_agents"] = len(matched)
 
-        date_filter = {"createdAfter": "2026-01-01T00:00:00Z"} if full_2026 else {"updatedAfter": since}
         existing_by_id = {
             row.fub_person_id: row for row in ConversionLead.query.all()
         } if not dry_run else {}
-        for user_id in matched:
-            for person in iter_people(http, user_id, date_filter, limit_pages=limit_pages):
+        seen_person_ids = set()
+        for people_filter in build_people_filters(
+            since=since, full_2026=full_2026, sources=sources,
+        ):
+            for person in iter_people(http, people_filter, limit_pages=limit_pages):
+                person_id = str(person.get("id") or "")
+                if not person_id or person_id in seen_person_ids:
+                    continue
+                seen_person_ids.add(person_id)
                 try:
                     payload = person_to_payload(person, backfill=full_2026)
                 except ValueError:
@@ -303,9 +319,8 @@ def run_sync(*, since: str, full_2026: bool, dry_run: bool, limit_pages=None) ->
                 db.session.rollback()
             else:
                 db.session.commit()
-            time.sleep(0.1)
 
-        if not limit_pages:
+        if not limit_pages and not skip_appointments:
             appointment_start = "2026-01-01T00:00:00" if full_2026 else (datetime.utcnow() - timedelta(days=90)).strftime("%Y-%m-%dT00:00:00")
             summary["appointments_linked"] = enrich_appointments(http, matched, appointment_start, dry_run)
         if dry_run:
@@ -319,8 +334,14 @@ def main():
     parser.add_argument("--full-2026", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--limit-pages", type=int)
+    parser.add_argument("--source", action="append", dest="sources")
+    parser.add_argument("--skip-appointments", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(run_sync(since=args.since, full_2026=args.full_2026, dry_run=args.dry_run, limit_pages=args.limit_pages), sort_keys=True))
+    print(json.dumps(run_sync(
+        since=args.since, full_2026=args.full_2026, dry_run=args.dry_run,
+        limit_pages=args.limit_pages, sources=args.sources,
+        skip_appointments=args.skip_appointments,
+    ), sort_keys=True))
 
 
 if __name__ == "__main__":

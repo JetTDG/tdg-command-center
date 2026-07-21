@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from sync_conversion_leads import person_to_payload, upsert_person
+from sync_conversion_leads import build_people_filters, iter_people, person_to_payload, upsert_person
 
 
 @pytest.fixture()
@@ -17,6 +17,60 @@ def app(tmp_path, monkeypatch):
         db.drop_all()
         db.create_all()
     yield app
+
+
+def test_global_people_sync_does_not_filter_out_reassigned_or_va_support_leads():
+    class Response:
+        status_code = 200
+
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.payload
+
+    class Session:
+        def __init__(self):
+            self.calls = []
+
+        def get(self, url, params=None, timeout=30):
+            self.calls.append((url, params))
+            if len(self.calls) == 1:
+                return Response({
+                    "people": [{"id": 1, "assignedTo": "VA Support"}],
+                    "_metadata": {"nextLink": "https://api.followupboss.com/v1/people?next=page2"},
+                })
+            return Response({
+                "people": [{"id": 2, "assignedTo": "Active Agent"}],
+                "_metadata": {"nextLink": None},
+            })
+
+    session = Session()
+    people = list(iter_people(session, {"updatedAfter": "2026-01-01T00:00:00Z"}))
+
+    assert [person["id"] for person in people] == [1, 2]
+    assert session.calls[0][1] == {
+        "limit": 200, "updatedAfter": "2026-01-01T00:00:00Z",
+    }
+    assert "assignedUserId" not in session.calls[0][1]
+    assert session.calls[1][1] is None
+
+
+def test_full_backfill_can_be_bounded_to_exact_zillow_source_labels():
+    assert build_people_filters(
+        since="ignored", full_2026=True,
+        sources=["Zillow", "Zillow Preferred", "ZillowPremier"],
+    ) == [
+        {"updatedAfter": "2026-01-01T00:00:00Z", "source": "Zillow"},
+        {"updatedAfter": "2026-01-01T00:00:00Z", "source": "Zillow Preferred"},
+        {"updatedAfter": "2026-01-01T00:00:00Z", "source": "ZillowPremier"},
+    ]
+    assert build_people_filters(
+        since="2026-07-18T00:00:00Z", full_2026=False, sources=None,
+    ) == [{"updatedAfter": "2026-07-18T00:00:00Z"}]
 
 
 def test_person_to_payload_has_no_pii_and_derives_source_side_and_stage_milestones():

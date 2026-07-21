@@ -99,7 +99,7 @@
     <div class="col-xl-8 col-md-8 d-flex flex-wrap gap-3 align-items-center pt-2">
       <div class="form-check"><input class="form-check-input" type="checkbox" name="include_soi" value="1" id="include-soi" {% if filters.include_soi %}checked{% endif %}><label class="form-check-label text-reset" for="include-soi">Include SOI / past clients</label></div>
       <div class="form-check"><input class="form-check-input" type="checkbox" name="include_bulk" value="1" id="include-bulk" {% if filters.include_bulk %}checked{% endif %}><label class="form-check-label text-reset" for="include-bulk">Include bulk imports</label></div>
-      <span class="metric-note">{% if not filters.include_soi and not filters.include_bulk %}SOI and bulk imports excluded{% elif not filters.include_soi %}SOI excluded{% elif not filters.include_bulk %}Bulk imports excluded{% else %}All lead types included{% endif %}</span>
+      <span class="metric-note">{% if not filters.include_soi and not filters.include_bulk %}SOI excluded; non-Zillow bulk imports excluded{% elif not filters.include_soi %}SOI excluded{% elif not filters.include_bulk %}Non-Zillow bulk imports excluded{% else %}All lead types included{% endif %}</span>
     </div>
     <div class="col-xl-4 col-md-4 d-flex justify-content-md-end gap-2">
       <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.conversion') }}">Reset</a>
@@ -111,7 +111,7 @@
 <div class="alert alert-light border d-flex gap-2 align-items-start py-2 mb-3" role="status">
   <i class="bi bi-shield-check text-success"></i>
   <div class="metric-note">
-    <strong class="text-dark">Coverage:</strong> {{ observed_count }} leads have observed original attribution; {{ historical_count }} historical leads use the agent holding the lead when backfilled. FUB funnel milestones and Command Center closed transactions are shown separately because unlinked records are not safe to match by name or address. Low-sample rows are flagged below.
+    <strong class="text-dark">Coverage:</strong> {{ observed_count }} leads have observed original attribution; {{ historical_count }} historical leads use the current assignee where available. For records first observed after reassignment to VA Support or an unmatched user, the historical receiving agent is unavailable and is not guessed. My Business is authoritative for closings. FUB supplies the person link and received-date cohort; a closing never counts as a converted lead unless its My Business transaction has a FUB person ID. Low-sample rows are flagged below.
   </div>
 </div>
 
@@ -122,8 +122,10 @@
   <div class="conversion-card"><div class="kicker">Appointments Held</div><div class="number" data-metric="appointment_held">{{ overall.appointment_held }}</div><div class="rate">{{ pct(overall.held_rate) }} of set</div></div>
   <div class="conversion-card"><div class="kicker">Signed</div><div class="number" data-metric="signed">{{ overall.signed }}</div><div class="rate">{{ pct(overall.signed_rate) }} of held</div></div>
   <div class="conversion-card"><div class="kicker">Pending</div><div class="number" data-metric="pending">{{ overall.pending }}</div><div class="rate">{{ pct(overall.pending_rate) }} of signed</div></div>
-  <div class="conversion-card"><div class="kicker">FUB Closed People</div><div class="number" data-metric="closed">{{ overall.closed }}</div><div class="rate"><strong>{{ pct(overall.overall_rate) }}</strong> · {{ overall.leads }} leads</div></div>
-  <div class="conversion-card"><div class="kicker">CC Closed Transactions</div><div class="number" data-metric="production-closed">{{ production_closed }}</div><div class="rate">Authoritative close-date production</div></div>
+  <div class="conversion-card"><div class="kicker">Cohort Closed Leads</div><div class="number" data-metric="closed">{{ overall.closed }}</div><div class="rate"><strong>{{ pct(overall.overall_rate) }}</strong> · My Business-linked people</div></div>
+  <div class="conversion-card"><div class="kicker">My Business Closings</div><div class="number" data-metric="production-closed">{{ production_closed }}</div><div class="rate">Authoritative close-date production</div></div>
+  <div class="conversion-card"><div class="kicker">Matched to FUB</div><div class="number compact-number" data-metric="linked-production">{{ linked_production_count }} of {{ production_closed }}</div><div class="rate">Auditable closing-to-person links</div></div>
+  <div class="conversion-card"><div class="kicker">Prior-Period Lead Closings</div><div class="number" data-metric="prior-period-closings">{{ prior_period_closings }}</div><div class="rate">Closed in range; received before range</div></div>
 </div>
 
 <div class="row g-3 mb-3">
@@ -132,8 +134,8 @@
   </div>
   <div class="col-lg-7">
     <div class="card h-100"><div class="card-header"><i class="bi bi-diagram-3"></i> How to read this</div><div class="card-body">
-      <p class="mb-2">FUB conversion is <strong>closed people ÷ leads received</strong> for the selected received-date cohort. Command Center closed production uses the same date fields as a <strong>close-date range</strong>. These measures are <strong>not additive</strong>.</p>
-      <p class="mb-2">Use <strong>Original receiving agent</strong> for lead-assignment decisions. Command Center production uses the transaction's recorded agent and source because historical transactions currently lack FUB person IDs.</p>
+      <p class="mb-2">Cohort conversion is <strong>unique FUB people with a linked My Business closing ÷ leads received</strong> for the selected received-date cohort. My Business Closings independently shows every authoritative transaction whose close date is in the selected range.</p>
+      <p class="mb-2">Use <strong>Original receiving agent</strong> for lead-assignment decisions. My Business production uses the closing agent and transaction source. Prior-period lead closings are shown separately so older leads closing this year do not inflate this year's received-lead conversion rate.</p>
       <p class="mb-0 metric-note">Appointment metrics include FUB appointments that carry a person link. Every breakdown column can be filtered; number filters accept values such as <strong>&gt;=10</strong>, <strong>&lt;5</strong>, or <strong>=3</strong>. Click any column title to sort.</p>
     </div></div>
   </div>
@@ -144,8 +146,8 @@
   (first_label, 'text', 'Search'), ('Leads', 'number', '>=10'),
   ('Contacted', 'number', '>=10'), ('Set', 'number', '>=10'),
   ('Held', 'number', '>=10'), ('Signed', 'number', '>=10'),
-  ('Pending', 'number', '>=10'), ('FUB Closed', 'number', '>=10'),
-  ('CC Closed', 'number', '>=10'), ('Overall', 'number', '>=5')
+  ('Pending', 'number', '>=10'), ('Cohort Closed', 'number', '>=10'),
+  ('My Business Closed', 'number', '>=10'), ('Overall', 'number', '>=5')
 ] %}
 <div class="table-responsive" data-table-id="{{ table_id }}">
 <table class="table table-hover conversion-table" id="{{ table_id }}" data-table-id="{{ table_id }}">
@@ -183,13 +185,43 @@
 
 <div class="card mb-3"><div class="card-header"><i class="bi bi-people"></i> Conversion by Agent</div>{{ breakdown_table(agent_breakdown, 'conversion-agent-table', 'Agent') }}</div>
 <div class="card mb-3"><div class="card-header"><i class="bi bi-collection"></i> Conversion by Source Group</div>{{ breakdown_table(family_breakdown, 'conversion-family-table', 'Source Group') }}</div>
-<div class="card"><div class="card-header"><i class="bi bi-bullseye"></i> Conversion by Exact Source</div>{{ breakdown_table(source_breakdown, 'conversion-source-table', 'Source') }}</div>
+<div class="card mb-3"><div class="card-header"><i class="bi bi-bullseye"></i> Conversion by Exact Source</div>{{ breakdown_table(source_breakdown, 'conversion-source-table', 'Source') }}</div>
+
+{% set closing_columns = [
+  ('Client', 'text', 'Search'), ('Property', 'text', 'Search'),
+  ('Close Date', 'text', 'Search'), ('Closing Agent', 'text', 'Search'),
+  ('Source', 'text', 'Search'), ('FUB Match', 'text', 'Search'),
+  ('Price', 'number', '>=10')
+] %}
+<div class="card"><div class="card-header"><i class="bi bi-link-45deg"></i> My Business Closing Reconciliation</div>
+  <div class="table-responsive" data-table-id="conversion-closing-table">
+    <table class="table table-hover conversion-table" id="conversion-closing-table" data-table-id="conversion-closing-table">
+      <thead>
+        <tr>{% for title, kind, placeholder in closing_columns %}<th><button type="button" class="conversion-sort" data-sort-index="{{ loop.index0 }}" data-sort-type="{{ kind }}" aria-sort="none" aria-label="Sort by {{ title }}">{{ title }}</button></th>{% endfor %}</tr>
+        <tr class="conversion-filter-row">{% for title, kind, placeholder in closing_columns %}<th><input class="form-control form-control-sm conversion-column-filter" data-filter-index="{{ loop.index0 }}" data-filter-type="{{ kind }}" aria-label="Filter {{ title }}" placeholder="{{ placeholder }}"></th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+      {% for transaction in production_rows %}
+        <tr data-row="1">
+          <td data-sort-value="{{ (transaction.client_name or '')|lower }}" class="fw-semibold">{{ transaction.client_name or '—' }}</td>
+          <td data-sort-value="{{ (transaction.address or '')|lower }}">{{ transaction.address or '—' }}</td>
+          <td data-sort-value="{{ transaction.close_date.isoformat() if transaction.close_date else '' }}">{{ transaction.close_date.strftime('%m/%d/%Y') if transaction.close_date else '—' }}</td>
+          <td data-sort-value="{{ (transaction.agent.name if transaction.agent else transaction.primary_agent_name or '')|lower }}">{{ transaction.agent.name if transaction.agent else transaction.primary_agent_name or 'Unmatched Agent' }}</td>
+          <td data-sort-value="{{ (transaction.lead_source or '')|lower }}">{{ transaction.lead_source or 'Unknown' }}</td>
+          <td data-sort-value="{{ 'matched' if transaction.fub_id else 'unmatched' }}">{% if transaction.fub_id %}<a href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ transaction.fub_id }}" target="_blank" rel="noopener">Matched <i class="bi bi-box-arrow-up-right"></i></a>{% else %}<span class="text-danger fw-semibold">Unmatched</span>{% endif %}</td>
+          <td data-sort-value="{{ transaction.sale_price or 0 }}">{{ '${:,.0f}'.format(transaction.sale_price or 0) }}</td>
+        </tr>
+      {% else %}<tr class="conversion-empty-row"><td colspan="7" class="text-center text-muted py-4">No My Business closings match these filters.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 
 <script>
 const conversionFunnel = {{ [overall.leads, overall.contacted, overall.appointment_set, overall.appointment_held, overall.signed, overall.pending, overall.closed] | tojson }};
 new Chart(document.getElementById('conversion-funnel-chart'), {
   type: 'bar',
-  data: { labels: ['Leads','Contacted','Set','Held','Signed','Pending','FUB Closed'], datasets: [{ data: conversionFunnel, backgroundColor: ['#C9A84C','#b99535','#a8872f','#927425','#2563EB','#16A34A','#0f7a36'], borderRadius: 6 }] },
+  data: { labels: ['Leads','Contacted','Set','Held','Signed','Pending','Cohort Closed'], datasets: [{ data: conversionFunnel, backgroundColor: ['#C9A84C','#b99535','#a8872f','#927425','#2563EB','#16A34A','#0f7a36'], borderRadius: 6 }] },
   options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}} }
 });
 

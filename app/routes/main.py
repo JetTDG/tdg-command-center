@@ -24,7 +24,7 @@ from app.models import (
     ZillowAgentSnapshot, ZillowLeadAlert, ZillowZhlFollowup, ConversionLead,
 )
 from app.conversion_stats import get_blended_defaults
-from app.conversion import aggregate_funnel, classify_lead
+from app.conversion import aggregate_funnel, classify_lead, safe_rate
 from app.luxury import (
     apply_segment_filter,
     effective_luxury_price,
@@ -882,7 +882,14 @@ def conversion():
     if not include_soi:
         query = query.filter(ConversionLead.is_soi.is_(False))
     if not include_bulk:
-        query = query.filter(ConversionLead.is_bulk.is_(False))
+        # Zillow-attributed records remain part of the Zillow received-lead
+        # cohort even when FUB tags indicate they arrived through a historical
+        # import. The complete Zillow population is the requested denominator;
+        # generic prospect-list imports from other source families stay out.
+        query = query.filter(or_(
+            ConversionLead.is_bulk.is_(False),
+            family_column == 'Zillow',
+        ))
 
     # Dropdowns follow the selected date/agent universe but remain available
     # before exact source/family narrowing.
@@ -936,7 +943,10 @@ def conversion():
         classified = classify_lead(transaction.lead_source)
         if not include_soi and classified['is_soi']:
             continue
-        if not include_bulk and classified['is_bulk']:
+        if (
+            not include_bulk and classified['is_bulk']
+            and classified['source_family'] != 'Zillow'
+        ):
             continue
         if selected_source and classified['source'] != selected_source:
             continue
@@ -947,6 +957,45 @@ def conversion():
         if selected_lead_type and (transaction.lead_type or 'Team') != selected_lead_type:
             continue
         production_rows.append((transaction, classified))
+
+    # A valid conversion numerator must be tied to the selected received-date
+    # cohort. Command Center remains authoritative for whether a closing is real;
+    # FUB supplies the person link, not the closing status.
+    cohort_fub_ids = {row.fub_person_id for row in rows if row.fub_person_id}
+    cohort_closed_fub_ids = set()
+    if cohort_fub_ids:
+        cohort_transactions = Transaction.query.filter(
+            Transaction.status == 'Closed',
+            Transaction.fub_id.in_(cohort_fub_ids),
+            Transaction.close_date.isnot(None),
+            Transaction.close_date <= end_date,
+            or_(
+                Transaction.close_date < date(today.year, 1, 1),
+                Transaction.archived.isnot(True),
+            ),
+            Transaction.is_import_duplicate.isnot(True),
+        ).all()
+        cohort_closed_fub_ids = {
+            transaction.fub_id for transaction in cohort_transactions if transaction.fub_id
+        }
+
+    linked_production_rows = [
+        transaction for transaction, _ in production_rows if transaction.fub_id
+    ]
+    linked_ids = {transaction.fub_id for transaction in linked_production_rows}
+    linked_leads = {
+        lead.fub_person_id: lead for lead in ConversionLead.query.filter(
+            ConversionLead.fub_person_id.in_(linked_ids)
+        ).all()
+    } if linked_ids else {}
+    prior_period_closings = sum(
+        1 for transaction in linked_production_rows
+        if transaction.fub_id in linked_leads and not (
+            datetime.combine(start_date, datetime.min.time())
+            <= linked_leads[transaction.fub_id].lead_received_at
+            < datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+        )
+    )
 
     def row_dict(row):
         return {
@@ -960,6 +1009,8 @@ def conversion():
         }
 
     overall = aggregate_funnel(row_dict(row) for row in rows)
+    overall['closed'] = len(cohort_closed_fub_ids)
+    overall['overall_rate'] = safe_rate(overall['closed'], overall['leads'])
     agent_names = {agent.id: agent.name for agent in accessible_agents}
     by_agent = defaultdict(list)
     by_source = defaultdict(list)
@@ -985,6 +1036,11 @@ def conversion():
         for label in set(grouped) | set(production_counts):
             grouped_rows = grouped.get(label, [])
             metrics = aggregate_funnel(grouped_rows)
+            metrics['closed'] = len({
+                row['fub_person_id'] for row in grouped_rows
+                if row['fub_person_id'] in cohort_closed_fub_ids
+            })
+            metrics['overall_rate'] = safe_rate(metrics['closed'], metrics['leads'])
             values.append({
                 'label': label, **metrics,
                 'production_closed': production_counts.get(label, 0),
@@ -1012,6 +1068,13 @@ def conversion():
         source_options=source_options, family_options=family_options,
         filters=filters, latest_sync=latest_sync, observed_count=observed_count,
         historical_count=len(rows) - observed_count,
+        linked_production_count=len(linked_production_rows),
+        prior_period_closings=prior_period_closings,
+        production_rows=sorted(
+            (transaction for transaction, _ in production_rows),
+            key=lambda transaction: (transaction.close_date or date.min, transaction.id),
+            reverse=True,
+        ),
     )
 
 

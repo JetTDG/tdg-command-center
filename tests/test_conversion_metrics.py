@@ -27,6 +27,13 @@ def test_classify_lead_marks_soi_and_bulk_without_hiding_exact_source():
     assert bulk["is_soi"] is False
     assert bulk["is_bulk"] is True
 
+    zillow_import_tag = classify_lead("Zillow Preferred", ["Zillow Import", "Buyer"])
+    assert zillow_import_tag["source_family"] == "Zillow"
+    assert zillow_import_tag["is_bulk"] is False
+
+    tag_only_bulk = classify_lead("Unknown", ["Bulk Import", "Database Upload"])
+    assert tag_only_bulk["is_bulk"] is True
+
 
 def test_safe_rate_returns_none_for_zero_denominator_and_never_exceeds_one():
     assert safe_rate(0, 0) is None

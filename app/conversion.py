@@ -6,6 +6,7 @@ from typing import Iterable, Mapping
 
 
 _BULK_SOURCE_TOKENS = ("import", "farm", "mailing list", "database upload")
+_BULK_TAG_TOKENS = ("bulk import", "farm", "mailing list", "database upload")
 _COMMERCIAL_PROSPECTING_TOKENS = (
     "industrial owners", "retail owners", "commercial owners", "commercial prospect",
 )
@@ -48,7 +49,8 @@ def classify_lead(source: str | None, tags: Iterable[object] | None = None) -> d
     blob = " ".join([exact, *tag_values]).lower()
     family = normalize_source_family(exact)
     is_soi = family == "SOI" or "past client" in blob or "sphere of influence" in blob
-    is_bulk = family == "Bulk Import" or any(token in blob for token in _BULK_SOURCE_TOKENS)
+    tag_blob = " ".join(tag_values).lower()
+    is_bulk = family == "Bulk Import" or any(token in tag_blob for token in _BULK_TAG_TOKENS)
     return {
         "source": exact,
         "source_family": family,
