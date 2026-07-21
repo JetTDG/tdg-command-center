@@ -1,3 +1,5 @@
+import reconcile_conversion_transactions as reconciliation
+
 from reconcile_conversion_transactions import (
     choose_fub_person,
     deal_candidate_person_ids,
@@ -247,3 +249,188 @@ def test_person_deal_variants_map_all_deals_to_one_person_identity():
     assert {str(row["id"]) for row in variants} == {"501"}
     assert {row["dealAddress"] for row in variants} == {"100 Main St", "900 Other St"}
     assert variants[0]["dealSource"] == "Referral"
+
+
+def test_explicit_fub_deal_id_allows_unique_property_date_price_agent_side_match_without_person_name():
+    transaction = tx(
+        client_name="Property Owner LLC",
+        address="100 Main St Royal Oak MI 48067",
+        close_date="2026-04-10",
+        sale_price=325000,
+        agent="Taylor Agent",
+        transaction_type="Listing",
+        lead_source="SOI",
+    )
+    variants = person_deal_variants(
+        person(id=501, name="Different Household Contact", addresses=[]),
+        [{
+            "id": 9001,
+            "name": "Different Household Contact sale",
+            "customAddressMaverick": "100 Main Street Royal Oak MI 48067",
+            "customFUBLeadIdMaverick": "501",
+            "projectedCloseDate": "2026-04-10",
+            "price": 325000,
+            "stageName": "Closed",
+            "pipelineName": "Sellers",
+            "people": [{"id": 501, "name": "Different Household Contact"}],
+            "users": [{"name": "Taylor Agent"}],
+        }],
+    )
+
+    match = choose_fub_person(transaction, None, variants)
+
+    assert match is not None
+    assert match["person_id"] == "501"
+    assert match["method"] == "exact_fub_deal_person_id"
+    assert match["confidence"] == "explicit"
+    assert {
+        "exact_fub_deal_person_id", "deal_address", "deal_close_exact",
+        "deal_price_5pct", "deal_agent", "deal_side",
+    }.issubset(match["evidence"])
+
+
+def test_explicit_fub_deal_id_uses_pipeline_side_to_disambiguate_same_property_dual_side():
+    transaction = tx(
+        client_name="Buyer Client",
+        address="100 Main St Royal Oak MI 48067",
+        close_date="2026-04-10",
+        sale_price=325000,
+        agent="Taylor Agent",
+        transaction_type="Buyer",
+    )
+    buyer = person_deal_variants(person(id=501, name="Buyer Client", addresses=[]), [{
+        "id": 9001, "name": "Buyer Client purchase",
+        "customAddressMaverick": "100 Main St", "customFUBLeadIdMaverick": "501",
+        "projectedCloseDate": "2026-04-10", "price": 325000,
+        "stageName": "Closed", "pipelineName": "Buyers",
+        "people": [{"id": 501, "name": "Buyer Client"}],
+        "users": [{"name": "Taylor Agent"}],
+    }])
+    seller = person_deal_variants(person(id=502, name="Seller Client", addresses=[]), [{
+        "id": 9002, "name": "Seller Client sale",
+        "customAddressMaverick": "100 Main St", "customFUBLeadIdMaverick": "502",
+        "projectedCloseDate": "2026-04-10", "price": 325000,
+        "stageName": "Closed", "pipelineName": "Sellers",
+        "people": [{"id": 502, "name": "Seller Client"}],
+        "users": [{"name": "Taylor Agent"}],
+    }])
+
+    match = choose_fub_person(transaction, None, buyer + seller)
+
+    assert match is not None
+    assert match["person_id"] == "501"
+    assert match["method"] == "exact_fub_deal_person_id"
+
+
+def test_explicit_fub_deal_id_rejects_multiple_qualifying_people_on_same_side():
+    transaction = tx(
+        address="100 Main St Royal Oak MI 48067",
+        close_date="2026-04-10",
+        sale_price=325000,
+        agent="Taylor Agent",
+        transaction_type="Buyer",
+    )
+    candidates = []
+    for person_id in (501, 502):
+        candidates.extend(person_deal_variants(person(id=person_id, addresses=[]), [{
+            "id": 9000 + person_id, "name": "Purchase",
+            "customAddressMaverick": "100 Main St",
+            "customFUBLeadIdMaverick": str(person_id),
+            "projectedCloseDate": "2026-04-10", "price": 325000,
+            "stageName": "Closed", "pipelineName": "Buyers",
+            "people": [{"id": person_id}], "users": [{"name": "Taylor Agent"}],
+        }]))
+
+    assert choose_fub_person(transaction, None, candidates) is None
+
+
+def test_explicit_fub_deal_id_must_equal_the_attached_person():
+    transaction = tx(
+        address="100 Main St Royal Oak MI 48067",
+        close_date="2026-04-10",
+        sale_price=325000,
+        agent="Taylor Agent",
+        transaction_type="Buyer",
+    )
+    variants = person_deal_variants(person(id=501, addresses=[]), [{
+        "id": 9001, "name": "Purchase", "customAddressMaverick": "100 Main St",
+        "customFUBLeadIdMaverick": "999", "projectedCloseDate": "2026-04-10",
+        "price": 325000, "stageName": "Closed", "pipelineName": "Buyers",
+        "people": [{"id": 501}], "users": [{"name": "Taylor Agent"}],
+    }])
+
+    assert choose_fub_person(transaction, None, variants) is None
+
+
+def test_docusign_exact_email_selects_unique_named_signer_for_completed_property_envelope():
+    transaction = tx(client_name="Buyer Client", transaction_type="Buyer")
+    match = reconciliation.choose_docusign_person(transaction, [{
+        "person_id": "501", "exact_email": True, "envelope_completed": True,
+        "envelope_name": True, "envelope_address": True, "envelope_agent": True,
+        "envelope_days_to_close": 29, "person_name": True,
+    }, {
+        "person_id": "502", "exact_email": True, "envelope_completed": True,
+        "envelope_name": True, "envelope_address": True, "envelope_agent": True,
+        "envelope_days_to_close": 29, "person_name": False,
+    }])
+
+    assert match is not None
+    assert match["person_id"] == "501"
+    assert match["method"] == "exact_docusign_email"
+    assert match["confidence"] == "explicit"
+
+
+def test_docusign_exact_email_uses_fub_notes_and_deal_when_envelope_lacks_property_and_agent():
+    transaction = tx(client_name="Entity Seller", transaction_type="Listing")
+    match = reconciliation.choose_docusign_person(transaction, [{
+        "person_id": "501", "exact_email": True, "envelope_completed": True,
+        "envelope_name": True, "envelope_address": False, "envelope_agent": False,
+        "envelope_days_to_close": 6, "person_name": False,
+        "source": True, "closed_stage": True,
+        "notes_address": True, "notes_name": True,
+        "deal_close_7d": True, "deal_price_5pct": True,
+    }, {
+        "person_id": "502", "exact_email": True, "envelope_completed": True,
+        "envelope_name": True, "envelope_address": False, "envelope_agent": False,
+        "envelope_days_to_close": 6, "person_name": False,
+        "source": False, "closed_stage": True,
+        "notes_address": False, "notes_name": False,
+        "deal_close_7d": False, "deal_price_5pct": True,
+    }])
+
+    assert match is not None
+    assert match["person_id"] == "501"
+    assert "notes_address" in match["evidence"]
+    assert "deal_close_7d" in match["evidence"]
+
+
+def test_docusign_exact_email_rejects_two_equally_qualified_people():
+    transaction = tx(client_name="Buyer One and Buyer Two", transaction_type="Buyer")
+    candidates = [{
+        "person_id": str(person_id), "exact_email": True,
+        "envelope_completed": True, "envelope_name": True,
+        "envelope_address": True, "envelope_agent": True,
+        "envelope_days_to_close": 10, "person_name": True,
+    } for person_id in (501, 502)]
+
+    assert reconciliation.choose_docusign_person(transaction, candidates) is None
+
+
+def test_reconciliation_audit_note_never_exceeds_database_limit():
+    match = {
+        "method": "exact_fub_deal_person_id",
+        "confidence": "explicit",
+        "score": 338,
+        "margin": 338,
+        "evidence": [
+            "closed_stage", "deal_address", "deal_agent", "deal_close_exact",
+            "deal_price_5pct", "deal_price_exact", "deal_side",
+            "exact_fub_deal_person_id",
+        ],
+    }
+
+    note = reconciliation.build_audit_note(match, "SOI")
+
+    assert len(note) <= 200
+    assert note.startswith("exact_fub_deal_person_id:explicit:")
+    assert note.endswith("...")

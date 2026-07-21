@@ -21,6 +21,24 @@ import requests
 
 FUB_BASE = "https://api.followupboss.com/v1"
 ZILLOW_DB = Path("/Users/edentdg/.hermes/data/zillow_reporting.db")
+AUDIT_NOTE_MAX_LENGTH = 200
+
+
+def build_audit_note(match: dict, source_family: str) -> str:
+    """Build schema-safe reconciliation context for AuditLog.note.
+
+    Match selection still uses the complete evidence set. Only the optional
+    human-readable audit note is bounded to the database column's 200 chars.
+    """
+    note = (
+        f"{match['method']}:{match['confidence']}:"
+        f"source_family={source_family}:score={match['score']}:"
+        f"margin={match['margin']}:"
+        f"evidence={','.join(match['evidence'])}"
+    )
+    if len(note) <= AUDIT_NOTE_MAX_LENGTH:
+        return note
+    return note[:AUDIT_NOTE_MAX_LENGTH - 3] + "..."
 
 
 def _norm(value) -> str:
@@ -200,7 +218,164 @@ def _person_score(transaction: dict, zillow_row: dict | None, person: dict) -> t
     return score, evidence
 
 
+def _explicit_fub_deal_match(transaction: dict, people: Iterable[dict]) -> dict | None:
+    """Resolve one person through a uniquely identified, transaction-matched FUB deal."""
+    qualifying_by_person = {}
+    for person in people:
+        person_id = str(person.get("id") or "")
+        if not person_id or str(person.get("dealFubLeadId") or "") != person_id:
+            continue
+        if "closed" not in (
+            str(person.get("dealStage") or "") + " "
+            + str(person.get("dealStatus") or "")
+        ).lower():
+            continue
+
+        transaction_type = str(transaction.get("transaction_type") or "").lower()
+        pipeline = str(person.get("dealPipeline") or "").lower()
+        if "buyer" in transaction_type and "buyer" not in pipeline:
+            continue
+        if "listing" in transaction_type and "seller" not in pipeline:
+            continue
+
+        agent_norm = _norm(transaction.get("agent"))
+        deal_agents = [_norm(name) for name in person.get("dealAgentNames") or []]
+        if not agent_norm or agent_norm not in deal_agents:
+            continue
+
+        description = person.get("dealDescription")
+        property_match = any(_street_matches(value, transaction.get("address")) for value in (
+            person.get("dealAddress"), person.get("dealName"), description,
+        ))
+        name_match = any(_name_score(transaction.get("client_name"), value) > 0 for value in (
+            person.get("name"), person.get("dealName"), description,
+            person.get("dealPeopleNames"),
+        ))
+        close_exact = _days(transaction.get("close_date"), person.get("dealCloseDate")) == 0
+        close_7d = _days(transaction.get("close_date"), person.get("dealCloseDate")) <= 7
+        deal_price, tx_price = _amount(person.get("dealPrice")), _amount(transaction.get("sale_price"))
+        price_exact = (
+            deal_price is not None and tx_price is not None
+            and abs(deal_price - tx_price) <= 1
+        )
+        price_5pct = (
+            deal_price is not None and tx_price is not None
+            and abs(deal_price - tx_price) <= max(1000, tx_price * 0.05)
+        )
+
+        tier = None
+        if property_match and close_exact and price_5pct:
+            tier = 3
+        elif name_match and close_exact and price_exact:
+            tier = 2
+        elif property_match and name_match and close_7d and price_5pct:
+            tier = 1
+        if tier is None:
+            continue
+
+        evidence = {
+            "exact_fub_deal_person_id", "deal_agent", "deal_side", "closed_stage",
+        }
+        if property_match:
+            evidence.add("deal_address")
+        if name_match:
+            evidence.add("name")
+        if close_exact:
+            evidence.add("deal_close_exact")
+        elif close_7d:
+            evidence.add("deal_close_7d")
+        if price_exact:
+            evidence.add("deal_price_exact")
+        if price_5pct:
+            evidence.add("deal_price_5pct")
+        score = 300 + tier * 10 + len(evidence)
+        prior = qualifying_by_person.get(person_id)
+        if prior is None or score > prior[0]:
+            qualifying_by_person[person_id] = (score, evidence)
+
+    if len(qualifying_by_person) != 1:
+        return None
+    person_id, (score, evidence) = next(iter(qualifying_by_person.items()))
+    return {
+        "person_id": person_id,
+        "method": "exact_fub_deal_person_id",
+        "confidence": "explicit",
+        "score": score,
+        "margin": score,
+        "evidence": sorted(evidence),
+    }
+
+
+def choose_docusign_person(transaction: dict, candidates: Iterable[dict]) -> dict | None:
+    """Choose one FUB person from exact DocuSign signer-email evidence."""
+    qualifying_by_person = {}
+    for candidate in candidates:
+        person_id = str(candidate.get("person_id") or "")
+        if not (
+            person_id and candidate.get("exact_email")
+            and candidate.get("envelope_completed")
+            and candidate.get("envelope_name")
+            and candidate.get("envelope_days_to_close", 9999) <= 60
+        ):
+            continue
+
+        tier = None
+        if (
+            candidate.get("envelope_address")
+            and candidate.get("envelope_agent")
+            and candidate.get("person_name")
+        ):
+            tier = 3
+        elif (
+            candidate.get("envelope_agent")
+            and candidate.get("person_name")
+            and candidate.get("notes_address")
+        ):
+            tier = 2
+        elif (
+            candidate.get("envelope_days_to_close", 9999) <= 14
+            and candidate.get("source") and candidate.get("closed_stage")
+            and candidate.get("notes_address") and candidate.get("notes_name")
+            and candidate.get("deal_close_7d") and candidate.get("deal_price_5pct")
+        ):
+            tier = 1
+        if tier is None:
+            continue
+
+        evidence = {"exact_docusign_email", "completed_envelope", "envelope_name"}
+        for key, label in (
+            ("envelope_address", "envelope_address"),
+            ("envelope_agent", "envelope_agent"),
+            ("person_name", "name"),
+            ("source", "source"),
+            ("closed_stage", "closed_stage"),
+            ("notes_address", "notes_address"),
+            ("notes_name", "notes_name"),
+            ("deal_close_7d", "deal_close_7d"),
+            ("deal_price_5pct", "deal_price_5pct"),
+        ):
+            if candidate.get(key):
+                evidence.add(label)
+        score = 400 + tier * 10 + len(evidence)
+        prior = qualifying_by_person.get(person_id)
+        if prior is None or score > prior[0]:
+            qualifying_by_person[person_id] = (score, evidence)
+
+    if len(qualifying_by_person) != 1:
+        return None
+    person_id, (score, evidence) = next(iter(qualifying_by_person.items()))
+    return {
+        "person_id": person_id,
+        "method": "exact_docusign_email",
+        "confidence": "explicit",
+        "score": score,
+        "margin": score,
+        "evidence": sorted(evidence),
+    }
+
+
 def choose_fub_person(transaction: dict, zillow_row: dict | None, people: Iterable[dict]) -> dict | None:
+    people = list(people)
     candidates_by_person = {}
     for person in people:
         person_id = person.get("id")
@@ -219,10 +394,13 @@ def choose_fub_person(transaction: dict, zillow_row: dict | None, people: Iterab
         candidate for candidate in candidates
         if "exact_pa_contact_id" in candidate[2]
     ]
+    explicit_deal_match = _explicit_fub_deal_match(transaction, people)
     if explicit_candidates:
         if len(explicit_candidates) != 1:
             return None
         score, person_id, evidence = explicit_candidates[0]
+        if explicit_deal_match and explicit_deal_match["person_id"] != person_id:
+            return None
         return {
             "person_id": person_id, "method": "exact_pa_contact_id",
             "confidence": "explicit", "score": score,
@@ -232,6 +410,8 @@ def choose_fub_person(transaction: dict, zillow_row: dict | None, people: Iterab
             ),
             "evidence": sorted(evidence),
         }
+    if explicit_deal_match:
+        return explicit_deal_match
     score, person_id, evidence = candidates[0]
     second_score = candidates[1][0] if len(candidates) > 1 else 0
     has_property_evidence = bool({"fub_address", "deal_address"} & evidence)
@@ -311,19 +491,127 @@ def person_deal_variants(person: dict, deals: Iterable[dict]) -> list[dict]:
     for deal in deals:
         row = dict(person)
         row.update({
+            "dealId": deal.get("id"),
             "dealName": deal.get("name"),
             "dealAddress": deal.get("customAddressMaverick"),
+            "dealDescription": deal.get("description"),
             "dealCloseDate": deal.get("projectedCloseDate"),
             "dealPrice": deal.get("price"),
             "dealStage": deal.get("stageName") or deal.get("status"),
+            "dealStatus": deal.get("status"),
+            "dealPipeline": deal.get("pipelineName"),
+            "dealFubLeadId": deal.get("customFUBLeadIdMaverick"),
+            "dealPeopleNames": " ".join(
+                str(linked.get("name") or "") for linked in deal.get("people") or []
+                if isinstance(linked, dict)
+            ),
             "dealSource": deal.get("customLeadSourceMaverick"),
             "dealAgent": " ".join(
                 str(user.get("name") or "") for user in deal.get("users") or []
                 if isinstance(user, dict)
             ),
+            "dealAgentNames": [
+                str(user.get("name") or "") for user in deal.get("users") or []
+                if isinstance(user, dict)
+            ],
         })
         variants.append(row)
     return variants or [dict(person)]
+
+
+def _docusign_candidates(
+    session: requests.Session, transaction: dict, source_family: str,
+    envelopes: Iterable, deals_by_person: dict, person_cache: dict,
+    email_cache: dict, notes_cache: dict, classify_lead,
+) -> list[dict]:
+    """Build non-PII identity evidence from completed DocuSign signer emails."""
+    candidates = []
+    for envelope in envelopes:
+        if not (
+            str(envelope.ds_status or "").lower() == "completed"
+            or str(envelope.stage or "").lower() == "completed"
+        ):
+            continue
+        days_to_close = _days(envelope.completed_at, transaction.get("close_date"))
+        if days_to_close > 60:
+            continue
+        envelope_address = any(_street_matches(value, transaction.get("address")) for value in (
+            envelope.property_address, envelope.party_label, envelope.subject,
+        ))
+        envelope_agent = _norm(envelope.agent_name) == _norm(transaction.get("agent"))
+        parties = (
+            (envelope.party_name, envelope.party_email),
+            (envelope.party2_name, envelope.party2_email),
+        )
+        for party_name, party_email in parties:
+            envelope_name = _name_score(transaction.get("client_name"), party_name) > 0
+            email = str(party_email or "").strip().lower()
+            if not envelope_name or not email:
+                continue
+            if email not in email_cache:
+                exact_ids = set()
+                people = _get_json(
+                    session, f"{FUB_BASE}/people", {"q": email, "limit": 20},
+                ).get("people") or []
+                for person in people:
+                    if any(
+                        str(item.get("value") or "").strip().lower() == email
+                        for item in person.get("emails") or [] if isinstance(item, dict)
+                    ):
+                        exact_ids.add(str(person["id"]))
+                email_cache[email] = sorted(exact_ids)
+            for person_id in email_cache[email]:
+                try:
+                    person = _get_json(session, f"{FUB_BASE}/people/{person_id}")
+                except requests.HTTPError:
+                    continue
+                person_cache[person_id] = person
+                if person_id not in notes_cache:
+                    notes = _get_json(
+                        session, f"{FUB_BASE}/notes",
+                        {"personId": person_id, "limit": 100},
+                    ).get("notes") or []
+                    notes_cache[person_id] = "\n".join(
+                        str(note.get("body") or "") for note in notes
+                        if isinstance(note, dict)
+                    )
+                notes_blob = notes_cache[person_id]
+                variants = person_deal_variants(
+                    person, deals_by_person.get(person_id, []),
+                )
+                deal_close_7d = any(
+                    _days(transaction.get("close_date"), variant.get("dealCloseDate")) <= 7
+                    for variant in variants
+                )
+                tx_price = _amount(transaction.get("sale_price"))
+                deal_price_5pct = False
+                for variant in variants:
+                    deal_price = _amount(variant.get("dealPrice"))
+                    if (
+                        deal_price is not None and tx_price is not None
+                        and abs(deal_price - tx_price) <= max(1000, tx_price * 0.05)
+                    ):
+                        deal_price_5pct = True
+                        break
+                candidates.append({
+                    "person_id": person_id,
+                    "exact_email": True,
+                    "envelope_completed": True,
+                    "envelope_name": envelope_name,
+                    "envelope_address": envelope_address,
+                    "envelope_agent": envelope_agent,
+                    "envelope_days_to_close": days_to_close,
+                    "person_name": _name_score(
+                        transaction.get("client_name"), person.get("name"),
+                    ) > 0,
+                    "source": classify_lead(person.get("source"))["source_family"] == source_family,
+                    "closed_stage": "closed" in str(person.get("stage") or "").lower(),
+                    "notes_address": _street_matches(notes_blob, transaction.get("address")),
+                    "notes_name": _name_score(transaction.get("client_name"), notes_blob) > 0,
+                    "deal_close_7d": deal_close_7d,
+                    "deal_price_5pct": deal_price_5pct,
+                })
+    return candidates
 
 
 def _name_queries(client_name: str, contact_name: str | None = None) -> list[str]:
@@ -369,7 +657,7 @@ def run(
     os.environ["DATABASE_URL"] = database_url
     from app import create_app, db
     from app.conversion import classify_lead
-    from app.models import Agent, AuditLog, Transaction
+    from app.models import Agent, AuditLog, DocEnvelope, Transaction
     from sqlalchemy import or_
 
     app = create_app()
@@ -414,11 +702,17 @@ def run(
             if isinstance(person, dict) and person.get("id") is not None:
                 deals_by_person.setdefault(str(person["id"]), []).append(deal)
     person_cache = {}
+    email_cache = {}
+    notes_cache = {}
     zillow_rows = _load_zillow_rows()
     with app.app_context():
         from sync_conversion_leads import _normalize_name, person_to_payload, upsert_person
 
         agent_names = {agent.id: agent.name for agent in Agent.query.all()}
+        doc_envelopes = DocEnvelope.query.filter(or_(
+            DocEnvelope.ds_status == "completed",
+            DocEnvelope.stage == "completed",
+        )).all()
         fub_users = _get_json(http, f"{FUB_BASE}/users", {"limit": 200}).get("users") or []
         fub_user_ids = {
             _normalize_name(user.get("name", "")): str(user["id"])
@@ -465,6 +759,7 @@ def run(
             family_summary["eligible"] += 1
             tx = {
                 "id": transaction.id,
+                "transaction_type": transaction.transaction_type,
                 "client_name": transaction.client_name,
                 "address": transaction.address,
                 "close_date": transaction.close_date,
@@ -495,6 +790,11 @@ def run(
                 ))
             match = choose_fub_person(tx, zillow_row, candidate_people)
             if not match:
+                match = choose_docusign_person(tx, _docusign_candidates(
+                    http, tx, source_family, doc_envelopes, deals_by_person,
+                    person_cache, email_cache, notes_cache, classify_lead,
+                ))
+            if not match:
                 summary["unresolved"] += 1
                 family_summary["unresolved"] += 1
                 continue
@@ -523,12 +823,7 @@ def run(
                     table_name="transactions", record_id=transaction.id,
                     field_name="fub_id", old_value=None, new_value=match["person_id"],
                     changed_by="conversion_reconciler",
-                    note=(
-                        f"{match['method']}:{match['confidence']}:"
-                        f"source_family={source_family}:score={match['score']}:"
-                        f"margin={match['margin']}:"
-                        f"evidence={','.join(match['evidence'])}"
-                    ),
+                    note=build_audit_note(match, source_family),
                 ))
         if apply:
             db.session.commit()
