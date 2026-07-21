@@ -152,6 +152,8 @@ def upsert_person(session, payload: dict, agent_map: dict[str, int], existing_ro
         setattr(row, field, payload.get(field))
     # Milestones are observations, not current-state flags. A reopened stage or
     # temporarily missing FUB deal field must never erase conversion history.
+    # Keep the earliest known timestamp: FUB can first expose an inferred
+    # person.updated date, then later provide an earlier authoritative date.
     for field in ("contacted_at", "signed_at", "pending_at", "closed_at"):
         value = payload.get(field)
         current_value = getattr(row, field, None)

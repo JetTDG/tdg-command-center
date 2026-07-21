@@ -142,3 +142,30 @@ def test_upsert_never_erases_observed_conversion_milestones(app):
         assert row.signed_at == datetime(2026, 3, 15)
         assert row.pending_at == datetime(2026, 3, 15)
         assert row.closed_at == datetime(2026, 3, 15)
+
+
+def test_upsert_keeps_earliest_authoritative_milestone_date(app):
+    from app import db
+    from app.models import Agent
+
+    with app.app_context():
+        agent = Agent(name="Agent", status="Active")
+        db.session.add(agent)
+        db.session.flush()
+        inferred = person_to_payload({
+            "id": 10, "created": "2026-01-01T00:00:00Z", "updated": "2026-04-10T00:00:00Z",
+            "assignedUserId": 10, "source": "Zillow Premier", "stage": "Closed",
+            "dealStatus": "Closed",
+        }, backfill=True)
+        row, _ = upsert_person(db.session, inferred, {"10": agent.id})
+        db.session.commit()
+        assert row.closed_at == datetime(2026, 4, 10)
+
+        authoritative = person_to_payload({
+            "id": 10, "created": "2026-01-01T00:00:00Z", "updated": "2026-05-01T00:00:00Z",
+            "assignedUserId": 10, "source": "Zillow Premier", "stage": "Closed",
+            "dealStatus": "Closed", "dealCloseDate": "2026-04-05T00:00:00Z",
+        }, backfill=False)
+        row, _ = upsert_person(db.session, authoritative, {"10": agent.id})
+        db.session.commit()
+        assert row.closed_at == datetime(2026, 4, 5)
