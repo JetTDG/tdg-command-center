@@ -266,38 +266,10 @@ def sync_envelopes():
     for env in envelopes_data:
         try:
             rec = DocEnvelope.query.filter_by(envelope_id=env['envelope_id']).first()
+            existed = rec is not None
             if not rec:
                 rec = DocEnvelope(envelope_id=env['envelope_id'])
                 db.session.add(rec)
-
-            rec.doc_type         = env.get('doc_type', 'unknown')
-            rec.subject          = env.get('subject', '')
-            rec.ds_status        = env.get('ds_status', '')
-            rec.stage            = env.get('stage', '')
-            rec.source           = env.get('source', 'api')
-            # Division from payload if provided; otherwise derive from doc_type.
-            # Rule: CRE = nda | commercial_pa | cre_listing. Everything else Residential.
-            # Never infer from subject keywords — LLC in a buyer name ≠ CRE deal.
-            _CRE_TYPES = {'nda', 'commercial_pa', 'cre_listing'}
-            rec.division = env.get('division') or (
-                'CRE' if rec.doc_type in _CRE_TYPES else 'Residential'
-            )
-            rec.property_address = env.get('property_address', '')
-            rec.party_label      = env.get('party_label', '')
-            rec.agent_name       = env.get('agent_name', '')
-            rec.agent_email      = env.get('agent_email', '')
-            rec.agent_status     = env.get('agent_status', '')
-            rec.party_name       = env.get('party_name', '')
-            rec.party_email      = env.get('party_email', '')
-            rec.party_status     = env.get('party_status', '')
-            rec.party2_name      = env.get('party2_name', '')
-            rec.party2_email     = env.get('party2_email', '')
-            rec.party2_status    = env.get('party2_status', '')
-            rec.broker_name      = env.get('broker_name', '')
-            rec.broker_status    = env.get('broker_status', '')
-            rec.total_signers    = env.get('total_signers', 1)
-            rec.has_two_clients  = env.get('has_two_clients', False)
-            rec.last_synced_at   = datetime.utcnow()
 
             def _parse_dt(val):
                 if not val:
@@ -307,10 +279,99 @@ def sync_envelopes():
                 except Exception:
                     return None
 
-            rec.created_at   = _parse_dt(env.get('created_at'))
-            rec.sent_at      = _parse_dt(env.get('sent_at'))
-            rec.completed_at = _parse_dt(env.get('completed_at'))
+            lifecycle_update = existed and bool(env.get('lifecycle_event'))
+            incoming_stage = env.get('stage', '')
+            stage_rank = {
+                '': -1,
+                'sent_to_docusign': 0,
+                'awaiting_client_signature': 1,
+                'completed': 2,
+                'voided': 2,
+            }
+            existing_stage = rec.stage or ''
+            stage_regression = lifecycle_update and (
+                stage_rank.get(incoming_stage, -1) < stage_rank.get(existing_stage, -1)
+                or (
+                    existing_stage in {'completed', 'voided'}
+                    and incoming_stage not in {'', existing_stage}
+                )
+            )
 
+            if lifecycle_update:
+                # Lifecycle emails often omit signer metadata that the original
+                # send supplied. Preserve existing nonblank identity fields and
+                # never let a delayed viewed/sent event regress a terminal row.
+                for attr, default in (
+                    ('doc_type', 'unknown'), ('subject', ''), ('source', 'api'),
+                    ('division', ''), ('property_address', ''), ('party_label', ''),
+                    ('agent_name', ''), ('agent_email', ''), ('party_name', ''),
+                    ('party_email', ''), ('party2_name', ''), ('party2_email', ''),
+                    ('broker_name', ''),
+                ):
+                    value = env.get(attr, default)
+                    if value not in (None, ''):
+                        setattr(rec, attr, value)
+
+                if not stage_regression:
+                    for attr in (
+                        'ds_status', 'stage', 'agent_status', 'party_status',
+                        'party2_status', 'broker_status',
+                    ):
+                        value = env.get(attr)
+                        if value not in (None, ''):
+                            setattr(rec, attr, value)
+                    if 'total_signers' in env:
+                        rec.total_signers = env['total_signers']
+                    if 'has_two_clients' in env:
+                        rec.has_two_clients = env['has_two_clients']
+
+                incoming_created = _parse_dt(env.get('created_at'))
+                incoming_sent = _parse_dt(env.get('sent_at'))
+                incoming_completed = _parse_dt(env.get('completed_at'))
+                if rec.created_at is None:
+                    rec.created_at = incoming_created
+                if incoming_sent and (rec.sent_at is None or incoming_sent < rec.sent_at):
+                    rec.sent_at = incoming_sent
+                if (
+                    not stage_regression
+                    and incoming_stage == 'completed'
+                    and incoming_completed
+                    and rec.completed_at is None
+                ):
+                    rec.completed_at = incoming_completed
+            else:
+                rec.doc_type         = env.get('doc_type', 'unknown')
+                rec.subject          = env.get('subject', '')
+                rec.ds_status        = env.get('ds_status', '')
+                rec.stage            = incoming_stage
+                rec.source           = env.get('source', 'api')
+                # Division from payload if provided; otherwise derive from doc_type.
+                # Rule: CRE = nda | commercial_pa | cre_listing. Everything else Residential.
+                # Never infer from subject keywords — LLC in a buyer name ≠ CRE deal.
+                _CRE_TYPES = {'nda', 'commercial_pa', 'cre_listing'}
+                rec.division = env.get('division') or (
+                    'CRE' if rec.doc_type in _CRE_TYPES else 'Residential'
+                )
+                rec.property_address = env.get('property_address', '')
+                rec.party_label      = env.get('party_label', '')
+                rec.agent_name       = env.get('agent_name', '')
+                rec.agent_email      = env.get('agent_email', '')
+                rec.agent_status     = env.get('agent_status', '')
+                rec.party_name       = env.get('party_name', '')
+                rec.party_email      = env.get('party_email', '')
+                rec.party_status     = env.get('party_status', '')
+                rec.party2_name      = env.get('party2_name', '')
+                rec.party2_email     = env.get('party2_email', '')
+                rec.party2_status    = env.get('party2_status', '')
+                rec.broker_name      = env.get('broker_name', '')
+                rec.broker_status    = env.get('broker_status', '')
+                rec.total_signers    = env.get('total_signers', 1)
+                rec.has_two_clients  = env.get('has_two_clients', False)
+                rec.created_at       = _parse_dt(env.get('created_at'))
+                rec.sent_at          = _parse_dt(env.get('sent_at'))
+                rec.completed_at     = _parse_dt(env.get('completed_at'))
+
+            rec.last_synced_at = datetime.utcnow()
             upserted += 1
 
         except Exception as e:
