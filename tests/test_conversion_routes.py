@@ -507,14 +507,21 @@ def test_scorecard_client_activity_previews_accountability_rows_and_separates_of
         text_out.index('data-bs-target="#scorecard-appointment-detail-panel"'):
         text_out.index('id="scorecard-appointment-detail-panel"')
     ]
-    assert "Listing set" in appointment_preview
-    assert "Listing held" in appointment_preview
-    assert "Listings signed" in appointment_preview
+    assert "Seller set" in appointment_preview
+    assert "Seller held" in appointment_preview
+    assert "Seller signed" in appointment_preview
     assert "Buyer set" in appointment_preview
     assert "Buyer held" in appointment_preview
-    assert "Buyers signed" in appointment_preview
-    for value in ("3", "2", "1", "5", "4"):
-        assert f'>{value}</div>' in appointment_preview
+    assert "Buyer signed" in appointment_preview
+    assert 'data-appointment-side="seller" data-appointment-metric="set">0</div>' in appointment_preview
+    assert 'data-appointment-side="seller" data-appointment-metric="held">0</div>' in appointment_preview
+    assert 'data-appointment-side="seller" data-appointment-metric="signed">0</div>' in appointment_preview
+    assert 'data-appointment-side="buyer" data-appointment-metric="set">1</div>' in appointment_preview
+    assert 'data-appointment-side="buyer" data-appointment-metric="held">1</div>' in appointment_preview
+    assert 'data-appointment-side="buyer" data-appointment-metric="signed">1</div>' in appointment_preview
+    # The detail must use the same person-linked cohort as the 1/1/1 overall
+    # funnel, not the separately entered 8/6/3 LeadGenLog totals seeded above.
+    assert 'data-appointment-source="conversion-cohort"' in appointment_preview
     assert 'data-bs-target="#past-due-all"' in text_out
     assert 'data-bs-target="#missing-outcome-all"' in text_out
     assert "Appointment rows and CC-entered activity" not in text_out

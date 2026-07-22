@@ -2941,6 +2941,26 @@ def _scorecard_conversion_summary(agent_id, year):
     overall['closed'] = len(cohort_closed_ids)
     overall['overall_rate'] = safe_rate(overall['closed'], overall['leads'])
 
+    # Appointment detail must reconcile to the same person-linked cohort as
+    # the Scorecard's overall funnel. LeadGenLog appointment totals are a
+    # separate, manually entered activity source and cannot be presented as a
+    # breakdown of these governed ConversionLead milestones.
+    side_rows = defaultdict(list)
+    for row in rows:
+        normalized_side = (row.side or '').strip().lower()
+        if normalized_side in {'seller', 'listing'}:
+            label = 'Seller'
+        elif normalized_side in {'buyer', 'tenant'}:
+            label = 'Buyer'
+        else:
+            label = 'Unspecified'
+        side_rows[label].append(row_dict(row))
+    side_breakdown = []
+    for label in ('Seller', 'Buyer', 'Unspecified'):
+        if label == 'Unspecified' and not side_rows[label]:
+            continue
+        side_breakdown.append({'label': label, **aggregate_funnel(side_rows[label])})
+
     grouped = defaultdict(list)
     for row in rows:
         grouped[row.original_source_family or 'Unknown'].append(row_dict(row))
@@ -2972,6 +2992,7 @@ def _scorecard_conversion_summary(agent_id, year):
 
     return {
         'overall': overall,
+        'side_breakdown': side_breakdown,
         'family_breakdown': family_breakdown,
         'production_closed': len(production_rows),
         'linked_production_count': len(linked_ids),
