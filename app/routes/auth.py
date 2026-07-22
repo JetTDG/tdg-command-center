@@ -9,7 +9,7 @@ bp = Blueprint('auth', __name__)
 oauth = OAuth()
 
 # ── Role definitions ──────────────────────────────────────────────────────────
-# These 6 get role='admin' — they see everything, manage all agents, access Users page
+# These accounts get role='admin' — they see everything, manage all agents, access Users page
 ADMIN_EMAILS = {
     "renee@thedeliagroup.com",
     "renee@poweredbyinfinity.com",   # backup login
@@ -20,6 +20,7 @@ ADMIN_EMAILS = {
     "team@poweredbyinfinity.com",    # Team@PoweredByInfinity.com
     "joanne@thedeliagroup.com",      # Joanne Sumiec
     "jet.tdg3@gmail.com",            # Jet (Hermes agent) — QA/verification login, admin tier
+    "mattmartinec@kw.com",            # Matt Martinec — office team leader / recruit demonstrations
 }
 
 # All TDG Google accounts allowed to log in (agents get role='agent')
