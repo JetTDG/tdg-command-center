@@ -354,3 +354,88 @@ def test_conversion_navigation_is_present_on_desktop_and_mobile_and_filters_are_
     assert 'id="conversion-agent-table"' in text
     assert 'id="conversion-source-table"' in text
     assert 'id="conversion-funnel-chart"' in text
+
+
+def test_agent_scorecard_uses_canonical_conversion_in_approved_section_hierarchy(app):
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    response = client.get(f"/scorecard/{app.test_ids['a1']}?year=2026")
+    text = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    section_positions = [
+        text.index('id="scorecard-overall"'),
+        text.index('id="scorecard-appointments"'),
+        text.index('id="scorecard-conversion"'),
+        text.index('id="scorecard-zillow"'),
+        text.index('id="scorecard-lead-generation"'),
+    ]
+    assert section_positions == sorted(section_positions)
+    assert text.index("Lead Mix") < text.index("Year-End Pace + Business Plan")
+    assert text.index("Year-End Pace + Business Plan") < text.index("Appointments")
+
+    # Alpha's governed 2026 cohort is two non-SOI Zillow people. Only the
+    # authoritative My Business closing linked to person 1 belongs to Alpha.
+    assert 'id="scorecard-conversion"' in text
+    assert 'data-scorecard-metric="leads">2<' in text
+    assert 'data-scorecard-metric="set">1<' in text
+    assert 'data-scorecard-metric="held">1<' in text
+    assert 'data-scorecard-metric="signed">1<' in text
+    assert 'data-scorecard-metric="pending">1<' in text
+    assert 'data-scorecard-metric="closed">1<' in text
+    assert 'data-scorecard-family="Zillow"' in text
+    assert "50.0%" in text
+
+    # Transaction details are progressive disclosure from the headline cards.
+    assert 'class="sc-business-card sc-drill-link" data-type="closed"' in text
+    assert 'class="sc-business-card sc-drill-link" data-type="pipeline"' in text
+    assert "Source Conversion" not in text
+
+
+def test_jet_center_branding_and_favicon_metadata_render_on_app_pages(app):
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    text = client.get("/conversion?start=2026-01-01&end=2026-12-31").get_data(as_text=True)
+
+    assert "Conversion — Jet Center" in text
+    assert ">Jet Center<" in text
+    assert 'rel="icon" href="/static/favicon.ico?v=1"' in text
+    assert 'rel="icon" type="image/png" sizes="32x32"' in text
+    assert 'rel="apple-touch-icon" sizes="180x180"' in text
+    assert 'rel="manifest" href="/static/manifest.json?v=1"' in text
+
+
+def test_active_pipeline_drill_includes_live_non_pending_statuses(app):
+    from app import db
+    from app.models import Transaction
+
+    with app.app_context():
+        db.session.add_all([
+            Transaction(
+                agent_id=app.test_ids["a1"], transaction_type="Listing", status="Active",
+                year=2026, archived=False, is_import_duplicate=False,
+                client_name="Active Listing", address="10 Live St", list_price=450000,
+            ),
+            Transaction(
+                agent_id=app.test_ids["a1"], transaction_type="Buyer", status="Pending",
+                year=2026, archived=False, is_import_duplicate=False,
+                client_name="Pending Buyer", address="20 Contract St", sale_price=350000,
+            ),
+            Transaction(
+                agent_id=app.test_ids["a1"], transaction_type="Listing", status="Expired",
+                year=2026, archived=False, is_import_duplicate=False,
+                client_name="Expired Listing", address="30 Old St", list_price=300000,
+            ),
+        ])
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    response = client.get(f"/scorecard/{app.test_ids['a1']}/drill?type=pipeline&year=2026")
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["count"] == 2
+    assert {row["status"] for row in payload["deals"]} == {"Active", "Pending"}

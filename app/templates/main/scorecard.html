@@ -1,979 +1,238 @@
 {% extends 'base.html' %}
-{% block title %}{{ agent.name }} — Scorecard{% endblock %}
+{% block title %}{{ agent.name }} — Scorecard | Jet Center{% endblock %}
 {% block content %}
+<style>
+  .sc-section { margin-bottom:1.5rem; scroll-margin-top:80px; }
+  .sc-section-head { display:flex; align-items:flex-end; justify-content:space-between; gap:1rem; margin-bottom:.7rem; }
+  .sc-section-kicker { color:var(--tdg-gold-dark); font-size:.64rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+  .sc-section-title { font-size:1.12rem; font-weight:750; letter-spacing:-.015em; }
+  .sc-section-note { color:var(--tdg-muted); font-size:.7rem; text-align:right; }
+  .sc-business-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.8rem; }
+  .sc-business-card { display:block; min-height:118px; padding:.9rem 1rem; background:#fff; border:1px solid var(--tdg-border); border-top:3px solid var(--tdg-gold); border-radius:10px; box-shadow:var(--shadow-card); color:inherit; text-decoration:none; transition:transform .12s,box-shadow .12s,border-color .12s; }
+  .sc-business-card:hover,.sc-business-card:focus { color:inherit; transform:translateY(-1px); border-color:#d8c681; box-shadow:var(--shadow-md); }
+  .sc-business-card.projected { background:#fffdf6; }
+  .sc-business-label { display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.9rem; font-size:.7rem; font-weight:800; letter-spacing:.055em; text-transform:uppercase; }
+  .sc-business-hint { color:var(--tdg-gold-dark); font-size:.62rem; font-weight:700; text-transform:none; letter-spacing:0; }
+  .sc-metrics { display:grid; grid-template-columns:.72fr 1.15fr 1fr; }
+  .sc-metric { padding:0 .55rem; text-align:center; border-left:1px solid #eceef2; }
+  .sc-metric:first-child { border-left:0; padding-left:0; }
+  .sc-metric-label { color:var(--tdg-muted); font-size:.55rem; font-weight:700; letter-spacing:.045em; text-transform:uppercase; }
+  .sc-metric-value { color:var(--tdg-gold-dark); font-size:1.12rem; font-weight:750; line-height:1.2; margin-top:.12rem; }
+  .sc-overview-grid { display:grid; grid-template-columns:1.05fr 1.95fr; gap:.8rem; margin-top:.8rem; }
+  .sc-surface { background:#fff; border:1px solid var(--tdg-border); border-radius:10px; box-shadow:var(--shadow-card); padding:.9rem 1rem; }
+  .sc-surface-head { display:flex; align-items:center; justify-content:space-between; gap:.6rem; margin-bottom:.75rem; }
+  .sc-surface-title { font-size:.8rem; font-weight:750; }
+  .sc-pill { display:inline-flex; align-items:center; border-radius:999px; padding:.18rem .48rem; background:var(--tdg-bg); color:var(--tdg-muted); font-size:.59rem; font-weight:700; white-space:nowrap; }
+  .sc-mix-row { display:grid; grid-template-columns:75px 1fr 38px; align-items:center; gap:.45rem; margin:.55rem 0; }
+  .sc-mix-label { color:var(--tdg-muted); font-size:.67rem; }
+  .sc-track { height:8px; overflow:hidden; background:#eceef3; border-radius:99px; }
+  .sc-fill { height:100%; background:var(--tdg-gold); border-radius:99px; }
+  .sc-fill.company { background:#293248; }
+  .sc-plan-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.85rem; }
+  .sc-plan-value { font-size:1.05rem; font-weight:750; }
+  .sc-plan-sub { color:var(--tdg-muted); font-size:.62rem; margin:.05rem 0 .35rem; }
+  .sc-plan-progress { height:6px; overflow:hidden; background:#edf0f4; border-radius:99px; }
+  .sc-plan-progress span { display:block; height:100%; background:var(--tdg-gold); border-radius:99px; }
+  .sc-projection-row { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-top:.75rem; padding-top:.7rem; border-top:1px solid var(--tdg-border); }
+  .sc-funnel-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); }
+  .sc-funnel-item { padding:.1rem .55rem; text-align:center; border-left:1px solid var(--tdg-border); }
+  .sc-funnel-item:first-child { border-left:0; }
+  .sc-funnel-label { color:var(--tdg-muted); font-size:.55rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+  .sc-funnel-value { font-size:1.18rem; font-weight:750; line-height:1.25; }
+  .sc-funnel-rate { color:var(--tdg-muted); font-size:.57rem; }
+  .sc-expand-card { overflow:hidden; padding:0; }
+  .sc-expand-toggle { width:100%; border:0; background:#fff; color:inherit; text-align:left; padding:.85rem 1rem; }
+  .sc-expand-toggle:hover { background:#fffdf8; }
+  .sc-expand-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.75rem; }
+  .sc-expand-detail { border-top:1px solid var(--tdg-border); background:#fcfcfd; padding:.85rem 1rem; }
+  .sc-rate-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; margin-bottom:.7rem; }
+  .sc-rate { background:#f4f5f7; border-radius:8px; padding:.55rem .65rem; }
+  .sc-rate strong { display:block; font-size:1rem; }
+  .sc-rate span { color:var(--tdg-muted); font-size:.62rem; }
+  .sc-table { font-size:.72rem; }
+  .sc-table th { color:var(--tdg-muted); font-size:.57rem; letter-spacing:.035em; text-transform:uppercase; white-space:nowrap; }
+  .sc-zillow { border-color:#a9c9f7; border-top:4px solid var(--tdg-blue); }
+  .sc-zillow .sc-expand-toggle:hover { background:#f8fbff; }
+  .sc-zillow .sc-surface-title,.sc-zillow-value { color:#174f96; }
+  .sc-detail-group { border:1px solid var(--tdg-border); border-radius:9px; background:#fff; overflow:hidden; }
+  .sc-detail-group summary { cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:.6rem; padding:.72rem .85rem; font-size:.76rem; font-weight:750; }
+  .sc-detail-group summary::-webkit-details-marker { display:none; }
+  .sc-detail-group summary::after { content:'⌄'; color:var(--tdg-gold-dark); font-size:1rem; }
+  .sc-detail-group[open] summary::after { content:'⌃'; }
+  .sc-detail-body { border-top:1px solid var(--tdg-border); padding:.8rem .85rem; }
+  .sc-activity-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.55rem; }
+  .sc-activity { border-radius:8px; background:#f6f7f9; padding:.65rem; }
+  .sc-activity strong { display:block; font-size:1.05rem; }
+  .sc-activity span { color:var(--tdg-muted); font-size:.62rem; }
+  @media(max-width:900px) {
+    .sc-section-head { display:block; }
+    .sc-section-note { text-align:left; margin-top:.15rem; }
+    .sc-business-grid,.sc-overview-grid { grid-template-columns:1fr; }
+    .sc-plan-grid { grid-template-columns:1fr; }
+    .sc-funnel-grid { grid-template-columns:repeat(3,1fr); row-gap:.8rem; }
+    .sc-funnel-item:nth-child(4) { border-left:0; }
+    .sc-rate-grid { grid-template-columns:1fr; }
+    .sc-activity-grid { grid-template-columns:repeat(2,1fr); }
+  }
+</style>
+
+{% macro compact_money(value) -%}
+  {% if value >= 1000000 %}${{ '%.2f'|format(value / 1000000) }}M{% elif value >= 1000 %}${{ '%.0f'|format(value / 1000) }}K{% else %}${{ '{:,.0f}'.format(value) }}{% endif %}
+{%- endmacro %}
+{% macro conversion_pct(value) -%}{{ '—' if value is none else '%.1f%%'|format(value * 100) }}{%- endmacro %}
+{% set cv = conversion_summary.overall %}
+{% set unit_goal_pct = ([ytd_units / plan.total_unit_goal * 100, 100]|min) if plan and plan.total_unit_goal else 0 %}
+{% set gci_goal_pct = ([ytd_income / plan.gci_goal * 100, 100]|min) if plan and plan.gci_goal else 0 %}
 
 <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
-  <div>
-    <div class="page-title">{{ agent.name }}</div>
-    <div class="page-subtitle">Agent Scorecard — {{ year }}</div>
-  </div>
+  <div><div class="page-title">{{ agent.name }}</div><div class="page-subtitle">Agent Scorecard — {{ year }}</div></div>
   {% if current_user.is_admin %}
-  <div class="d-flex gap-2 align-items-center flex-wrap">
-    <select id="agentSwitch" class="form-select form-select-sm" style="width:auto;min-width:180px;" onchange="window.location='/scorecard/'+this.value+'?year={{ year }}&month={{ month }}&division={{ division }}'">
-      {% for a in all_agents %}
-      <option value="{{ a.id }}" {% if a.id == agent.id %}selected{% endif %}>{{ a.name }}</option>
-      {% endfor %}
-    </select>
-  </div>
+  <select id="agentSwitch" class="form-select form-select-sm" style="width:auto;min-width:180px;" onchange="window.location='/scorecard/'+this.value+'?year={{ year }}&month={{ month }}&division={{ division }}'">
+    {% for a in all_agents %}<option value="{{ a.id }}" {% if a.id == agent.id %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+  </select>
   {% endif %}
 </div>
-
-{# ── Filter bar ─────────────────────────────────────────────────────────── #}
 <form method="get" class="d-flex gap-2 flex-wrap mb-4 align-items-center" id="scoreFilterForm">
-  <select name="year" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
-    {% for y in years %}
-    <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
-    {% endfor %}
-  </select>
-  <select name="month" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
-    <option value="all" {% if month == 'all' %}selected{% endif %}>All Months</option>
-    {% for m in range(1,13) %}
-    <option value="{{ m }}" {% if month|string == m|string %}selected{% endif %}>{{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1] }}</option>
-    {% endfor %}
-  </select>
-  <select name="division" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
-    <option value="all" {% if division == 'all' %}selected{% endif %}>Combined</option>
-    <option value="Residential" {% if division == 'Residential' %}selected{% endif %}>Residential</option>
-    <option value="Commercial" {% if division == 'Commercial' %}selected{% endif %}>Commercial</option>
-    <option value="Luxury" {% if division == 'Luxury' %}selected{% endif %}>Luxury</option>
-  </select>
+  <select name="year" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">{% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}</select>
+  <select name="month" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()"><option value="all" {% if month == 'all' %}selected{% endif %}>All Months</option>{% for m in range(1,13) %}<option value="{{ m }}" {% if month|string == m|string %}selected{% endif %}>{{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1] }}</option>{% endfor %}</select>
+  <select name="division" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()"><option value="all" {% if division == 'all' %}selected{% endif %}>Combined</option><option value="Residential" {% if division == 'Residential' %}selected{% endif %}>Residential</option><option value="Commercial" {% if division == 'Commercial' %}selected{% endif %}>Commercial</option><option value="Luxury" {% if division == 'Luxury' %}selected{% endif %}>Luxury</option></select>
 </form>
 
-{# ── KPI summary row: 3 grouped cards (Closed / Pending / Projected) ─────── #}
-<div class="row g-3 mb-4">
-
-  {# Reusable mini-grid macro: Units · Volume · GCI-to-agent #}
-  {% macro metric_grid(units, volume, gci, units_link='', gci_link='') %}
-    <div class="d-flex text-center">
-      <div style="flex:1;">
-        <div class="text-muted" style="font-size:0.62rem;text-transform:uppercase;letter-spacing:.04em;">Units</div>
-        <div class="fw-bold" style="font-size:1.15rem;color:var(--tdg-gold);line-height:1.1;">
-          {% if units_link %}<a href="#" class="sc-drill-link" data-type="{{ units_link }}" style="color:var(--tdg-gold);text-decoration:underline dotted;cursor:pointer;">{{ units }}</a>{% else %}{{ units }}{% endif %}
-        </div>
-      </div>
-      <div style="flex:1.4;border-left:1px solid #eee;">
-        <div class="text-muted" style="font-size:0.62rem;text-transform:uppercase;letter-spacing:.04em;">Volume</div>
-        <div class="fw-bold" style="font-size:1.15rem;color:var(--tdg-gold);line-height:1.1;">
-          {% if volume >= 1_000_000 %}${{ "%.2f"|format(volume / 1_000_000) }}M{% else %}${{ "{:,.0f}".format(volume) }}{% endif %}
-        </div>
-      </div>
-      <div style="flex:1.3;border-left:1px solid #eee;">
-        <div class="text-muted" style="font-size:0.62rem;text-transform:uppercase;letter-spacing:.04em;">GCI <span style="font-size:0.55rem;">to agent</span></div>
-        <div class="fw-bold" style="font-size:1.15rem;color:var(--tdg-gold);line-height:1.1;">
-          {% if gci_link %}<a href="#" class="sc-drill-link" data-type="{{ gci_link }}" style="color:var(--tdg-gold);text-decoration:underline dotted;cursor:pointer;">${{ "{:,.0f}".format(gci) }}</a>{% else %}${{ "{:,.0f}".format(gci) }}{% endif %}
-        </div>
-      </div>
-    </div>
-  {% endmacro %}
-
-  {# ── CLOSED ── #}
-  <div class="col-12 col-lg-4">
-    <div class="card h-100 py-3 px-3" style="border-top:3px solid var(--tdg-gold);">
-      <div class="text-center mb-2">
-        <span class="fw-bold" style="font-size:0.82rem;text-transform:uppercase;letter-spacing:.06em;color:#1a1a2e;">
-          <i class="bi bi-check-circle-fill me-1" style="color:#198754;"></i>Closed <span class="text-muted">YTD</span>
-        </span>
-      </div>
-      {{ metric_grid(ytd_units, ytd_volume, ytd_income, units_link='closed', gci_link='closed') }}
-    </div>
-  </div>
-
-  {# ── PENDING (actual under-contract) ── #}
-  <div class="col-12 col-lg-4">
-    <div class="card h-100 py-3 px-3" style="border-top:3px solid var(--tdg-gold);">
-      <div class="text-center mb-2">
-        <span class="fw-bold" style="font-size:0.82rem;text-transform:uppercase;letter-spacing:.06em;color:#1a1a2e;">
-          <i class="bi bi-hourglass-split me-1" style="color:#f0a500;"></i>Pending <span class="text-muted">under contract</span>
-        </span>
-      </div>
-      {{ metric_grid(w_pending_units, w_pending_volume, w_pending_income, units_link='pending', gci_link='pending') }}
-    </div>
-  </div>
-
-  {# ── PROJECTED YEAR-END (seasonal model) ── #}
-  <div class="col-12 col-lg-4">
-    <div class="card h-100 py-3 px-3" style="border-top:3px solid var(--tdg-gold);background:#fffdf5;">
-      <div class="text-center mb-2">
-        <span class="fw-bold" style="font-size:0.82rem;text-transform:uppercase;letter-spacing:.06em;color:#1a1a2e;"
-              title="Projected = Closed + Pending + future new production. Future = seasonal-implied annual pace × the share of the year (2022–2025 team curve) that closes AFTER the ~45-day pending window — so pending and new deals aren't double-counted.">
-          <i class="bi bi-star-fill me-1" style="color:var(--tdg-gold);"></i>Projected <span class="text-muted">Year-End</span>
-          <i class="bi bi-info-circle text-muted" style="font-size:0.66rem;"></i>
-        </span>
-      </div>
-      {{ metric_grid(proj_units, proj_volume, proj_income) }}
-    </div>
-  </div>
-</div>
-
-{# ── Zillow Performance: compact summary + lazy-loaded detail ───────────── #}
-{% if zillow_summary %}
-<div id="zillow-performance" class="card mb-4" style="border:1px solid #8bc9ee;border-top:4px solid #0d6efd;overflow:hidden;">
-  <button type="button" id="zillow-toggle" class="w-100 border-0 bg-white text-start p-0" aria-expanded="false" aria-controls="zillow-detail-panel">
-    <div class="d-flex align-items-center justify-content-between px-3 pt-3 pb-2">
-      <div><span class="fw-bold" style="font-size:.92rem;color:#0b3d62;"><i class="bi bi-house-heart-fill me-1" style="color:#0d6efd;"></i>Zillow Performance</span><span class="text-muted ms-2" style="font-size:.67rem;">{{ zillow_summary.period_start }} – {{ zillow_summary.period_end }}</span></div>
-      <i id="zillow-chevron" class="bi bi-chevron-down" style="color:#0d6efd;"></i>
-    </div>
-    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-0 px-2 pb-3 text-center">
-      {% for label,value,suffix in [
-        ('Overall',zillow_summary.overall_performance,''),
-        ('Predicted CVR',zillow_summary.predicted_cvr,'%'),
-        ('Pickup Rate',zillow_summary.pickup_rate,'%'),
-        ('Connections',zillow_summary.buyer_connections,''),
-        ('ZHL Preapprovals',(zillow_summary.eligible_preapprovals|string ~ ' / ' ~ zillow_summary.preapproval_target|string),''),
-        ('24-Hour Evidence',(zhl_summary.timely_rate if zhl_summary.timely_rate is not none else '—'),'%')
-      ] %}
-      <div class="col px-1 py-1"><div style="border-left:1px solid var(--tdg-border);"><div class="text-muted" style="font-size:.59rem;text-transform:uppercase;letter-spacing:.04em;">{{ label }}</div><div class="fw-bold" style="font-size:1rem;color:#0b3d62;">{{ value|show_value }}{% if value is not none and value != '—' %}{{ suffix }}{% endif %}</div>{% if label=='24-Hour Evidence' and zhl_summary.counts.get('missing_overdue',0) %}<div class="text-danger" style="font-size:.61rem;">{{ zhl_summary.counts.get('missing_overdue') }} overdue</div>{% endif %}</div></div>
-      {% endfor %}
-    </div>
-  </button>
-  <div id="zillow-detail-panel" hidden style="border-top:1px solid var(--tdg-border);"><div class="text-center text-muted p-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading Zillow performance…</div></div>
-</div>
-<script>
-(function(){
-  const btn=document.getElementById('zillow-toggle'), panel=document.getElementById('zillow-detail-panel'), chevron=document.getElementById('zillow-chevron');
-  if(!btn||!panel)return; let loaded=false;
-  btn.addEventListener('click', async function(){
-    const opening=panel.hidden; panel.hidden=!opening; btn.setAttribute('aria-expanded',String(opening)); chevron.className='bi '+(opening?'bi-chevron-up':'bi-chevron-down');
-    if(opening&&!loaded){
-      try{const response=await fetch('{{ url_for("main.scorecard_zillow_detail",agent_id=agent.id) }}',{credentials:'same-origin'}); if(!response.ok)throw new Error('HTTP '+response.status); panel.innerHTML=await response.text(); loaded=true;}
-      catch(error){panel.innerHTML='<div class="alert alert-danger m-3">Unable to load Zillow details. Please refresh and try again.</div>';}
-    }
-  });
-})();
-</script>
-{% endif %}
-
-{# ── Secondary KPI row: Lead Mix + Avg Comm% ─────────────────────────────── #}
-<div class="row g-3 mb-4">
-
-  <div class="col-6 col-md-4 col-lg-2">
-    <div class="card py-2 px-2 h-100" style="border-top:3px solid var(--tdg-gold);font-size:0.72rem;">
-      <div class="text-muted text-center mb-2" style="text-transform:uppercase;letter-spacing:.05em;font-size:0.72rem;">Lead Mix · 12 Mo</div>
-
-      {# Header row #}
-      <div class="d-flex justify-content-between mb-1 fw-semibold" style="font-size:0.68rem;color:#555;">
-        <span style="width:34%"></span>
-        <span style="width:33%;text-align:center;">SOI</span>
-        <span style="width:33%;text-align:center;">Co.</span>
-      </div>
-
-      {# Units row #}
-      <div class="d-flex justify-content-between align-items-baseline border-top pt-1 mb-1">
-        <span class="text-muted" style="width:34%;font-size:0.65rem;text-transform:uppercase;">Units</span>
-        <span style="width:33%;text-align:center;">
-          <span class="fw-bold" style="color:var(--tdg-gold);">{{ lead_mix.sg_units }}</span>
-          <span class="text-muted" style="font-size:0.65rem;"> ({{ lead_mix.sg_units_pct }}%)</span>
-        </span>
-        <span style="width:33%;text-align:center;">
-          <span class="fw-bold" style="color:var(--tdg-gold);">{{ lead_mix.co_units }}</span>
-          <span class="text-muted" style="font-size:0.65rem;"> ({{ lead_mix.co_units_pct }}%)</span>
-        </span>
-      </div>
-
-      {# Volume row #}
-      <div class="d-flex justify-content-between align-items-baseline border-top pt-1 mb-1">
-        <span class="text-muted" style="width:34%;font-size:0.65rem;text-transform:uppercase;">Vol</span>
-        <span style="width:33%;text-align:center;">
-          <span class="fw-bold" style="color:var(--tdg-gold);font-size:0.78rem;">{{ "${:,.2f}".format(lead_mix.sg_vol / 1_000_000) }}M</span>
-          <span class="text-muted" style="font-size:0.65rem;"> ({{ lead_mix.sg_vol_pct }}%)</span>
-        </span>
-        <span style="width:33%;text-align:center;">
-          <span class="fw-bold" style="color:var(--tdg-gold);font-size:0.78rem;">{{ "${:,.2f}".format(lead_mix.co_vol / 1_000_000) }}M</span>
-          <span class="text-muted" style="font-size:0.65rem;"> ({{ lead_mix.co_vol_pct }}%)</span>
-        </span>
-      </div>
-
-      {# GCI (agent income) row #}
-      <div class="d-flex justify-content-between align-items-baseline border-top pt-1">
-        <span class="text-muted" style="width:34%;font-size:0.65rem;text-transform:uppercase;">GCI</span>
-        <span style="width:33%;text-align:center;">
-          <span class="fw-bold" style="color:var(--tdg-gold);font-size:0.78rem;">{{ "${:,.0f}".format(lead_mix.sg_income / 1000) }}K</span>
-          <span class="text-muted" style="font-size:0.65rem;"> ({{ lead_mix.sg_inc_pct }}%)</span>
-        </span>
-        <span style="width:33%;text-align:center;">
-          <span class="fw-bold" style="color:var(--tdg-gold);font-size:0.78rem;">{{ "${:,.0f}".format(lead_mix.co_income / 1000) }}K</span>
-          <span class="text-muted" style="font-size:0.65rem;"> ({{ lead_mix.co_inc_pct }}%)</span>
-        </span>
-      </div>
-
-    </div>
-  </div>
-
-  {# ── 7th card: Avg Commission % (rolling 12 months, primary deals, no Referral) ── #}
-  <div class="col-6 col-md-4 col-lg-2">
-    <div class="card text-center py-3 px-2 h-100" style="border-top:3px solid var(--tdg-gold);">
-      <div class="text-muted mb-1" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.05em;">Avg Comm% · 12 Mo</div>
-      <div class="fw-bold" style="font-size:1.25rem;color:var(--tdg-gold);">
-        {{ "%.2f"|format(avg_comm_pct) }}%
-      </div>
-      <div class="text-muted mt-1" style="font-size:0.72rem;">{{ avg_comm_units }} deal{{ 's' if avg_comm_units != 1 else '' }} · GCI ÷ Volume</div>
-    </div>
-  </div>
-</div>
-
-{# ── Self-Gen Progress + Lead Type KPIs ───────────────────────────────────── #}
-<div class="card mb-4">
-  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
-    <i class="bi bi-bullseye me-2"></i>Self-Gen (SOI) Progress — Rolling 12 Months
-  </div>
-  <div class="card-body pb-2">
-
-    {# ── Progress bar ── #}
-    <div class="mb-3">
-      <div class="d-flex justify-content-between align-items-baseline mb-1">
-        <span class="fw-semibold" style="font-size:0.9rem;">Self-Gen Closing GCI</span>
-        <span class="text-muted" style="font-size:0.82rem;">
-          ${{ "{:,.0f}".format(self_gen_income) }} of ${{ "{:,.0f}".format(self_gen_target) }} goal
-          &nbsp;·&nbsp; <strong>{{ self_gen_pct }}%</strong>
-        </span>
-      </div>
-      <div class="progress" style="height:18px;border-radius:9px;background:#e9ecef;">
-        <div class="progress-bar"
-             role="progressbar"
-             style="width:{{ self_gen_pct }}%;background:{% if self_gen_pct >= 100 %}#198754{% elif self_gen_pct >= 60 %}var(--tdg-gold){% else %}#f0a500{% endif %};border-radius:9px;transition:width .4s ease;"
-             aria-valuenow="{{ self_gen_pct }}" aria-valuemin="0" aria-valuemax="100">
-          {% if self_gen_pct >= 20 %}<span style="font-size:0.78rem;font-weight:700;padding:0 6px;">{{ self_gen_pct }}%</span>{% endif %}
-        </div>
-      </div>
-      {% if self_gen_pct >= 100 %}
-      <div class="mt-1 text-success fw-semibold" style="font-size:0.82rem;"><i class="bi bi-trophy-fill me-1"></i>🎉 $40K Self-Gen Target Achieved!</div>
-      {% else %}
-      {% set remaining = self_gen_target - self_gen_income %}
-      <div class="mt-1 text-muted" style="font-size:0.79rem;">${{ "{:,.0f}".format(remaining) }} remaining to hit the ${{ "{:,.0f}".format(self_gen_target) }} goal</div>
-      {% endif %}
-    </div>
-
-    {# ── Team vs Agent Lead Type KPIs ── #}
-    <div class="row g-0 border-top pt-3">
-      <div class="col-6 col-md-3 px-3 text-center border-end">
-        <div class="text-muted mb-1" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.05em;">Self-Gen Units</div>
-        <div class="fw-bold" style="font-size:1.3rem;color:var(--tdg-gold);">
-          <a href="#" class="sc-drill-link" data-type="self_gen" style="color:var(--tdg-gold);text-decoration:underline dotted;cursor:pointer;">{{ self_gen_units }}</a>
-        </div>
-        <div class="text-muted" style="font-size:0.72rem;">Agent / SOI leads</div>
-      </div>
-      <div class="col-6 col-md-3 px-3 text-center border-end">
-        <div class="text-muted mb-1" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.05em;">Self-Gen Income</div>
-        <div class="fw-bold" style="font-size:1.3rem;color:var(--tdg-gold);">
-          <a href="#" class="sc-drill-link" data-type="self_gen" style="color:var(--tdg-gold);text-decoration:underline dotted;cursor:pointer;">${{ "{:,.0f}".format(self_gen_income) }}</a>
-        </div>
-        <div class="text-muted" style="font-size:0.72rem;">Closed YTD</div>
-      </div>
-      <div class="col-6 col-md-3 px-3 text-center border-end">
-        <div class="text-muted mb-1" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.05em;">Team Lead Units</div>
-        <div class="fw-bold" style="font-size:1.3rem;">
-          <a href="#" class="sc-drill-link" data-type="team_lead" style="color:inherit;text-decoration:underline dotted;cursor:pointer;">{{ team_units }}</a>
-        </div>
-        <div class="text-muted" style="font-size:0.72rem;">Team-sourced leads</div>
-      </div>
-      <div class="col-6 col-md-3 px-3 text-center">
-        <div class="text-muted mb-1" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.05em;">Team Lead Income</div>
-        <div class="fw-bold" style="font-size:1.3rem;">
-          <a href="#" class="sc-drill-link" data-type="team_lead" style="color:inherit;text-decoration:underline dotted;cursor:pointer;">${{ "{:,.0f}".format(team_income_val) }}</a>
-        </div>
-        <div class="text-muted" style="font-size:0.72rem;">Closed YTD</div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-{# ── FUB Performance Cache Sections (Appointments, Offers, Overdue Tasks) ── #}
-{% if perf %}
-
-{# ── Upcoming Appointments ────────────────────────────────────────────────── #}
-{% if perf.upcoming_appts %}
-<div class="card mb-4">
-  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
-    <i class="bi bi-calendar-check me-2"></i>Upcoming Appointments (Next 14 Days)
-  </div>
-  <div class="table-responsive">
-    <table class="table table-hover mb-0" style="font-size:0.88rem;">
-      <thead><tr><th>Date &amp; Time</th><th>Contact</th><th>Type</th></tr></thead>
-      <tbody>
-        {% for a in perf.upcoming_appts %}
-        <tr><td>{{ a.date }}</td><td>{% if a.contact_pid %}<a href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ a.contact_pid }}" target="_blank" rel="noopener">{{ a.contact }}</a>{% else %}{{ a.contact }}{% endif %}</td><td><span class="badge bg-light text-dark border">{{ a.type }}</span></td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
-
-{# ── Past Appointments (30d) ─────────────────────────────────────────────── #}
-<div class="card mb-4">
-  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
-    <i class="bi bi-calendar3 me-2"></i>Appointments — Last 30 Days
-    <small class="fw-normal ms-2">Held: <strong>{{ perf.appts_held_30d }}</strong> &nbsp;|&nbsp; Not Held: <strong>{{ perf.appts_not_held_30d }}</strong> &nbsp;|&nbsp; Signed: <strong>{{ perf.appts_signed_30d }}</strong></small>
-  </div>
-  <div class="table-responsive">
-    <table class="table table-hover mb-0" style="font-size:0.85rem;">
-      <thead><tr><th>Contact</th><th>Date</th><th>Type</th><th>Held?</th><th>Signed?</th></tr></thead>
-      <tbody>
-        {% if perf.past_appts %}
-          {% for a in perf.past_appts %}
-          <tr>
-            <td>{% if a.contact_pid %}<a href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ a.contact_pid }}" target="_blank" rel="noopener">{{ a.contact }}</a>{% else %}{{ a.contact }}{% endif %}</td>
-            <td class="text-muted small">{{ a.date }}</td>
-            <td><span class="badge bg-light text-dark border" style="font-size:0.72rem;">{{ a.type }}</span></td>
-            <td>{% if a.held %}<span class="badge bg-success">✓ Held</span>{% else %}<span class="badge bg-danger">✗ Not Held</span>{% endif %}</td>
-            <td>{% if a.signed %}<span class="badge bg-success">✓ Signed</span>{% else %}<span class="badge bg-secondary">—</span>{% endif %}</td>
-          </tr>
-          {% endfor %}
-        {% else %}
-          <tr><td colspan="5" class="text-center text-muted py-3">No BC/LA appointments in the last 30 days</td></tr>
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-{# ── Offers Written ───────────────────────────────────────────────────────── #}
-<div class="card mb-4">
-  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
-    <i class="bi bi-file-earmark-text me-2"></i>Offers Written
-  </div>
-  <div class="card-body p-0">
-    <div class="row g-0 border-bottom">
-      <div class="col p-3 text-center border-end">
-        <div class="text-muted small">YTD Total</div>
-        <div class="fw-bold fs-4">{{ perf.offers_ytd_total }}</div>
-      </div>
-      <div class="col p-3 text-center border-end">
-        <div class="text-muted small">✅ Accepted</div>
-        <div class="fw-bold fs-4 text-success">{{ perf.offers_ytd_accepted }}</div>
-      </div>
-      <div class="col p-3 text-center border-end">
-        <div class="text-muted small">❌ Rejected</div>
-        <div class="fw-bold fs-4 text-muted">{{ perf.offers_ytd_rejected }}</div>
-      </div>
-      <div class="col p-3 text-center border-end">
-        <div class="text-muted small">🔙 Backed Out</div>
-        <div class="fw-bold fs-4" style="color:#6b21a8;">{{ perf.offers_ytd_backed_out }}</div>
-      </div>
-      <div class="col p-3 text-center">
-        <div class="text-muted small">🔄 In Process</div>
-        <div class="fw-bold fs-4" style="color:#b45309;">{{ perf.offers_ytd_in_process }}</div>
-      </div>
-    </div>
-    {% if perf.offers_30d %}
-    <div class="table-responsive">
-      <table class="table table-hover mb-0" style="font-size:0.85rem;">
-        <thead><tr><th>Date</th><th>Client</th><th>Address</th><th class="text-end">Offer Price</th><th>Status</th></tr></thead>
-        <tbody>
-          {% for o in perf.offers_30d %}
-          <tr>
-            <td class="text-muted small">{{ o.date }}</td>
-            <td>{{ o.client }}</td>
-            <td class="text-muted small">{{ o.address[:45] }}{% if o.address|length > 45 %}…{% endif %}</td>
-            <td class="text-end">{{ o.price }}</td>
-            <td>
-              {% if 'accepted' in o.status|lower %}<span class="badge" style="background:#1a7f37;">✅ Accepted</span>
-              {% elif 'in process' in o.status|lower or 'negotiation' in o.status|lower %}<span class="badge" style="background:#b45309;">🔄 In Process</span>
-              {% elif 'backed out' in o.status|lower %}<span class="badge" style="background:#6b21a8;">🔙 Backed Out</span>
-              {% else %}<span class="badge bg-secondary">❌ Rejected</span>{% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <div class="text-center text-muted py-3" style="font-size:0.85rem;">No offers in the last 30 days</div>
-    {% endif %}
-  </div>
-</div>
-
-{# ── Overdue Tasks ────────────────────────────────────────────────────────── #}
-{% if perf.overdue_tasks_count %}
-<div class="card mb-4">
-  <div class="card-header" style="background:#dc3545;color:#fff;font-weight:700;padding:0.6rem 1rem;">
-    <i class="bi bi-exclamation-triangle me-2"></i>Past-Due FUB Tasks
-  </div>
-  <div class="card-body">
-    <div class="row g-3">
-      <div class="col-6 col-md-4">
-        <div class="text-muted small">Current Past-Due</div>
-        <div class="fw-bold" style="font-size:2rem;color:#dc3545;">{{ perf.overdue_tasks_count }}</div>
-      </div>
-      <div class="col-6 col-md-4">
-        <div class="text-muted small">30-Day Daily Avg</div>
-        <div class="fw-bold" style="font-size:2rem;color:#dc3545;">
-          {% if perf.overdue_avg_30d is not none %}{{ perf.overdue_avg_30d }}{% else %}—{% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
-
-{% else %}
-<div class="alert alert-secondary mb-4" style="font-size:0.85rem;">
-  <i class="bi bi-clock-history me-1"></i> FUB activity data not yet synced. Contact Activity, Appointments, and Offers will appear after the nightly sync runs.
-</div>
-{% endif %}
-
-{# ── Section 1: Lead Gen ──────────────────────────────────────────────────── #}
-<div class="card mb-4">
-  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
-    <i class="bi bi-telephone-outbound me-2"></i>Lead Gen Metrics — {{ year }}{% if month != 'all' %} ({{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][month|int-1] }}){% endif %}
-  </div>
-  <div class="card-body p-0">
-    <div class="row g-0">
-      <div class="col-md-6 p-3 border-end">
-        <p class="text-muted mb-2" style="font-size:0.78rem;">From FUB (same definition as weekly email)</p>
-        <table class="table table-sm mb-0">
-          <thead><tr><th>Metric</th><th class="text-end">This Week</th><th class="text-end">30-Day</th><th class="text-end">Rank</th></tr></thead>
-          <tbody>
-            {% if perf %}
-            <tr>
-              <td>Calls Logged</td>
-              <td class="text-end fw-semibold">{{ perf.calls_7d }}</td>
-              <td class="text-end text-muted">{{ perf.calls_30d }}</td>
-              <td class="text-end"><small class="text-muted">#{{ perf.call_rank }}/{{ perf.team_size }}</small></td>
-            </tr>
-            <tr>
-              <td>Conversations (2+ min)</td>
-              <td class="text-end fw-semibold">{{ perf.convos_7d }}</td>
-              <td class="text-end text-muted">{{ perf.convos_30d }}</td>
-              <td class="text-end"><small class="text-muted">#{{ perf.convo_rank }}/{{ perf.team_size }}</small></td>
-            </tr>
-            <tr>
-              <td>Texts Sent</td>
-              <td class="text-end fw-semibold">{{ perf.texts_7d }}</td>
-              <td class="text-end text-muted">{{ perf.texts_30d }}</td>
-              <td class="text-end"><small class="text-muted">#{{ perf.text_rank }}/{{ perf.team_size }}</small></td>
-            </tr>
-            {% else %}
-            <tr><td colspan="4" class="text-muted small py-2">FUB activity syncs nightly</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
-      </div>
-      <div class="col-md-6 p-3">
-        <p class="text-muted mb-2" style="font-size:0.78rem;">From CC (agent-logged)</p>
-        <table class="table table-sm mb-0">
-          <thead><tr><th>Metric</th><th class="text-end">Set</th><th class="text-end">Held</th><th class="text-end">Signed</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>Listing Appts</td>
-              <td class="text-end">{{ lg.listing_set }}</td>
-              <td class="text-end">{{ lg.listing_held }}
-                {% if lg.listing_set > 0 %}<small class="text-muted">({{ lg.listing_set_to_held }}%)</small>{% endif %}
-              </td>
-              <td class="text-end">{{ lg.listings_signed }}
-                {% if lg.listing_held > 0 %}<small class="text-muted">({{ lg.listing_held_to_signed }}%)</small>{% endif %}
-              </td>
-            </tr>
-            <tr>
-              <td>Buyer Appts</td>
-              <td class="text-end">{{ lg.buyer_set }}</td>
-              <td class="text-end">{{ lg.buyer_held }}
-                {% if lg.buyer_set > 0 %}<small class="text-muted">({{ lg.buyer_set_to_held }}%)</small>{% endif %}
-              </td>
-              <td class="text-end">{{ lg.buyers_signed }}
-                {% if lg.buyer_held > 0 %}<small class="text-muted">({{ lg.buyer_held_to_signed }}%)</small>{% endif %}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-{# ── Section 2: Source Conversion ─────────────────────────────────────────── #}
-{% if source_breakdown %}
-<div class="card mb-4">
-  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
-    <i class="bi bi-funnel me-2"></i>Source Conversion — {{ year }}
-  </div>
-  <div class="table-responsive">
-    <table class="table table-hover mb-0">
-      <thead>
-        <tr>
-          <th>Lead Source</th>
-          <th class="text-end">Received</th>
-          <th class="text-end">Active</th>
-          <th class="text-end">Pending</th>
-          <th class="text-end">Closed</th>
-          <th class="text-end">Close%</th>
-          <th class="text-end">Agent Income</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for src, s in source_breakdown %}
-        <tr>
-          <td class="fw-semibold">{{ src }}</td>
-          <td class="text-end">{{ s.received }}</td>
-          <td class="text-end text-muted">{{ s.active }}</td>
-          <td class="text-end text-muted">{{ s.pending }}</td>
-          <td class="text-end">{{ s.closed }}</td>
-          <td class="text-end {% if s.received > 0 and s.closed/s.received >= 0.5 %}text-success{% endif %}">
-            {{ (s.closed / s.received * 100)|round(0)|int if s.received else 0 }}%
-          </td>
-          <td class="text-end">${{ "{:,.0f}".format(s.income) }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
-
-{# ── Section 3: Monthly Closing Grid ─────────────────────────────────────── #}
-<div class="card mb-4">
-  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
-    <i class="bi bi-calendar3 me-2"></i>Closed Deals by Month — {{ year }}
-  </div>
-  <div class="table-responsive">
-    <table class="table table-hover mb-0" style="font-size:0.85rem;">
-      <thead>
-        <tr>
-          <th style="min-width:130px;">Month</th>
-          <th class="text-end">Units</th>
-          <th class="text-end">Agent Income</th>
-          <th>Deals</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for m in range(1,13) %}
-        {% set md = monthly[m] %}
-        <tr {% if md.units == 0 %}class="text-muted"{% endif %}>
-          <td>{{ ['January','February','March','April','May','June','July','August','September','October','November','December'][m-1] }}</td>
-          <td class="text-end {% if md.units > 0 %}fw-semibold{% endif %}">{{ md.units or '—' }}</td>
-          <td class="text-end {% if md.income > 0 %}text-success fw-semibold{% endif %}">
-            {% if md.income > 0 %}${{ "{:,.0f}".format(md.income) }}{% else %}—{% endif %}
-          </td>
-          <td>
-            {% for t in md.txns %}
-            <span class="badge bg-light text-dark border me-1" style="font-size:0.72rem;">{{ t.client_name or t.address or '—' }}</span>
-            {% endfor %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-      <tfoot>
-        <tr class="fw-bold" style="border-top:2px solid var(--tdg-gold);">
-          <td>TOTAL</td>
-          <td class="text-end">{{ ytd_units }}</td>
-          <td class="text-end text-success">${{ "{:,.0f}".format(ytd_income) }}</td>
-          <td></td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-</div>
-
-{# ── Section 4: Active Pipeline ───────────────────────────────────────────── #}
-{% if pipeline_txns %}
-<div class="card mb-4">
-  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
-    <i class="bi bi-kanban me-2"></i>Active Pipeline ({{ pipeline_txns|length }} deals)
-  </div>
-  <div class="table-responsive">
-    <table class="table table-hover mb-0" style="font-size:0.85rem;">
-      <thead>
-        <tr>
-          <th>Client / Address</th>
-          <th>Type</th>
-          <th>Status</th>
-          <th>Source</th>
-          <th class="text-end">Sale Price</th>
-          <th class="text-end">Agent Income</th>
-          <th>Expiry</th>
-          <th>Signed</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for t in pipeline_txns %}
-        {% set inc = agent_income(t) %}
-        <tr>
-          <td>
-            <div class="fw-semibold">{{ t.client_name or '—' }}</div>
-            <div class="text-muted" style="font-size:0.78rem;">{{ t.address or '' }}</div>
-          </td>
-          <td class="small">{{ t.transaction_type or '—' }}</td>
-          <td><span class="badge-status status-{{ t.status }}">{{ t.status }}</span></td>
-          <td class="small text-muted">{{ t.lead_source or '—' }}</td>
-          <td class="text-end">${{ "{:,.0f}".format(t.sale_price or 0) }}</td>
-          <td class="text-end {% if inc > 0 %}text-success fw-semibold{% endif %}">${{ "{:,.0f}".format(inc) }}</td>
-          <td class="small {% if t.exp_in is not none and t.exp_in < 30 %}text-danger{% endif %}">
-            {% if t.expiry_date %}{{ t.expiry_date.strftime('%m/%d/%y') }}{% if t.exp_in is not none %} <span class="text-muted">({{ t.exp_in }}d)</span>{% endif %}{% else %}—{% endif %}
-          </td>
-          <td class="small text-muted">{{ t.signed_date.strftime('%m/%d/%y') if t.signed_date else '—' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-      <tfoot>
-        <tr class="fw-semibold" style="border-top:2px solid #dee2e6;">
-          <td colspan="5">Pipeline Agent Income</td>
-          <td class="text-end text-success">${{ "{:,.0f}".format(pipeline_income) }}</td>
-          <td colspan="2"></td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-</div>
-{% endif %}
-
-{# ── Section 5: Year-End Projection ──────────────────────────────────────── #}
-<div class="card mb-4">
-  <div class="card-header" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
-    <i class="bi bi-lightning me-2"></i>Year-End Projection
-  </div>
-  <div class="card-body">
-    <div class="row g-3">
-      <div class="col-md-4">
-        <div class="p-3 rounded" style="background:#f8f9fa;border-left:4px solid var(--tdg-gold);">
-          <div class="text-muted small">Projected Closed Units</div>
-          <div class="fw-bold fs-4">{{ proj_units }}</div>
-          <div class="text-muted" style="font-size:0.78rem;">Based on {{ ytd_units }} closed in {{ today.month if year == today.year else 12 }} months</div>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="p-3 rounded" style="background:#f8f9fa;border-left:4px solid var(--tdg-gold);">
-          <div class="text-muted small">Projected Income (pace only)</div>
-          <div class="fw-bold fs-4 text-success">${{ "{:,.0f}".format(proj_income) }}</div>
-          <div class="text-muted" style="font-size:0.78rem;">Annualized from YTD closed</div>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="p-3 rounded" style="background:#f8f9fa;border-left:4px solid var(--tdg-gold);">
-          <div class="text-muted small">Projected Income + Pending</div>
-          <div class="fw-bold fs-4 text-success">${{ "{:,.0f}".format(proj_income_with_pending) }}</div>
-          <div class="text-muted" style="font-size:0.78rem;">Pace + ${{ "{:,.0f}".format(pending_income) }} in pending deals</div>
-        </div>
-      </div>
-    </div>
-    {% if plan %}
-    <div class="mt-3 pt-3 border-top">
-      <div class="row g-3">
-        <div class="col-md-3">
-          <div class="text-muted small">Goal: Units</div>
-          <div class="fw-semibold">{{ plan.total_unit_goal }}
-            {% if plan.total_unit_goal > 0 %}
-            <small class="text-muted">({{ (ytd_units / plan.total_unit_goal * 100)|round(0)|int }}% of goal)</small>
-            {% endif %}
-          </div>
-          {% if plan.total_unit_goal > 0 %}
-          <div class="progress mt-1" style="height:6px;">
-            <div class="progress-bar" style="width:{{ [ytd_units / plan.total_unit_goal * 100, 100]|min }}%;background:var(--tdg-gold);"></div>
-          </div>
-          {% endif %}
-        </div>
-        <div class="col-md-3">
-          <div class="text-muted small">Goal: GCI</div>
-          <div class="fw-semibold">${{ "{:,.0f}".format(plan.gci_goal) }}
-            {% if plan.gci_goal > 0 %}
-            <small class="text-muted">({{ (ytd_gci / plan.gci_goal * 100)|round(0)|int }}%)</small>
-            {% endif %}
-          </div>
-          {% if plan.gci_goal > 0 %}
-          <div class="progress mt-1" style="height:6px;">
-            <div class="progress-bar" style="width:{{ [ytd_gci / plan.gci_goal * 100, 100]|min }}%;background:var(--tdg-gold);"></div>
-          </div>
-          {% endif %}
-        </div>
-        <div class="col-md-3">
-          <div class="text-muted small">Goal: Avg Sale Price</div>
-          <div class="fw-semibold">${{ "{:,.0f}".format(plan.avg_sale_price) }}</div>
-        </div>
-        <div class="col-md-3">
-          <div class="text-muted small">Actual Avg Sale Price</div>
-          <div class="fw-semibold">${{ "{:,.0f}".format(ytd_volume / ytd_units) if ytd_units > 0 else '—' }}</div>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-  </div>
-</div>
-
-{# ── Business Plan section ────────────────────────────────────────────────── #}
-<div class="card mb-4">
-  <div class="card-header d-flex justify-content-between align-items-center" style="background:var(--tdg-gold);color:#1a1a2e;font-weight:700;padding:0.6rem 1rem;">
-    <span><i class="bi bi-clipboard-data me-2"></i>Business Plan — {{ year }}</span>
-    {% if current_user.is_admin or current_user.agent_id == agent.id %}
-    <a href="{{ url_for('main.business_plan_form_for', agent_id=agent.id, year=year) }}" class="btn btn-sm" style="background:#1a1a2e;color:#fff;font-size:0.78rem;">
-      {% if plan %}Edit Plan{% else %}Set Plan{% endif %}
+<section class="sc-section" id="scorecard-overall">
+  <div class="sc-section-head"><div><div class="sc-section-kicker">01 · At a glance</div><div class="sc-section-title">Overall Business</div></div><div class="sc-section-note">Business health, plan and pace before operational detail</div></div>
+  <div class="sc-business-grid">
+    <a href="#" class="sc-business-card sc-drill-link" data-type="closed" aria-label="View closed deals">
+      <div class="sc-business-label"><span><i class="bi bi-check-circle-fill text-success me-1"></i>Closed YTD</span><span class="sc-business-hint">View {{ ytd_units }} deals ›</span></div>
+      <div class="sc-metrics"><div class="sc-metric"><div class="sc-metric-label">Units</div><div class="sc-metric-value">{{ ytd_units }}</div></div><div class="sc-metric"><div class="sc-metric-label">Volume</div><div class="sc-metric-value" title="${{ '{:,.0f}'.format(ytd_volume) }}">{{ compact_money(ytd_volume) }}</div></div><div class="sc-metric"><div class="sc-metric-label">GCI to agent</div><div class="sc-metric-value" title="${{ '{:,.0f}'.format(ytd_income) }}">{{ compact_money(ytd_income) }}</div></div></div>
     </a>
-    {% endif %}
+    <a href="#" class="sc-business-card sc-drill-link" data-type="pipeline" aria-label="View active pipeline" title="Pending under contract: ${{ '{:,.0f}'.format(w_pending_volume) }} volume · ${{ '{:,.0f}'.format(w_pending_income) }} GCI to agent">
+      <div class="sc-business-label"><span><i class="bi bi-hourglass-split me-1" style="color:#b45309;"></i>Active Pipeline</span><span class="sc-business-hint">View {{ active_pipeline_units }} live deals ›</span></div>
+      <div class="sc-metrics"><div class="sc-metric"><div class="sc-metric-label">Units</div><div class="sc-metric-value">{{ active_pipeline_units }}</div></div><div class="sc-metric"><div class="sc-metric-label">Volume</div><div class="sc-metric-value" title="${{ '{:,.0f}'.format(active_pipeline_volume) }}">{{ compact_money(active_pipeline_volume) }}</div></div><div class="sc-metric"><div class="sc-metric-label">GCI to agent</div><div class="sc-metric-value" title="${{ '{:,.0f}'.format(active_pipeline_income) }}">{{ compact_money(active_pipeline_income) }}</div></div></div>
+    </a>
+    <button type="button" class="sc-business-card projected text-start" data-bs-toggle="collapse" data-bs-target="#projection-method" aria-expanded="false" aria-controls="projection-method">
+      <div class="sc-business-label"><span><i class="bi bi-star-fill me-1" style="color:var(--tdg-gold);"></i>Projected Year-End</span><span class="sc-business-hint">How calculated ›</span></div>
+      <div class="sc-metrics"><div class="sc-metric"><div class="sc-metric-label">Units</div><div class="sc-metric-value">{{ proj_units }}</div></div><div class="sc-metric"><div class="sc-metric-label">Volume</div><div class="sc-metric-value">{{ compact_money(proj_volume) }}</div></div><div class="sc-metric"><div class="sc-metric-label">GCI to agent</div><div class="sc-metric-value">{{ compact_money(proj_income) }}</div></div></div>
+    </button>
   </div>
-  <div class="card-body">
-    {% if plan %}
-    <div class="row g-3">
-      <div class="col-6 col-md-3"><div class="text-muted small">Unit Goal</div><div class="fw-semibold">{{ plan.total_unit_goal }}</div></div>
-      <div class="col-6 col-md-3"><div class="text-muted small">GCI Goal</div><div class="fw-semibold">${{ "{:,.0f}".format(plan.gci_goal) }}</div></div>
-      <div class="col-6 col-md-3"><div class="text-muted small">Avg Sale Price</div><div class="fw-semibold">${{ "{:,.0f}".format(plan.avg_sale_price) }}</div></div>
-      <div class="col-6 col-md-3"><div class="text-muted small">Split %</div><div class="fw-semibold">{{ (plan.split_pct * 100)|round(1) }}%</div></div>
-      <div class="col-6 col-md-3"><div class="text-muted small">Listing Comm %</div><div class="fw-semibold">{{ (plan.listing_comm_pct * 100)|round(1) }}%</div></div>
-      <div class="col-6 col-md-3"><div class="text-muted small">Buyer Comm %</div><div class="fw-semibold">{{ (plan.buyer_comm_pct * 100)|round(1) }}%</div></div>
-      {% if plan.notes %}<div class="col-12"><div class="text-muted small">Notes</div><div>{{ plan.notes }}</div></div>{% endif %}
+  <div class="collapse mt-2" id="projection-method"><div class="alert alert-light border mb-0 small"><strong>Projection:</strong> closed production + current pending business + seasonal new production expected after the pending window. It never projects below Closed + Pending.</div></div>
+
+  <div class="sc-overview-grid">
+    <div class="sc-surface">
+      <div class="sc-surface-head"><div class="sc-surface-title">Lead Mix · Rolling 12 Months</div><span class="sc-pill">Units · Volume · GCI</span></div>
+      <div class="sc-mix-row"><div class="sc-mix-label">SOI / self-gen</div><div class="sc-track"><div class="sc-fill" style="width:{{ lead_mix.sg_inc_pct }}%"></div></div><strong class="small text-end">{{ lead_mix.sg_inc_pct }}%</strong></div>
+      <div class="sc-mix-row"><div class="sc-mix-label">Company</div><div class="sc-track"><div class="sc-fill company" style="width:{{ lead_mix.co_inc_pct }}%"></div></div><strong class="small text-end">{{ lead_mix.co_inc_pct }}%</strong></div>
+      <div class="d-flex justify-content-between gap-2 text-muted mt-2" style="font-size:.61rem;"><span>SOI {{ lead_mix.sg_units }} units · {{ compact_money(lead_mix.sg_vol) }} · {{ compact_money(lead_mix.sg_income) }}</span><span>Company {{ lead_mix.co_units }} units · {{ compact_money(lead_mix.co_vol) }} · {{ compact_money(lead_mix.co_income) }}</span></div>
     </div>
-    {% else %}
-    <div class="text-center text-muted py-4">
-      No business plan set for {{ year }}.
-      {% if current_user.is_admin or current_user.agent_id == agent.id %}
-      <a href="{{ url_for('main.business_plan_form_for', agent_id=agent.id, year=year) }}" style="color:var(--tdg-gold);">Set one →</a>
+    <div class="sc-surface">
+      <div class="sc-surface-head"><div class="sc-surface-title">Year-End Pace + Business Plan</div><span class="sc-pill">{{ year }} plan</span></div>
+      {% if plan %}
+      <div class="sc-plan-grid">
+        <div><div class="sc-metric-label">Unit goal</div><div class="sc-plan-value">{{ ytd_units }} / {{ plan.total_unit_goal }}</div><div class="sc-plan-sub">{{ unit_goal_pct|round(0)|int }}% complete</div><div class="sc-plan-progress"><span style="width:{{ unit_goal_pct }}%"></span></div></div>
+        <div><div class="sc-metric-label">GCI goal</div><div class="sc-plan-value">{{ compact_money(ytd_income) }} / {{ compact_money(plan.gci_goal) }}</div><div class="sc-plan-sub">{{ gci_goal_pct|round(0)|int }}% complete</div><div class="sc-plan-progress"><span style="width:{{ gci_goal_pct }}%"></span></div></div>
+        <div><div class="sc-metric-label">Average sale price</div><div class="sc-plan-value">{{ compact_money(ytd_volume / ytd_units) if ytd_units else '—' }}</div><div class="sc-plan-sub">Plan: {{ compact_money(plan.avg_sale_price) }}</div><div class="sc-plan-progress"><span style="width:100%;background:var(--tdg-green);"></span></div></div>
+      </div>
+      <div class="sc-projection-row"><div><div class="sc-metric-label">Current year-end projection</div><strong>{{ compact_money(proj_income) }} GCI · {{ proj_units }} units</strong></div><a href="{{ url_for('main.business_plan_form_for', agent_id=agent.id, year=year) }}" class="btn btn-sm btn-outline-secondary">Edit Plan</a></div>
+      {% else %}
+      <div class="d-flex align-items-center justify-content-between gap-3"><span class="text-muted small">No business plan is set for {{ year }}.</span>{% if current_user.is_admin or current_user.agent_id == agent.id %}<a href="{{ url_for('main.business_plan_form_for', agent_id=agent.id, year=year) }}" class="btn btn-sm btn-gold">Set Plan</a>{% endif %}</div>
       {% endif %}
     </div>
-    {% endif %}
   </div>
-</div>
+</section>
 
+<section class="sc-section" id="scorecard-appointments">
+  <div class="sc-section-head"><div><div class="sc-section-kicker">02 · Client activity</div><div class="sc-section-title">Appointments</div></div><div class="sc-section-note">Person-linked Conversion funnel with supporting appointment detail</div></div>
+  <div class="sc-surface mb-2">
+    <div class="sc-funnel-grid">
+      <div class="sc-funnel-item"><div class="sc-funnel-label">Appointments set</div><div class="sc-funnel-value">{{ cv.appointment_set }}</div><div class="sc-funnel-rate">{{ conversion_pct(cv.appointment_rate) }} of leads</div></div>
+      <div class="sc-funnel-item"><div class="sc-funnel-label">Appointments held</div><div class="sc-funnel-value">{{ cv.appointment_held }}</div><div class="sc-funnel-rate">{{ conversion_pct(cv.held_rate) }} of set</div></div>
+      <div class="sc-funnel-item"><div class="sc-funnel-label">Agreements signed</div><div class="sc-funnel-value">{{ cv.signed }}</div><div class="sc-funnel-rate">{{ conversion_pct(cv.signed_rate) }} of held</div></div>
+      <div class="sc-funnel-item"><div class="sc-funnel-label">Pending</div><div class="sc-funnel-value">{{ cv.pending }}</div><div class="sc-funnel-rate">{{ conversion_pct(cv.pending_rate) }} of signed</div></div>
+      <div class="sc-funnel-item"><div class="sc-funnel-label">Cohort closed</div><div class="sc-funnel-value">{{ cv.closed }}</div><div class="sc-funnel-rate">{{ conversion_pct(cv.overall_rate) }} of leads</div></div>
+      <div class="sc-funnel-item"><div class="sc-funnel-label">My Business closed</div><div class="sc-funnel-value">{{ conversion_summary.production_closed }}</div><div class="sc-funnel-rate">Close-date production</div></div>
+    </div>
+  </div>
+  <details class="sc-detail-group">
+    <summary><span><i class="bi bi-calendar3 me-2"></i>Appointment rows and CC-entered activity</span><span class="text-muted fw-normal" style="font-size:.65rem;">Expand details</span></summary>
+    <div class="sc-detail-body">
+      <div class="table-responsive mb-3"><table class="table table-sm sc-table mb-0"><thead><tr><th>CC Activity</th><th class="text-end">Set</th><th class="text-end">Held</th><th class="text-end">Signed</th></tr></thead><tbody><tr><td>Listing appointments</td><td class="text-end">{{ lg.listing_set }}</td><td class="text-end">{{ lg.listing_held }} <span class="text-muted">({{ lg.listing_set_to_held }}%)</span></td><td class="text-end">{{ lg.listings_signed }} <span class="text-muted">({{ lg.listing_held_to_signed }}%)</span></td></tr><tr><td>Buyer appointments</td><td class="text-end">{{ lg.buyer_set }}</td><td class="text-end">{{ lg.buyer_held }} <span class="text-muted">({{ lg.buyer_set_to_held }}%)</span></td><td class="text-end">{{ lg.buyers_signed }} <span class="text-muted">({{ lg.buyer_held_to_signed }}%)</span></td></tr></tbody></table></div>
+      {% if perf %}
+      <div class="sc-activity-grid mb-3"><div class="sc-activity"><strong>{{ perf.appts_held_30d }}</strong><span>Held · last 30 days</span></div><div class="sc-activity"><strong>{{ perf.appts_not_held_30d }}</strong><span>Not held · last 30 days</span></div><div class="sc-activity"><strong>{{ perf.appts_signed_30d }}</strong><span>Signed · last 30 days</span></div><div class="sc-activity"><strong>{{ perf.upcoming_appts|length }}</strong><span>Upcoming · next 14 days</span></div></div>
+      {% if perf.upcoming_appts %}<div class="table-responsive"><table class="table table-sm sc-table mb-0"><thead><tr><th>Upcoming</th><th>Contact</th><th>Type</th></tr></thead><tbody>{% for a in perf.upcoming_appts %}<tr><td>{{ a.date }}</td><td>{% if a.contact_pid %}<a href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ a.contact_pid }}" target="_blank" rel="noopener">{{ a.contact }}</a>{% else %}{{ a.contact }}{% endif %}</td><td>{{ a.type }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+      {% else %}<div class="text-muted small">FUB appointment detail has not synced yet.</div>{% endif %}
+    </div>
+  </details>
+</section>
+
+<section class="sc-section" id="scorecard-conversion">
+  <div class="sc-section-head"><div><div class="sc-section-kicker">03 · Funnel performance</div><div class="sc-section-title">Conversion</div></div><div class="sc-section-note">Same governed defaults as the Conversion page · original receiving agent</div></div>
+  <div class="sc-surface sc-expand-card" style="border-top:4px solid var(--tdg-gold);">
+    <button type="button" class="sc-expand-toggle" data-bs-toggle="collapse" data-bs-target="#scorecard-conversion-detail" aria-expanded="false" aria-controls="scorecard-conversion-detail">
+      <div class="sc-expand-head"><div><span class="sc-surface-title">Overall Conversion</span><span class="text-muted ms-2" style="font-size:.63rem;">Click for source-group detail</span></div><i class="bi bi-chevron-down" aria-hidden="true"></i></div>
+      <div class="sc-funnel-grid">
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Received</div><div class="sc-funnel-value" data-scorecard-metric="leads">{{ cv.leads }}</div><div class="sc-funnel-rate">100%</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Set</div><div class="sc-funnel-value" data-scorecard-metric="set">{{ cv.appointment_set }}</div><div class="sc-funnel-rate">{{ conversion_pct(cv.appointment_rate) }}</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Held</div><div class="sc-funnel-value" data-scorecard-metric="held">{{ cv.appointment_held }}</div><div class="sc-funnel-rate">{{ conversion_pct(cv.held_rate) }} of set</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Signed</div><div class="sc-funnel-value" data-scorecard-metric="signed">{{ cv.signed }}</div><div class="sc-funnel-rate">{{ conversion_pct(cv.signed_rate) }} of held</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Pending</div><div class="sc-funnel-value" data-scorecard-metric="pending">{{ cv.pending }}</div><div class="sc-funnel-rate">{{ conversion_pct(cv.pending_rate) }} of signed</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Closed</div><div class="sc-funnel-value" data-scorecard-metric="closed">{{ cv.closed }}</div><div class="sc-funnel-rate">{{ conversion_pct(cv.overall_rate) }} of leads</div></div>
+      </div>
+    </button>
+    <div class="collapse" id="scorecard-conversion-detail"><div class="sc-expand-detail">
+      <div class="sc-rate-grid"><div class="sc-rate"><strong>{{ conversion_pct(cv.held_rate) }}</strong><span>Held ÷ Set · {{ cv.appointment_held }} of {{ cv.appointment_set }}</span></div><div class="sc-rate"><strong>{{ conversion_pct(cv.signed_rate) }}</strong><span>Signed ÷ Held · {{ cv.signed }} of {{ cv.appointment_held }}</span></div><div class="sc-rate"><strong>{{ conversion_pct(cv.overall_rate) }}</strong><span>Closed ÷ Received · {{ cv.closed }} of {{ cv.leads }}</span></div></div>
+      <div class="table-responsive"><table class="table table-hover table-sm sc-table mb-0"><thead><tr><th>Source group</th><th class="text-end">Received</th><th class="text-end">Set</th><th class="text-end">Held</th><th class="text-end">Signed</th><th class="text-end">Pending</th><th class="text-end">Cohort closed</th><th class="text-end">My Business</th><th class="text-end">Lead → Close</th></tr></thead><tbody>{% for row in conversion_summary.family_breakdown %}<tr data-scorecard-family="{{ row.label }}"><td class="fw-semibold">{{ row.label }}{% if row.low_sample %} <span class="sc-pill">low sample</span>{% endif %}</td><td class="text-end">{{ row.leads }}</td><td class="text-end">{{ row.appointment_set }}</td><td class="text-end">{{ row.appointment_held }}</td><td class="text-end">{{ row.signed }}</td><td class="text-end">{{ row.pending }}</td><td class="text-end">{{ row.closed }}</td><td class="text-end">{{ row.production_closed }}</td><td class="text-end fw-semibold">{{ conversion_pct(row.overall_rate) }}</td></tr>{% else %}<tr><td colspan="9" class="text-center text-muted py-3">No eligible conversion leads for this period.</td></tr>{% endfor %}</tbody></table></div>
+      <div class="text-muted mt-2" style="font-size:.62rem;">SOI excluded; Bulk Import source family excluded. FUB supplies the received cohort and person milestones. My Business is authoritative for closings. <a href="{{ url_for('main.conversion', agent_id=agent.id, start=conversion_summary.period_start.isoformat(), end=conversion_summary.period_end.isoformat()) }}">Open full Conversion page →</a></div>
+    </div></div>
+  </div>
+</section>
+
+<section class="sc-section" id="scorecard-zillow">
+  <div class="sc-section-head"><div><div class="sc-section-kicker">04 · Partner channel</div><div class="sc-section-title">Zillow</div></div><div class="sc-section-note">Accountability stays visible; dense report detail stays collapsed</div></div>
+  {% if zillow_summary or zhl_summary.eligible %}
+  <div class="sc-surface sc-expand-card sc-zillow" id="zillow-performance">
+    <button type="button" id="zillow-toggle" class="sc-expand-toggle" aria-expanded="false" aria-controls="zillow-detail-panel">
+      <div class="sc-expand-head"><div><span class="sc-surface-title"><i class="bi bi-house-heart-fill me-1"></i>Zillow Performance</span>{% if zillow_summary %}<span class="text-muted ms-2" style="font-size:.63rem;">{{ zillow_summary.period_start|show_value }} – {{ zillow_summary.period_end|show_value }}</span>{% else %}<span class="text-muted ms-2" style="font-size:.63rem;">Financing accountability</span>{% endif %}</div><i id="zillow-chevron" class="bi bi-chevron-down" style="color:var(--tdg-blue);"></i></div>
+      <div class="sc-funnel-grid">
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Overall tier</div><div class="sc-funnel-value sc-zillow-value">{{ zillow_summary.overall_performance|show_value if zillow_summary else '—' }}</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Predicted CVR</div><div class="sc-funnel-value sc-zillow-value">{{ zillow_summary.predicted_cvr|show_value if zillow_summary else '—' }}{% if zillow_summary and zillow_summary.predicted_cvr is not none %}%{% endif %}</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Pickup rate</div><div class="sc-funnel-value sc-zillow-value">{{ zillow_summary.pickup_rate|show_value if zillow_summary else '—' }}{% if zillow_summary and zillow_summary.pickup_rate is not none %}%{% endif %}</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Connections</div><div class="sc-funnel-value sc-zillow-value">{{ zillow_summary.buyer_connections|show_value if zillow_summary else '—' }}</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Preapprovals</div><div class="sc-funnel-value sc-zillow-value">{% if zillow_summary %}{{ zillow_summary.eligible_preapprovals|show_value }} / {{ zillow_summary.preapproval_target|show_value }}{% else %}—{% endif %}</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">24-hour evidence</div><div class="sc-funnel-value sc-zillow-value">{{ zhl_summary.timely_rate|show_value }}{% if zhl_summary.timely_rate is not none %}%{% endif %}</div>{% if zhl_summary.counts.get('missing_overdue',0) %}<div class="text-danger fw-semibold" style="font-size:.58rem;">{{ zhl_summary.counts.get('missing_overdue',0) }} overdue</div>{% endif %}</div>
+      </div>
+    </button>
+    <div id="zillow-detail-panel" hidden><div class="sc-expand-detail text-center text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Loading Zillow performance…</div></div>
+  </div>
+  {% else %}<div class="sc-surface text-muted small">No Zillow performance or financing-accountability data is available for this agent yet.</div>{% endif %}
+</section>
+
+<section class="sc-section" id="scorecard-lead-generation">
+  <div class="sc-section-head"><div><div class="sc-section-kicker">05 · Growth inputs</div><div class="sc-section-title">Lead Generation</div></div><div class="sc-section-note">Activity and self-generated production separated from business outcomes</div></div>
+  <div class="row g-3 mb-2">
+    <div class="col-lg-6"><div class="sc-surface h-100"><div class="sc-surface-head"><div class="sc-surface-title">Self-Gen (SOI) Progress · Rolling 12 Months</div><span class="sc-pill">{{ self_gen_pct }}%</span></div><div class="d-flex justify-content-between small mb-1"><span>Self-Gen Closing GCI</span><strong>{{ compact_money(self_gen_income) }} of {{ compact_money(self_gen_target) }}</strong></div><div class="progress" style="height:12px;"><div class="progress-bar" style="width:{{ self_gen_pct }}%;background:{% if self_gen_pct >= 100 %}var(--tdg-green){% else %}var(--tdg-gold){% endif %};"></div></div><div class="sc-activity-grid mt-3"><a href="#" class="sc-activity sc-drill-link text-decoration-none text-reset" data-type="self_gen"><strong>{{ self_gen_units }}</strong><span>Self-gen units</span></a><a href="#" class="sc-activity sc-drill-link text-decoration-none text-reset" data-type="team_lead"><strong>{{ team_units }}</strong><span>Company units</span></a><div class="sc-activity"><strong>{{ compact_money(self_gen_income) }}</strong><span>Self-gen GCI</span></div><div class="sc-activity"><strong>{{ avg_comm_pct }}%</strong><span>Avg commission</span></div></div></div></div>
+    <div class="col-lg-6"><div class="sc-surface h-100"><div class="sc-surface-head"><div class="sc-surface-title">Outreach Activity</div><span class="sc-pill">FUB + CC</span></div><div class="sc-activity-grid"><div class="sc-activity"><strong>{{ perf.calls_7d if perf else '—' }}</strong><span>Calls · 7 days</span></div><div class="sc-activity"><strong>{{ perf.convos_7d if perf else '—' }}</strong><span>Conversations · 7 days</span></div><div class="sc-activity"><strong>{{ perf.texts_7d if perf else '—' }}</strong><span>Texts · 7 days</span></div><div class="sc-activity"><strong>{{ lg.contacts }}</strong><span>CC contacts · {{ year }}</span></div><div class="sc-activity"><strong>{{ lg.dials }}</strong><span>CC dials · {{ year }}</span></div><div class="sc-activity"><strong>{{ lg.hours }}</strong><span>Lead-gen hours</span></div><div class="sc-activity"><strong>{{ perf.offers_ytd_total if perf else '—' }}</strong><span>Offers · YTD</span></div><div class="sc-activity"><strong class="{% if perf and perf.overdue_tasks_count %}text-danger{% endif %}">{{ perf.overdue_tasks_count if perf else '—' }}</strong><span>Past-due FUB tasks</span></div></div></div></div>
+  </div>
+  {% if perf and (perf.offers_30d or perf.overdue_tasks_count) %}<details class="sc-detail-group"><summary><span><i class="bi bi-list-check me-2"></i>Offers and task accountability</span><span class="text-muted fw-normal" style="font-size:.65rem;">Expand details</span></summary><div class="sc-detail-body">{% if perf.overdue_tasks_count %}<div class="alert alert-danger py-2"><strong>{{ perf.overdue_tasks_count }} past-due FUB tasks</strong>{% if perf.overdue_avg_30d is not none %} · 30-day daily average {{ perf.overdue_avg_30d }}{% endif %}</div>{% endif %}{% if perf.offers_30d %}<div class="table-responsive"><table class="table table-sm sc-table mb-0"><thead><tr><th>Date</th><th>Client</th><th>Address</th><th class="text-end">Offer price</th><th>Status</th></tr></thead><tbody>{% for o in perf.offers_30d %}<tr><td>{{ o.date }}</td><td>{{ o.client }}</td><td>{{ o.address }}</td><td class="text-end">{{ o.price }}</td><td>{{ o.status }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}</div></details>{% endif %}
+</section>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// ── Scorecard Drill-Down Drawer ───────────────────────────────────────────
-const SC_AGENT_ID = {{ agent.id }};
-const SC_YEAR     = {{ year }};
-const SC_DIVISION = "{{ division }}";
-
-const DRILL_LABELS = {
-  self_gen:  'Self-Gen (SOI) — Rolling 12 Months',
-  team_lead: 'Team Lead Deals — Rolling 12 Months',
-  closed:    'Closed Deals — {{ year }}',
-  pending:   'Pending Pipeline — {{ year }}',
-};
-
-const STATUS_BADGE = {
-  Closed:  'background:#1a7f37;color:#fff',
-  Pending: 'background:#b45309;color:#fff',
-  Active:  'background:#0969da;color:#fff',
-};
-
-function openScDrawer(type) {
-  const overlay = document.getElementById('sc-drawer-overlay');
-  const drawer  = document.getElementById('sc-drawer');
-  const title   = document.getElementById('sc-drawer-title');
-  const body    = document.getElementById('sc-drawer-body');
-
-  title.textContent = DRILL_LABELS[type] || type;
-  body.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Loading\u2026</div>';
-  overlay.style.display = 'block';
-  drawer.classList.add('open');
-
-  const url = `/scorecard/${SC_AGENT_ID}/drill?type=${type}&year=${SC_YEAR}&division=${encodeURIComponent(SC_DIVISION)}`;
-  fetch(url)
-    .then(r => r.json())
-    .then(data => renderScDrawer(data))
-    .catch(() => { body.innerHTML = '<div class="text-danger p-3">Failed to load data.</div>'; });
-}
-
-function renderScDrawer(data) {
-  const body = document.getElementById('sc-drawer-body');
-  if (!data.deals || !data.deals.length) {
-    body.innerHTML = '<div class="text-center text-muted py-5">No deals found.</div>';
-    return;
-  }
-
-  const totalInc  = data.total_income;
-  const count     = data.count;
-  const isPending = data.drill_type === 'pending';
-  const dateLabel = isPending ? 'Proj. Close' : 'Close Date';
-
-  let html = `<div class="d-flex flex-wrap gap-2 mb-3 px-3 pt-3">
-    <span class="badge rounded-pill" style="background:var(--tdg-gold);color:#1a1a2e;font-size:0.82rem;">${count} deal${count !== 1 ? 's' : ''}</span>
-    <span class="badge rounded-pill bg-success" style="font-size:0.82rem;">Total Agent GCI: ${totalInc}</span>
-  </div>`;
-
-  html += `<div class="table-responsive">
-  <table class="table table-hover table-sm mb-0" style="font-size:0.83rem;">
-    <thead style="position:sticky;top:0;background:#fff;z-index:1;">
-      <tr>
-        <th>Client / Address</th>
-        <th>Type</th>
-        <th>Status</th>
-        <th>Source</th>
-        <th class="text-end">Agent GCI</th>
-        <th class="text-end">Sale Price</th>
-        <th>${dateLabel}</th>
-      </tr>
-    </thead>
-    <tbody>`;
-
-  for (const d of data.deals) {
-    const styleStr = STATUS_BADGE[d.status] || 'background:#6c757d;color:#fff';
-    const badge = `<span class="badge" style="${styleStr}">${d.status}</span>`;
-    const dateVal = isPending ? d.proj_close : d.close_date;
-    html += `<tr>
-      <td>
-        <div class="fw-semibold">${d.client}</div>
-        <div class="text-muted" style="font-size:0.75rem;">${d.address}</div>
-      </td>
-      <td class="text-muted small">${d.type}</td>
-      <td>${badge}</td>
-      <td class="text-muted small">${d.source}</td>
-      <td class="text-end">
-        <a href="#" class="sc-gci-link fw-semibold" data-deal-id="${d.id}"
-           style="color:#0969da;text-decoration:underline;cursor:pointer;">${d.agent_gci}</a>
-      </td>
-      <td class="text-end text-muted small">${d.sale_price}</td>
-      <td class="text-muted small">${dateVal}</td>
-    </tr>`;
-  }
-
-  html += `</tbody></table></div>`;
-  body.innerHTML = html;
-}
-
-// ── Commission Breakdown Modal — full dollar-for-dollar waterfall ──────────
-// Every dollar of Adjusted GCI (GCI + Bonus + Tx Fee) is accounted for:
-// Referral off the top -> each Agent Split -> E&O -> Company Dollar ->
-// Broker/Franchise Split, Donation, Other Fee -> Net Company Income (1099).
-function money(v) {
-  const n = Number(v) || 0;
-  const sign = n < 0 ? '-' : '';
-  return `${sign}$${Math.abs(n).toLocaleString('en-US', {maximumFractionDigits: 0})}`;
-}
-
-function openCommissionBreakdown(dealId) {
-  const overlay = document.getElementById('sc-breakdown-overlay');
-  const panel   = document.getElementById('sc-breakdown-panel');
-  panel.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Loading\u2026</div>';
-  overlay.style.display = 'block';
-  panel.classList.add('open');
-
-  fetch(`/scorecard/${SC_AGENT_ID}/deal/${dealId}/breakdown`)
-    .then(r => r.json())
-    .then(d => renderCommissionBreakdown(d))
-    .catch(() => { panel.innerHTML = '<div class="text-danger p-3">Failed to load breakdown.</div>'; });
-}
-
-function renderCommissionBreakdown(d) {
-  const panel = document.getElementById('sc-breakdown-panel');
-  if (d.error) {
-    panel.innerHTML = '<div class="text-danger p-3">Not authorized to view this deal.</div>';
-    return;
-  }
-
-  const row = (label, val, opts = {}) => `
-    <div class="d-flex justify-content-between align-items-center py-1"
-         style="${opts.bold ? 'border-top:1px solid #dee2e6;border-bottom:1px solid #dee2e6;margin:4px 0;padding-top:6px;padding-bottom:6px;' : ''}">
-      <span style="${opts.bold ? 'font-weight:700;' : 'padding-left:' + (opts.indent || 0) + 'px;color:#555;'}">${label}</span>
-      <span style="${opts.bold ? 'font-weight:700;' : ''}${opts.color ? 'color:' + opts.color + ';' : ''}">${opts.neg ? '\u2212 ' : ''}${money(val)}</span>
-    </div>`;
-
-  let html = `
-    <div style="background:var(--tdg-gold);color:#1a1a2e;padding:.75rem 1rem;
-                display:flex;align-items:center;justify-content:space-between;">
-      <span class="fw-bold" style="font-size:1rem;">Commission Breakdown</span>
-      <button onclick="closeCommissionBreakdown()" class="btn btn-sm"
-              style="background:#1a1a2e;color:#fff;padding:.2rem .55rem;font-size:1rem;line-height:1;">&#x2715;</button>
-    </div>
-    <div class="px-3 pt-3 pb-1">
-      <div class="fw-semibold" style="font-size:1.05rem;">${d.client}</div>
-      <div class="text-muted small">${d.address}</div>
-      <div class="text-muted small mt-1">${d.transaction_type} \u00b7 ${d.status} \u00b7 ${d.close_date}${d.sale_price ? ' \u00b7 Sale Price ' + money(d.sale_price) : ''}${d.commission_pct ? ' \u00b7 ' + (d.commission_pct*100).toFixed(2) + '%' : ''}</div>
-    </div>
-    <div class="px-3 pb-3">
-      ${row('Total Deal GCI', d.gci, {bold:true, color:'var(--tdg-gold)'})}
-  `;
-  if (d.bonus) html += row('+ Bonus', d.bonus, {indent:12});
-  if (d.transaction_fee) html += row('+ Transaction Fee', d.transaction_fee, {indent:12});
-  html += row('Adjusted GCI', d.adjusted_gci, {bold:true});
-
-  if (d.referral_fee) {
-    html += row(`Referral Fee${d.referral_pct ? ' (' + (d.referral_pct*100).toFixed(1) + '%)' : ''} \u2014 off the top`, d.referral_fee, {indent:12, neg:true, color:'#b45309'});
-  }
-  html += row('Net GCI (after Referral)', d.net_after_referral, {bold:true});
-
-  html += `<div class="mt-2 mb-1 text-uppercase text-muted" style="font-size:0.7rem;letter-spacing:.05em;">Agent Splits</div>`;
-  for (const a of d.agent_splits) {
-    const highlight = a.is_viewed_agent;
-    const badge = highlight ? ' <span class="badge rounded-pill" style="background:var(--tdg-gold);color:#1a1a2e;font-size:0.62rem;">this agent</span>' : '';
-    html += `<div class="d-flex justify-content-between align-items-center py-1" style="${highlight ? 'background:#fffbf0;border-radius:4px;padding-left:6px;padding-right:6px;' : ''}">
-      <span style="padding-left:12px;color:#555;">${a.role}: ${a.name}${a.pct ? ' (' + a.pct + '%)' : ''}${badge}</span>
-      <span style="${highlight ? 'font-weight:700;color:var(--tdg-gold);' : ''}">\u2212 ${money(a.gci)}</span>
-    </div>`;
-  }
-  if (d.eo_fee) html += row('E&O Fee', d.eo_fee, {indent:12, neg:true});
-  html += row('Company Dollar', d.company_dollar, {bold:true});
-
-  if (d.broker_split) html += row('Broker Split', d.broker_split, {indent:12, neg:true});
-  if (d.franchise_split) html += row('Franchise Split', d.franchise_split, {indent:12, neg:true});
-  if (d.donation) html += row('Donation', d.donation, {indent:12, neg:true});
-  if (d.other_fee) html += row('Other Fee', d.other_fee, {indent:12, neg:true});
-  html += row('Net Company Income (1099)', d.income_1099, {bold:true});
-
-  html += `
-    <div class="mt-3 p-2 text-center rounded" style="background:#1a1a2e;">
-      <div class="text-uppercase" style="font-size:0.68rem;letter-spacing:.05em;color:#aaa;">Final Agent GCI \u2014 this agent</div>
-      <div class="fw-bold" style="font-size:1.35rem;color:var(--tdg-gold);">${money(d.final_agent_gci)}</div>
-    </div>
-    <div class="text-center text-muted mt-2" style="font-size:0.7rem;">
-      ${Math.abs(d.balance_diff) < 0.01
-        ? '\u2705 Every dollar of Adjusted GCI accounted for'
-        : '\u26a0\ufe0f Unaccounted: ' + money(d.balance_diff) + ' \u2014 check transaction fields'}
-    </div>
-  </div>`;
-
-  panel.innerHTML = html;
-}
-
-function closeCommissionBreakdown() {
-  document.getElementById('sc-breakdown-overlay').style.display = 'none';
-  document.getElementById('sc-breakdown-panel').classList.remove('open');
-}
-
-document.addEventListener('click', function(e) {
-  const gciLink = e.target.closest('.sc-gci-link');
-  if (gciLink) {
-    e.preventDefault();
-    openCommissionBreakdown(gciLink.dataset.dealId);
-  }
-});
-
-function closeScDrawer() {
-  document.getElementById('sc-drawer-overlay').style.display = 'none';
-  document.getElementById('sc-drawer').classList.remove('open');
-
-}
-
-document.addEventListener('click', function(e) {
-  const link = e.target.closest('.sc-drill-link');
-  if (link) { e.preventDefault(); openScDrawer(link.dataset.type); }
-});
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeScDrawer(); });
+const SC_AGENT_ID={{ agent.id }};
+const SC_YEAR={{ year }};
+const SC_DIVISION={{ division|tojson }};
+const DRILL_LABELS={self_gen:'Self-Gen (SOI) — Rolling 12 Months',team_lead:'Company Lead Deals — Rolling 12 Months',closed:'Closed Deals — {{ year }}',pending:'Pending Deals — {{ year }}',pipeline:'Active Pipeline — {{ year }}'};
+function closeScDrawer(){document.getElementById('sc-drawer-overlay').style.display='none';document.getElementById('sc-drawer').classList.remove('open');}
+function openScDrawer(type){const overlay=document.getElementById('sc-drawer-overlay'),drawer=document.getElementById('sc-drawer'),title=document.getElementById('sc-drawer-title'),body=document.getElementById('sc-drawer-body');title.textContent=DRILL_LABELS[type]||type;body.innerHTML='<div class="text-center py-5 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>';overlay.style.display='block';drawer.classList.add('open');fetch(`/scorecard/${SC_AGENT_ID}/drill?type=${encodeURIComponent(type)}&year=${SC_YEAR}&division=${encodeURIComponent(SC_DIVISION)}`).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(renderScDrawer).catch(()=>{body.innerHTML='<div class="text-danger p-3">Failed to load data.</div>'});}
+function escapeHtml(value){const div=document.createElement('div');div.textContent=value??'';return div.innerHTML;}
+function renderScDrawer(data){const body=document.getElementById('sc-drawer-body');if(!data.deals||!data.deals.length){body.innerHTML='<div class="text-center text-muted py-5">No deals found.</div>';return;}const isPipeline=data.drill_type==='pending'||data.drill_type==='pipeline';let html=`<div class="d-flex flex-wrap gap-2 p-3"><span class="badge rounded-pill" style="background:var(--tdg-gold);color:#1a1a2e;">${data.count} deal${data.count===1?'':'s'}</span><span class="badge rounded-pill bg-success">Agent GCI ${escapeHtml(data.total_income)}</span></div><div class="table-responsive"><table class="table table-hover table-sm mb-0" style="font-size:.78rem;min-width:680px"><thead><tr><th>Client / Address</th><th>Type</th><th>Status</th><th>Source</th><th class="text-end">Agent GCI</th><th class="text-end">Sale Price</th><th>${isPipeline?'Proj. Close':'Close Date'}</th></tr></thead><tbody>`;for(const d of data.deals){html+=`<tr><td><strong>${escapeHtml(d.client)}</strong><div class="text-muted small">${escapeHtml(d.address)}</div></td><td>${escapeHtml(d.type)}</td><td>${escapeHtml(d.status)}</td><td>${escapeHtml(d.source)}</td><td class="text-end fw-semibold">${escapeHtml(d.agent_gci)}</td><td class="text-end">${escapeHtml(d.sale_price)}</td><td>${escapeHtml(isPipeline?d.proj_close:d.close_date)}</td></tr>`;}body.innerHTML=html+'</tbody></table></div>';}
+document.addEventListener('click',e=>{const link=e.target.closest('.sc-drill-link');if(link){e.preventDefault();openScDrawer(link.dataset.type);}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeScDrawer();});
+(function(){const btn=document.getElementById('zillow-toggle'),panel=document.getElementById('zillow-detail-panel'),chevron=document.getElementById('zillow-chevron');if(!btn||!panel)return;let loaded=false;btn.addEventListener('click',async()=>{const opening=panel.hidden;panel.hidden=!opening;btn.setAttribute('aria-expanded',String(opening));chevron.className='bi '+(opening?'bi-chevron-up':'bi-chevron-down');if(opening&&!loaded){try{const response=await fetch('{{ url_for("main.scorecard_zillow_detail",agent_id=agent.id) }}',{credentials:'same-origin'});if(!response.ok)throw new Error(response.status);panel.innerHTML=await response.text();loaded=true;}catch(_){panel.innerHTML='<div class="alert alert-danger m-3">Unable to load Zillow details. Please refresh and try again.</div>';}}});})();
 </script>
-
-{# ── Drill-Down Drawer (overlay + panel) ─────────────────────────────────── #}
-<div id="sc-drawer-overlay"
-     onclick="closeScDrawer()"
-     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1040;"></div>
-
-<div id="sc-drawer"
-     style="display:none;position:fixed;top:0;right:0;height:100vh;
-            width:min(720px,100vw);background:#fff;z-index:1050;
-            box-shadow:-4px 0 24px rgba(0,0,0,.18);
-            flex-direction:column;overflow:hidden;">
-  <div style="background:var(--tdg-gold);color:#1a1a2e;padding:.75rem 1rem;
-              display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-    <span class="fw-bold" id="sc-drawer-title" style="font-size:1rem;">Deals</span>
-    <button onclick="closeScDrawer()" class="btn btn-sm"
-            style="background:#1a1a2e;color:#fff;padding:.2rem .55rem;font-size:1rem;line-height:1;">&#x2715;</button>
-  </div>
-  <div id="sc-drawer-body" style="overflow-y:auto;flex:1;"></div>
+<div id="sc-drawer-overlay" onclick="closeScDrawer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1990;"></div>
+<div id="sc-drawer" style="display:none;position:fixed;top:0;right:0;height:100dvh;width:min(720px,100vw);max-width:100vw;background:#fff;z-index:2000;box-shadow:-4px 0 24px rgba(0,0,0,.18);flex-direction:column;overflow:hidden;">
+  <div style="background:var(--tdg-gold);color:#1a1a2e;padding:.75rem 1rem;display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-shrink:0;"><span class="fw-bold text-truncate" id="sc-drawer-title">Deals</span><button type="button" onclick="closeScDrawer()" aria-label="Close detail rows" class="btn p-0 border-0" style="flex-shrink:0;width:32px;height:32px;font-size:1.7rem;line-height:1;">&times;</button></div>
+  <div id="sc-drawer-body" style="overflow-y:auto;overflow-x:hidden;flex:1;max-width:100%;"></div>
 </div>
-
-{# ── Commission Breakdown Modal ───────────────────────────────────────────── #}
-<div id="sc-breakdown-overlay"
-     onclick="closeCommissionBreakdown()"
-     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1060;"></div>
-
-<div id="sc-breakdown-panel"
-     onclick="event.stopPropagation()"
-     style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-            width:min(480px,92vw);max-height:88vh;overflow-y:auto;background:#fff;z-index:1070;border-radius:10px;
-            box-shadow:0 12px 40px rgba(0,0,0,.3);">
-</div>
-
-<style>
-#sc-breakdown-panel.open { display:block !important; }
-</style>
-<style>
-#sc-drawer { display:none; }
-#sc-drawer.open { display:flex !important; }
-</style>
+<style>#sc-drawer.open{display:flex!important}</style>
 {% endblock %}

@@ -2851,15 +2851,133 @@ def scorecard_zillow_detail(agent_id):
     import json as _json
     agent = Agent.query.get_or_404(agent_id)
     row = _latest_zillow_agent_snapshot(agent_id)
+    zhl = _zillow_followup_summary(agent_id)
     if not row:
-        return render_template('main/_zillow_agent_detail.html', agent=agent,
-                               zillow=None, snapshot=None,
-                               zhl=_zillow_followup_summary(agent_id))
+        return render_template(
+            'main/_zillow_agent_detail.html', agent=agent, zillow=None,
+            snapshot=None, zhl=zhl,
+        )
     return render_template(
         'main/_zillow_agent_detail.html', agent=agent,
         zillow=_json.loads(row.payload_json), snapshot=row,
-        zhl=_zillow_followup_summary(agent_id),
+        zhl=zhl,
     )
+
+
+def _scorecard_conversion_summary(agent_id, year):
+    """Return the default Conversion-page cohort for one agent and year.
+
+    The Scorecard intentionally uses the governed Conversion defaults: original
+    receiving-agent attribution, SOI excluded, and only the Bulk Import source
+    family excluded. FUB supplies the received cohort and milestones; My
+    Business remains authoritative for closed production and person linkage.
+    """
+    from collections import defaultdict
+    from datetime import timedelta
+
+    start_date = date(year, 1, 1)
+    today = date.today()
+    end_date = min(date(year, 12, 31), today) if year <= today.year else date(year, 12, 31)
+    end_exclusive = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+
+    rows = (ConversionLead.query.filter(
+        ConversionLead.lead_received_at >= datetime.combine(start_date, datetime.min.time()),
+        ConversionLead.lead_received_at < end_exclusive,
+        ConversionLead.original_agent_id == agent_id,
+        ConversionLead.is_soi.is_(False),
+        or_(
+            ConversionLead.is_bulk.is_(False),
+            ConversionLead.original_source_family.is_(None),
+            ConversionLead.original_source_family != 'Bulk Import',
+        ),
+    ).order_by(ConversionLead.lead_received_at.desc()).all())
+
+    def row_dict(row):
+        return {
+            'fub_person_id': row.fub_person_id,
+            'contacted_at': row.contacted_at,
+            'appointment_set_at': row.appointment_set_at,
+            'appointment_held_at': row.appointment_held_at,
+            'signed_at': row.signed_at,
+            'pending_at': row.pending_at,
+            'closed_at': row.closed_at,
+        }
+
+    production_query = Transaction.query.filter(
+        Transaction.status == 'Closed',
+        Transaction.close_date >= start_date,
+        Transaction.close_date <= end_date,
+        or_(
+            Transaction.close_date < date(today.year, 1, 1),
+            Transaction.archived.isnot(True),
+        ),
+        Transaction.is_import_duplicate.isnot(True),
+        Transaction.agent_id == agent_id,
+    )
+    excluded_ids = {
+        row[0] for row in db.session.query(AuditLog.record_id).filter(
+            AuditLog.table_name == 'transactions',
+            AuditLog.field_name == 'conversion_tracking',
+            AuditLog.new_value == 'excluded_no_fub',
+        ).all()
+    }
+    production_rows = []
+    for transaction in production_query.all():
+        classified = classify_lead(transaction.lead_source)
+        if classified['is_soi']:
+            continue
+        if classified['is_bulk'] and classified['source_family'] == 'Bulk Import':
+            continue
+        production_rows.append((transaction, classified))
+
+    cohort_ids = {row.fub_person_id for row in rows if row.fub_person_id}
+    linked_ids = {
+        transaction.fub_id for transaction, _ in production_rows
+        if transaction.fub_id and transaction.id not in excluded_ids
+    }
+    cohort_closed_ids = cohort_ids & linked_ids
+
+    overall = aggregate_funnel(row_dict(row) for row in rows)
+    overall['closed'] = len(cohort_closed_ids)
+    overall['overall_rate'] = safe_rate(overall['closed'], overall['leads'])
+
+    grouped = defaultdict(list)
+    for row in rows:
+        grouped[row.original_source_family or 'Unknown'].append(row_dict(row))
+
+    production_counts = defaultdict(int)
+    production_linked_ids = defaultdict(set)
+    for transaction, classified in production_rows:
+        family = classified['source_family'] or 'Unknown'
+        production_counts[family] += 1
+        if transaction.fub_id and transaction.id not in excluded_ids:
+            production_linked_ids[family].add(transaction.fub_id)
+
+    family_breakdown = []
+    for label in set(grouped) | set(production_counts):
+        group_rows = grouped.get(label, [])
+        metrics = aggregate_funnel(group_rows)
+        metrics['closed'] = len({
+            row['fub_person_id'] for row in group_rows
+            if row['fub_person_id'] in production_linked_ids[label]
+        })
+        metrics['overall_rate'] = safe_rate(metrics['closed'], metrics['leads'])
+        family_breakdown.append({
+            'label': label,
+            **metrics,
+            'production_closed': production_counts.get(label, 0),
+            'low_sample': 0 < metrics['leads'] < 10,
+        })
+    family_breakdown.sort(key=lambda item: (-item['leads'], item['label'].lower()))
+
+    return {
+        'overall': overall,
+        'family_breakdown': family_breakdown,
+        'production_closed': len(production_rows),
+        'linked_production_count': len(linked_ids),
+        'period_start': start_date,
+        'period_end': end_date,
+    }
 
 
 @bp.route('/scorecard/<int:agent_id>')
@@ -2914,6 +3032,15 @@ def scorecard(agent_id):
     CLOSED_STATUSES = {'Closed', 'Withdrawn', 'Expired', 'Cancelled', 'Dead'}
     pipeline_txns = [t for t in all_txns if t.status not in CLOSED_STATUSES]
     closed_txns   = [t for t in all_txns if t.status == 'Closed']
+    active_pipeline_units = len(pipeline_txns)
+    if division == 'Luxury':
+        active_pipeline_volume = sum(
+            effective_luxury_price(t.status, t.sale_price, t.list_price)
+            for t in pipeline_txns
+        )
+    else:
+        active_pipeline_volume = sum((t.sale_price or t.list_price or 0) for t in pipeline_txns)
+    active_pipeline_income = sum(agent_income(t) for t in pipeline_txns)
 
     # ── YTD Summary ──────────────────────────────────────────────────────────
     ytd_units  = len(closed_txns)
@@ -3215,6 +3342,8 @@ def scorecard(agent_id):
         except (TypeError, ValueError):
             zillow_summary = None
 
+    conversion_summary = _scorecard_conversion_summary(agent_id, year)
+
     return render_template('main/scorecard.html',
         agent=agent,
         year=year,
@@ -3238,6 +3367,9 @@ def scorecard(agent_id):
         pending_units=pending_units,
         pending_volume=pending_volume,
         pending_income=pending_income,
+        active_pipeline_units=active_pipeline_units,
+        active_pipeline_volume=active_pipeline_volume,
+        active_pipeline_income=active_pipeline_income,
         w_pending_units=w_pending_units,
         w_pending_volume=w_pending_volume,
         w_pending_income=w_pending_income,
@@ -3264,13 +3396,14 @@ def scorecard(agent_id):
         zillow_summary=zillow_summary,
         zillow_snapshot=zillow_snapshot,
         zhl_summary=zhl_summary,
+        conversion_summary=conversion_summary,
     )
 
 @bp.route('/scorecard/<int:agent_id>/drill')
 @login_required
 def scorecard_drill(agent_id):
     """JSON endpoint: return the transaction rows for a scorecard KPI chip.
-    ?type= self_gen | team_lead | closed | pending
+    ?type= self_gen | team_lead | closed | pending | pipeline
     """
     from datetime import date as _date, timedelta as _timedelta
 
@@ -3357,14 +3490,16 @@ def scorecard_drill(agent_id):
         q = apply_segment_filter(q, division)
         txns = q.order_by(Transaction.close_date.desc()).all()
 
-    elif drill_type == 'pending':
-        CLOSED_STATUSES = {'Closed', 'Withdrawn', 'Expired', 'Cancelled', 'Dead'}
+    elif drill_type in ('pending', 'pipeline'):
         q = Transaction.query.filter(
             txn_filter,
             Transaction.year == year,
-            Transaction.status == 'Pending',
             Transaction.archived == False,
         )
+        if drill_type == 'pending':
+            q = q.filter(Transaction.status == 'Pending')
+        else:
+            q = q.filter(Transaction.status.notin_({'Closed', 'Withdrawn', 'Expired', 'Cancelled', 'Dead'}))
         q = apply_segment_filter(q, division)
         txns = q.order_by(Transaction.projected_close_date.asc()).all()
 
@@ -3760,7 +3895,7 @@ def api_add_lead_gen():
 
 @bp.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'app': 'TDG Command Center'}), 200
+    return jsonify({'status': 'ok', 'app': 'Jet Center'}), 200
 
 # ─── HELPERS ────────────────────────────────────────────────────────────────
 

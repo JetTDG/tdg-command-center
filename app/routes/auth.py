@@ -97,7 +97,7 @@ def google_callback():
     email = (userinfo.get('email') or '').lower().strip()
 
     if email not in ALLOWED_EMAILS:
-        flash(f'Access denied. {email} is not authorized for TDG Command Center.', 'danger')
+        flash(f'Access denied. {email} is not authorized for Jet Center.', 'danger')
         return redirect(url_for('auth.login'))
 
     # Determine role

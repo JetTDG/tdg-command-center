@@ -30,7 +30,7 @@ def create_app():
     # async_mode=eventlet — matches gunicorn worker class
     socketio.init_app(app, async_mode='eventlet', cors_allowed_origins='*')
     login_manager.login_view = 'auth.login'
-    login_manager.login_message = 'Please log in to access TDG Command Center.'
+    login_manager.login_message = 'Please log in to access Jet Center.'
 
     from app.models import User
     @login_manager.user_loader
