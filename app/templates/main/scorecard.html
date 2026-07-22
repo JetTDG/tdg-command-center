@@ -228,17 +228,33 @@
   </div>
   {% endif %}
 
-  <div class="sc-surface mt-3" id="scorecard-offers-activity">
-    <div class="sc-surface-head"><div class="sc-surface-title"><i class="bi bi-file-earmark-check me-1"></i>Offers Activity</div><span class="sc-pill">Client activity</span></div>
-    {% if perf %}
-    <div class="sc-activity-grid mb-3">
-      <div class="sc-activity"><strong>{{ perf.offers_ytd_total|default(0,true) }}</strong><span>Offers · YTD</span></div>
-      <div class="sc-activity"><strong>{{ perf.offers_30d_total|default(perf.offers_30d|length,true) }}</strong><span>Offers · last 30 days</span></div>
-      <div class="sc-activity"><strong>{{ perf.offers_30d_accepted|default(0,true) }}</strong><span>Accepted · last 30 days</span></div>
-      <div class="sc-activity"><strong>{{ perf.offers_ytd_in_process|default(0,true) }}</strong><span>In process · YTD</span></div>
-    </div>
-    {% if perf.offers_30d %}<div class="table-responsive"><table class="table table-sm sc-table mb-0"><thead><tr><th>Date</th><th>Client</th><th>Address</th><th class="text-end">Offer price</th><th>Status</th></tr></thead><tbody>{% for offer in perf.offers_30d[:5] %}<tr><td>{{ offer.date }}</td><td>{{ offer.client }}</td><td>{{ offer.address }}</td><td class="text-end">{{ offer.price }}</td><td>{{ offer.status }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="text-muted small">No offers recorded in the last 30 days.</div>{% endif %}
-    {% else %}<div class="text-muted small">Offers activity has not synced yet.</div>{% endif %}
+  <div class="sc-surface sc-expand-card mt-3" id="scorecard-offers-activity">
+    <button type="button" class="sc-expand-toggle" data-bs-toggle="collapse" data-bs-target="#scorecard-offers-activity-panel" aria-expanded="false" aria-controls="scorecard-offers-activity-panel">
+      <div class="sc-expand-head">
+        <div><span class="sc-surface-title"><i class="bi bi-file-earmark-check me-1"></i>Offers Activity</span><span class="text-muted ms-2" style="font-size:.63rem;">Click for status breakdown and recent offers</span></div>
+        <div class="d-flex align-items-center gap-2"><span class="sc-pill">Client activity</span><i class="bi bi-chevron-down" aria-hidden="true"></i></div>
+      </div>
+      {% if perf %}
+      <div class="sc-activity-grid">
+        <div class="sc-activity"><strong>{{ perf.offers_ytd_total|default(0,true) }}</strong><span>Offers · YTD</span></div>
+        <div class="sc-activity"><strong>{{ perf.offers_30d_total|default(perf.offers_30d|length,true) }}</strong><span>Offers · last 30 days</span></div>
+        <div class="sc-activity"><strong>{{ perf.offers_30d_accepted|default(0,true) }}</strong><span>Accepted · last 30 days</span></div>
+        <div class="sc-activity"><strong>{{ perf.offers_ytd_in_process|default(0,true) }}</strong><span>In process · YTD</span></div>
+      </div>
+      {% else %}<div class="text-muted small">Offers activity has not synced yet.</div>{% endif %}
+    </button>
+    <div class="collapse" id="scorecard-offers-activity-panel"><div class="sc-expand-detail">
+      {% if perf %}
+      <div class="sc-activity-grid mb-3">
+        <div class="sc-activity"><strong>{{ perf.offers_ytd_accepted|default(0,true) }}</strong><span>Accepted · YTD</span></div>
+        <div class="sc-activity"><strong>{{ perf.offers_ytd_rejected|default(0,true) }}</strong><span>Rejected · YTD</span></div>
+        <div class="sc-activity"><strong>{{ perf.offers_ytd_backed_out|default(0,true) }}</strong><span>Backed out · YTD</span></div>
+        <div class="sc-activity"><strong>{{ perf.offers_ytd_in_process|default(0,true) }}</strong><span>In process · YTD</span></div>
+      </div>
+      <div class="sc-surface-head mb-2"><div class="sc-surface-title">Offers from the last 30 days</div><span class="sc-pill">{{ perf.offers_30d_total|default(perf.offers_30d|length,true) }} total</span></div>
+      {% if perf.offers_30d %}<div class="table-responsive"><table class="table table-sm sc-table mb-0"><thead><tr><th>Date</th><th>Client</th><th>Address</th><th class="text-end">Offer price</th><th>Status</th></tr></thead><tbody>{% for offer in perf.offers_30d %}<tr><td>{{ offer.date }}</td><td>{{ offer.client }}</td><td>{{ offer.address }}</td><td class="text-end">{{ offer.price }}</td><td>{{ offer.status }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="text-muted small">No offers recorded in the last 30 days.</div>{% endif %}
+      {% else %}<div class="text-muted small">Offers activity has not synced yet.</div>{% endif %}
+    </div></div>
   </div>
 </section>
 

@@ -498,7 +498,23 @@ def test_scorecard_client_activity_previews_accountability_rows_and_separates_of
     assert "Sixth Outcome Client" in text_out
     assert "Missing Type Client" in text_out
     assert "Offers Activity" in text_out
-    assert "Offer Client" in text_out
+    assert 'class="sc-surface sc-expand-card mt-3" id="scorecard-offers-activity"' in text_out
+    assert 'data-bs-target="#scorecard-offers-activity-panel"' in text_out
+    offers_preview = text_out[
+        text_out.index('data-bs-target="#scorecard-offers-activity-panel"'):
+        text_out.index('id="scorecard-offers-activity-panel"')
+    ]
+    offers_detail = text_out[text_out.index('id="scorecard-offers-activity-panel"'):conversion_start]
+    assert "Offers · YTD" in offers_preview
+    assert "Offers · last 30 days" in offers_preview
+    assert "Accepted · last 30 days" in offers_preview
+    assert "In process · YTD" in offers_preview
+    assert "Offer Client" not in offers_preview
+    assert "Offer Client" in offers_detail
+    assert "Accepted · YTD" in offers_detail
+    assert "Rejected · YTD" in offers_detail
+    assert "Backed out · YTD" in offers_detail
+    assert "In process · YTD" in offers_detail
     assert "Offers and task accountability" not in text_out
     assert "Appointment details" in text_out
     assert 'class="sc-surface sc-expand-card" id="scorecard-appointment-detail"' in text_out
