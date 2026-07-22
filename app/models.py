@@ -30,6 +30,22 @@ class User(UserMixin, db.Model):
         return f'<User {self.username}>'
 
 
+class ScorecardAccess(db.Model):
+    """One successful agent self-view of their Jet Center scorecard."""
+    __tablename__ = 'scorecard_accesses'
+    __table_args__ = (
+        db.Index('ix_scorecard_accesses_agent_accessed', 'agent_id', 'accessed_at'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    agent_id = db.Column(db.Integer, db.ForeignKey('agents.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    accessed_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    agent = db.relationship('Agent', foreign_keys=[agent_id])
+    user = db.relationship('User', foreign_keys=[user_id])
+
+
 class Agent(db.Model):
     __tablename__ = 'agents'
     id = db.Column(db.Integer, primary_key=True)

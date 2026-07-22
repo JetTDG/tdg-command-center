@@ -1,7 +1,7 @@
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from app.models import AuditLog, User
+from app.models import AuditLog, ScorecardAccess, User
 
 def log_change(record_id, field_name, old_value, new_value, table_name='transactions'):
     """Write a single change to the audit log."""
@@ -41,6 +41,19 @@ import psycopg2
 import requests
 
 bp = Blueprint('main', __name__)
+
+
+def _record_agent_scorecard_access(agent_id):
+    """Record successful self-service agent scorecard loads without blocking UI."""
+    if current_user.role != 'agent' or current_user.agent_id != agent_id:
+        return
+    try:
+        db.session.add(ScorecardAccess(agent_id=agent_id, user_id=current_user.id))
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        import logging
+        logging.getLogger('scorecard').error('scorecard access tracking failed: %s', exc)
 
 def current_year():
     return datetime.now().year
@@ -3371,7 +3384,7 @@ def scorecard(agent_id):
 
     conversion_summary = _scorecard_conversion_summary(agent_id, year)
 
-    return render_template('main/scorecard.html',
+    rendered = render_template('main/scorecard.html',
         agent=agent,
         year=year,
         month=month,
@@ -3425,6 +3438,8 @@ def scorecard(agent_id):
         zhl_summary=zhl_summary,
         conversion_summary=conversion_summary,
     )
+    _record_agent_scorecard_access(agent_id)
+    return rendered
 
 @bp.route('/scorecard/<int:agent_id>/drill')
 @login_required
