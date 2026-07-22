@@ -70,18 +70,7 @@
       text-decoration: none;
       letter-spacing: -0.01em;
     }
-    .top-navbar .brand .brand-icon {
-      width: 32px; height: 32px;
-      background: var(--tdg-gold);
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      color: #fff;
-      font-size: 1rem;
-    }
-    .top-navbar .brand span em {
-      font-style: normal;
-      color: var(--tdg-gold);
-    }
+    .top-navbar .brand-logo { display:block; width:142px; height:36px; object-fit:contain; object-position:left center; }
     .top-navbar .nav-user {
       margin-left: auto;
       display: flex;
@@ -528,7 +517,7 @@
       .sidebar { display: none !important; }
       .main-content { margin-left: 0 !important; padding: 0.75rem !important; padding-bottom: 72px !important; }
       .top-navbar { padding: 0 0.75rem; height: 50px; }
-      .top-navbar .brand span { display: none; }
+      .top-navbar .brand-logo { width:36px; height:36px; object-fit:contain; }
       .top-navbar .user-chip span { display: none; }
       .top-navbar .btn-signout span { display: none; }
       .mobile-bottom-nav { display: flex !important; }
@@ -540,16 +529,16 @@
       .app-shell { padding-top: 50px; }
     }
   </style>
-  <link rel="icon" href="/static/favicon.ico?v=1">
-  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png?v=1">
-  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png?v=1">
-  <link rel="icon" type="image/png" sizes="48x48" href="/static/favicon-48x48.png?v=1">
-  <link rel="manifest" href="/static/manifest.json?v=1">
+  <link rel="icon" href="/static/favicon.ico?v=2">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png?v=2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/static/favicon-48x48.png?v=2">
+  <link rel="manifest" href="/static/manifest.json?v=2">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Jet Center">
-  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png?v=1">
-  <meta name="theme-color" content="#C9A84C">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png?v=2">
+  <meta name="theme-color" content="#192b48">
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -559,8 +548,7 @@
   <!-- Top Navbar -->
   <header class="top-navbar">
     <a href="{{ url_for('main.home') }}" class="brand">
-      <div class="brand-icon"><i class="bi bi-command"></i></div>
-      <span>Jet Center</span>
+      <picture><source media="(max-width:768px)" srcset="/static/branding/jet-center-icon-light.svg"><img class="brand-logo" src="/static/branding/jet-center-primary-on-white.svg" alt="Jet Center"></picture>
     </a>
     <div class="nav-user">
       <div class="user-chip">

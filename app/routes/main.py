@@ -3319,6 +3319,12 @@ def scorecard(agent_id):
             perf['past_appts']     = _json.loads(perf.get('past_appts_json') or '[]')
             perf['offers_30d']     = _json.loads(perf.get('offers_30d_json') or '[]')
             perf['overdue_tasks']  = _json.loads(perf.get('overdue_tasks_json') or '[]')
+            perf['missing_outcome_appts'] = [
+                appt for appt in perf['past_appts'] if appt.get('missing_outcome')
+            ]
+            perf['missing_type_appts'] = [
+                appt for appt in perf['past_appts'] if appt.get('missing_type')
+            ]
             # 30-day average overdue tasks from cache history
             hist = _db.session.execute(_text(
                 "SELECT overdue_tasks_count FROM agent_perf_cache "

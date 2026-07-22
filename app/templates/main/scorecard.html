@@ -64,6 +64,19 @@
   .sc-activity { border-radius:8px; background:#f6f7f9; padding:.65rem; }
   .sc-activity strong { display:block; font-size:1.05rem; }
   .sc-activity span { color:var(--tdg-muted); font-size:.62rem; }
+  .sc-accountability-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; margin-top:.75rem; }
+  .sc-accountability-card { overflow:hidden; border:1px solid var(--tdg-border); border-radius:9px; background:#fff; }
+  .sc-accountability-head { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.65rem .75rem; border-bottom:1px solid var(--tdg-border); font-size:.7rem; font-weight:750; }
+  .sc-accountability-count { min-width:1.55rem; padding:.12rem .4rem; border-radius:99px; background:#f1f3f6; text-align:center; font-size:.65rem; }
+  .sc-accountability-card.danger { border-color:#f2b8b5; }
+  .sc-accountability-card.danger .sc-accountability-head { background:#fff3f3; color:#b42318; }
+  .sc-accountability-card.warning { border-color:#efd58f; }
+  .sc-accountability-card.warning .sc-accountability-head { background:#fffae8; color:#8a5b00; }
+  .sc-accountability-row { min-height:53px; padding:.52rem .75rem; border-bottom:1px solid #eef0f3; }
+  .sc-accountability-row:last-child { border-bottom:0; }
+  .sc-accountability-primary { display:block; overflow:hidden; color:var(--tdg-text); font-size:.68rem; font-weight:700; text-decoration:none; text-overflow:ellipsis; white-space:nowrap; }
+  .sc-accountability-meta { display:block; overflow:hidden; color:var(--tdg-muted); font-size:.59rem; text-overflow:ellipsis; white-space:nowrap; }
+  .sc-accountability-empty { padding:.8rem .75rem; color:var(--tdg-muted); font-size:.65rem; }
   @media(max-width:900px) {
     .sc-section-head { display:block; }
     .sc-section-note { text-align:left; margin-top:.15rem; }
@@ -73,6 +86,7 @@
     .sc-funnel-item:nth-child(4) { border-left:0; }
     .sc-rate-grid { grid-template-columns:1fr; }
     .sc-activity-grid { grid-template-columns:repeat(2,1fr); }
+    .sc-accountability-grid { grid-template-columns:1fr; }
   }
 </style>
 
@@ -161,6 +175,53 @@
       {% else %}<div class="text-muted small">FUB appointment detail has not synced yet.</div>{% endif %}
     </div>
   </details>
+
+  {% if perf %}
+  <div class="sc-accountability-grid" aria-label="Appointment and task accountability preview">
+    <article class="sc-accountability-card danger" data-accountability-kind="past-due">
+      <div class="sc-accountability-head"><span><i class="bi bi-exclamation-circle me-1"></i>Past-due tasks</span><span class="sc-accountability-count">{{ perf.overdue_tasks_count|default(0,true) }}</span></div>
+      {% for task in perf.overdue_tasks[:3] %}
+      <div class="sc-accountability-row">
+        {% if task.contact_pid %}<a class="sc-accountability-primary" href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ task.contact_pid }}" target="_blank" rel="noopener">{{ task.contact }}</a>{% elif task.contact %}<span class="sc-accountability-primary">{{ task.contact }}</span>{% else %}<span class="sc-accountability-primary">FUB task</span>{% endif %}
+        <span class="sc-accountability-meta">{{ task.task_type }} · due {{ task.due_date|show_value }}{% if task.stage %} · {{ task.stage }}{% endif %}</span>
+      </div>
+      {% else %}<div class="sc-accountability-empty">No past-due tasks.</div>{% endfor %}
+    </article>
+
+    <article class="sc-accountability-card warning" data-accountability-kind="missing-outcome">
+      <div class="sc-accountability-head"><span><i class="bi bi-clipboard-x me-1"></i>Missing outcome</span><span class="sc-accountability-count">{{ perf.missing_outcome_appts|length }}</span></div>
+      {% for appt in perf.missing_outcome_appts[:3] %}
+      <div class="sc-accountability-row">
+        {% if appt.contact_pid %}<a class="sc-accountability-primary" href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ appt.contact_pid }}" target="_blank" rel="noopener">{{ appt.contact }}</a>{% else %}<span class="sc-accountability-primary">{{ appt.contact|show_value }}</span>{% endif %}
+        <span class="sc-accountability-meta">{{ appt.date|show_value }} · {{ appt.type|show_value }}</span>
+      </div>
+      {% else %}<div class="sc-accountability-empty">All past appointments have outcomes.</div>{% endfor %}
+    </article>
+
+    <article class="sc-accountability-card warning" data-accountability-kind="missing-type">
+      <div class="sc-accountability-head"><span><i class="bi bi-tag me-1"></i>Missing type</span><span class="sc-accountability-count">{{ perf.missing_type_appts|length }}</span></div>
+      {% for appt in perf.missing_type_appts[:3] %}
+      <div class="sc-accountability-row">
+        {% if appt.contact_pid %}<a class="sc-accountability-primary" href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ appt.contact_pid }}" target="_blank" rel="noopener">{{ appt.contact }}</a>{% else %}<span class="sc-accountability-primary">{{ appt.contact|show_value }}</span>{% endif %}
+        <span class="sc-accountability-meta">{{ appt.date|show_value }}{% if appt.title %} · {{ appt.title }}{% endif %}</span>
+      </div>
+      {% else %}<div class="sc-accountability-empty">All past appointments have types.</div>{% endfor %}
+    </article>
+  </div>
+  {% endif %}
+
+  <div class="sc-surface mt-3" id="scorecard-offers-activity">
+    <div class="sc-surface-head"><div class="sc-surface-title"><i class="bi bi-file-earmark-check me-1"></i>Offers Activity</div><span class="sc-pill">Client activity</span></div>
+    {% if perf %}
+    <div class="sc-activity-grid mb-3">
+      <div class="sc-activity"><strong>{{ perf.offers_ytd_total|default(0,true) }}</strong><span>Offers · YTD</span></div>
+      <div class="sc-activity"><strong>{{ perf.offers_30d_total|default(perf.offers_30d|length,true) }}</strong><span>Offers · last 30 days</span></div>
+      <div class="sc-activity"><strong>{{ perf.offers_30d_accepted|default(0,true) }}</strong><span>Accepted · last 30 days</span></div>
+      <div class="sc-activity"><strong>{{ perf.offers_ytd_in_process|default(0,true) }}</strong><span>In process · YTD</span></div>
+    </div>
+    {% if perf.offers_30d %}<div class="table-responsive"><table class="table table-sm sc-table mb-0"><thead><tr><th>Date</th><th>Client</th><th>Address</th><th class="text-end">Offer price</th><th>Status</th></tr></thead><tbody>{% for offer in perf.offers_30d[:5] %}<tr><td>{{ offer.date }}</td><td>{{ offer.client }}</td><td>{{ offer.address }}</td><td class="text-end">{{ offer.price }}</td><td>{{ offer.status }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="text-muted small">No offers recorded in the last 30 days.</div>{% endif %}
+    {% else %}<div class="text-muted small">Offers activity has not synced yet.</div>{% endif %}
+  </div>
 </section>
 
 <section class="sc-section" id="scorecard-conversion">
@@ -209,9 +270,8 @@
   <div class="sc-section-head"><div><div class="sc-section-kicker">05 · Growth inputs</div><div class="sc-section-title">Lead Generation</div></div><div class="sc-section-note">Activity and self-generated production separated from business outcomes</div></div>
   <div class="row g-3 mb-2">
     <div class="col-lg-6"><div class="sc-surface h-100"><div class="sc-surface-head"><div class="sc-surface-title">Self-Gen (SOI) Progress · Rolling 12 Months</div><span class="sc-pill">{{ self_gen_pct }}%</span></div><div class="d-flex justify-content-between small mb-1"><span>Self-Gen Closing GCI</span><strong>{{ compact_money(self_gen_income) }} of {{ compact_money(self_gen_target) }}</strong></div><div class="progress" style="height:12px;"><div class="progress-bar" style="width:{{ self_gen_pct }}%;background:{% if self_gen_pct >= 100 %}var(--tdg-green){% else %}var(--tdg-gold){% endif %};"></div></div><div class="sc-activity-grid mt-3"><a href="#" class="sc-activity sc-drill-link text-decoration-none text-reset" data-type="self_gen"><strong>{{ self_gen_units }}</strong><span>Self-gen units</span></a><a href="#" class="sc-activity sc-drill-link text-decoration-none text-reset" data-type="team_lead"><strong>{{ team_units }}</strong><span>Company units</span></a><div class="sc-activity"><strong>{{ compact_money(self_gen_income) }}</strong><span>Self-gen GCI</span></div><div class="sc-activity"><strong>{{ avg_comm_pct }}%</strong><span>Avg commission</span></div></div></div></div>
-    <div class="col-lg-6"><div class="sc-surface h-100"><div class="sc-surface-head"><div class="sc-surface-title">Outreach Activity</div><span class="sc-pill">FUB + CC</span></div><div class="sc-activity-grid"><div class="sc-activity"><strong>{{ perf.calls_7d if perf else '—' }}</strong><span>Calls · 7 days</span></div><div class="sc-activity"><strong>{{ perf.convos_7d if perf else '—' }}</strong><span>Conversations · 7 days</span></div><div class="sc-activity"><strong>{{ perf.texts_7d if perf else '—' }}</strong><span>Texts · 7 days</span></div><div class="sc-activity"><strong>{{ lg.contacts }}</strong><span>CC contacts · {{ year }}</span></div><div class="sc-activity"><strong>{{ lg.dials }}</strong><span>CC dials · {{ year }}</span></div><div class="sc-activity"><strong>{{ lg.hours }}</strong><span>Lead-gen hours</span></div><div class="sc-activity"><strong>{{ perf.offers_ytd_total if perf else '—' }}</strong><span>Offers · YTD</span></div><div class="sc-activity"><strong class="{% if perf and perf.overdue_tasks_count %}text-danger{% endif %}">{{ perf.overdue_tasks_count if perf else '—' }}</strong><span>Past-due FUB tasks</span></div></div></div></div>
+    <div class="col-lg-6"><div class="sc-surface h-100"><div class="sc-surface-head"><div class="sc-surface-title">Outreach Activity</div><span class="sc-pill">FUB + CC</span></div><div class="sc-activity-grid"><div class="sc-activity"><strong>{{ perf.calls_7d if perf else '—' }}</strong><span>Calls · 7 days</span></div><div class="sc-activity"><strong>{{ perf.convos_7d if perf else '—' }}</strong><span>Conversations · 7 days</span></div><div class="sc-activity"><strong>{{ perf.texts_7d if perf else '—' }}</strong><span>Texts · 7 days</span></div><div class="sc-activity"><strong>{{ lg.contacts }}</strong><span>CC contacts · {{ year }}</span></div><div class="sc-activity"><strong>{{ lg.dials }}</strong><span>CC dials · {{ year }}</span></div><div class="sc-activity"><strong>{{ lg.hours }}</strong><span>Lead-gen hours</span></div></div></div></div>
   </div>
-  {% if perf and (perf.offers_30d or perf.overdue_tasks_count) %}<details class="sc-detail-group"><summary><span><i class="bi bi-list-check me-2"></i>Offers and task accountability</span><span class="text-muted fw-normal" style="font-size:.65rem;">Expand details</span></summary><div class="sc-detail-body">{% if perf.overdue_tasks_count %}<div class="alert alert-danger py-2"><strong>{{ perf.overdue_tasks_count }} past-due FUB tasks</strong>{% if perf.overdue_avg_30d is not none %} · 30-day daily average {{ perf.overdue_avg_30d }}{% endif %}</div>{% endif %}{% if perf.offers_30d %}<div class="table-responsive"><table class="table table-sm sc-table mb-0"><thead><tr><th>Date</th><th>Client</th><th>Address</th><th class="text-end">Offer price</th><th>Status</th></tr></thead><tbody>{% for o in perf.offers_30d %}<tr><td>{{ o.date }}</td><td>{{ o.client }}</td><td>{{ o.address }}</td><td class="text-end">{{ o.price }}</td><td>{{ o.status }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}</div></details>{% endif %}
 </section>
 {% endblock %}
 

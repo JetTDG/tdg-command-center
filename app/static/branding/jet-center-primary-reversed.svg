@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="600" viewBox="0 0 1600 600" role="img" aria-label="Jet Center logo">
+<g transform="translate(70 44) scale(.84)"><g fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M232 92 H154 Q96 92 96 150 V362 Q96 420 154 420 H232" stroke="#FFFFFF" stroke-width="34"/>
+  <path d="M280 92 H358 Q416 92 416 150 V362 Q416 420 358 420 H280" stroke="#58B9B5" stroke-width="34"/>
+  <path d="M96 256 H181" stroke="#FFFFFF" stroke-width="34"/>
+  <path d="M416 256 H331" stroke="#58B9B5" stroke-width="34"/>
+  <circle cx="256" cy="256" r="74" fill="#FFFFFF" stroke="#DCE5EA" stroke-width="11"/>
+  <circle cx="256" cy="256" r="36" stroke="#17263F" stroke-width="11"/>
+  <circle cx="256" cy="256" r="12" fill="#58B9B5" stroke="none"/>
+</g></g>
+<text x="590" y="330" font-family="Avenir Next, Helvetica Neue, Arial, sans-serif" font-size="168" font-weight="680" letter-spacing="-7" fill="#FFFFFF">Jet<tspan fill="#58B9B5"> Center</tspan></text>
+</svg>

@@ -400,11 +400,85 @@ def test_jet_center_branding_and_favicon_metadata_render_on_app_pages(app):
     text = client.get("/conversion?start=2026-01-01&end=2026-12-31").get_data(as_text=True)
 
     assert "Conversion — Jet Center" in text
-    assert ">Jet Center<" in text
-    assert 'rel="icon" href="/static/favicon.ico?v=1"' in text
+    assert 'alt="Jet Center"' in text
+    assert 'rel="icon" href="/static/favicon.ico?v=2"' in text
     assert 'rel="icon" type="image/png" sizes="32x32"' in text
     assert 'rel="apple-touch-icon" sizes="180x180"' in text
-    assert 'rel="manifest" href="/static/manifest.json?v=1"' in text
+    assert 'rel="manifest" href="/static/manifest.json?v=2"' in text
+
+
+def test_jet_center_uses_supplied_logo_assets_in_shell_and_login(app):
+    client = app.test_client()
+
+    login_text = client.get("/login").get_data(as_text=True)
+    assert 'src="/static/branding/jet-center-primary-on-white.svg"' in login_text
+    assert 'alt="Jet Center"' in login_text
+
+    login(client, app.test_ids["admin"])
+    app_text = client.get("/conversion?start=2026-01-01&end=2026-12-31").get_data(as_text=True)
+    assert 'src="/static/branding/jet-center-primary-on-white.svg"' in app_text
+    assert 'rel="icon" href="/static/favicon.ico?v=2"' in app_text
+    assert 'rel="manifest" href="/static/manifest.json?v=2"' in app_text
+
+
+def test_scorecard_client_activity_previews_accountability_rows_and_separates_offers(app):
+    import json
+    from app import db
+    from sqlalchemy import text
+
+    with app.app_context():
+        db.session.execute(text("""
+            CREATE TABLE agent_perf_cache (
+                agent_id INTEGER, cache_date DATE, calls_7d INTEGER, convos_7d INTEGER,
+                texts_7d INTEGER, appts_held_30d INTEGER, appts_not_held_30d INTEGER,
+                appts_signed_30d INTEGER, upcoming_appts_json TEXT, past_appts_json TEXT,
+                offers_ytd_total INTEGER, offers_30d_json TEXT,
+                overdue_tasks_count INTEGER, overdue_tasks_json TEXT
+            )
+        """))
+        db.session.execute(text("""
+            INSERT INTO agent_perf_cache VALUES (
+                :agent_id, '2026-07-22', 5, 2, 7, 1, 2, 1, '[]', :past_appts,
+                4, :offers, 1, :tasks
+            )
+        """), {
+            "agent_id": app.test_ids["a1"],
+            "past_appts": json.dumps([
+                {"date": "Jul 20 2026, 2:00 PM", "contact": "Missing Outcome Client", "contact_pid": 101,
+                 "type": "Buyer Consultation", "missing_outcome": True, "missing_type": False},
+                {"date": "Jul 19 2026, 11:00 AM", "contact": "Missing Type Client", "contact_pid": 102,
+                 "type": "—", "missing_outcome": False, "missing_type": True},
+            ]),
+            "offers": json.dumps([
+                {"date": "07/18/2026", "client": "Offer Client", "address": "1 Offer Way",
+                 "price": "$350,000", "status": "Accepted"}
+            ]),
+            "tasks": json.dumps([
+                {"contact": "Past Due Client", "contact_pid": 103, "task_type": "Follow Up",
+                 "due_date": "2026-07-18", "stage": "Hot"}
+            ]),
+        })
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    text_out = client.get(f"/scorecard/{app.test_ids['a1']}?year=2026").get_data(as_text=True)
+
+    appointments_start = text_out.index('id="scorecard-appointments"')
+    offers_start = text_out.index('id="scorecard-offers-activity"')
+    conversion_start = text_out.index('id="scorecard-conversion"')
+    lead_generation_start = text_out.index('id="scorecard-lead-generation"')
+    assert appointments_start < offers_start < conversion_start < lead_generation_start
+
+    assert 'data-accountability-kind="past-due"' in text_out
+    assert 'data-accountability-kind="missing-outcome"' in text_out
+    assert 'data-accountability-kind="missing-type"' in text_out
+    assert "Past Due Client" in text_out
+    assert "Missing Outcome Client" in text_out
+    assert "Missing Type Client" in text_out
+    assert "Offers Activity" in text_out
+    assert "Offer Client" in text_out
+    assert "Offers and task accountability" not in text_out
 
 
 def test_active_pipeline_drill_includes_live_non_pending_statuses(app):
