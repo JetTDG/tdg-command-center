@@ -448,6 +448,12 @@ def test_scorecard_client_activity_previews_accountability_rows_and_separates_of
                  "type": "Buyer Consultation", "missing_outcome": True, "missing_type": False},
                 {"date": "Jul 19 2026, 11:00 AM", "contact": "Missing Type Client", "contact_pid": 102,
                  "type": "—", "missing_outcome": False, "missing_type": True},
+                {"date": "Jul 18 2026, 10:00 AM", "contact": "Fourth Outcome Client", "contact_pid": 104,
+                 "type": "Listing Appointment", "missing_outcome": True, "missing_type": False},
+                {"date": "Jul 17 2026, 9:00 AM", "contact": "Fifth Outcome Client", "contact_pid": 105,
+                 "type": "Buyer Consultation", "missing_outcome": True, "missing_type": False},
+                {"date": "Jul 16 2026, 8:00 AM", "contact": "Sixth Outcome Client", "contact_pid": 106,
+                 "type": "Listing Appointment", "missing_outcome": True, "missing_type": False},
             ]),
             "offers": json.dumps([
                 {"date": "07/18/2026", "client": "Offer Client", "address": "1 Offer Way",
@@ -455,7 +461,13 @@ def test_scorecard_client_activity_previews_accountability_rows_and_separates_of
             ]),
             "tasks": json.dumps([
                 {"contact": "Past Due Client", "contact_pid": 103, "task_type": "Follow Up",
-                 "due_date": "2026-07-18", "stage": "Hot"}
+                 "due_date": "2026-07-18", "stage": "Hot"},
+                {"contact": "Second Past Due Client", "contact_pid": 107, "task_type": "Call",
+                 "due_date": "2026-07-17", "stage": "Hot"},
+                {"contact": "Third Past Due Client", "contact_pid": 108, "task_type": "Text",
+                 "due_date": "2026-07-16", "stage": "Warm"},
+                {"contact": "Fourth Past Due Client", "contact_pid": 109, "task_type": "Follow Up",
+                 "due_date": "2026-07-15", "stage": "Warm"},
             ]),
         })
         db.session.commit()
@@ -474,11 +486,23 @@ def test_scorecard_client_activity_previews_accountability_rows_and_separates_of
     assert 'data-accountability-kind="missing-outcome"' in text_out
     assert 'data-accountability-kind="missing-type"' in text_out
     assert "Past Due Client" in text_out
+    assert "Fourth Past Due Client" in text_out
     assert "Missing Outcome Client" in text_out
+    assert "Sixth Outcome Client" in text_out
     assert "Missing Type Client" in text_out
     assert "Offers Activity" in text_out
     assert "Offer Client" in text_out
     assert "Offers and task accountability" not in text_out
+    assert "Appointment details" in text_out
+    assert 'class="sc-surface sc-expand-card" id="scorecard-appointment-detail"' in text_out
+    assert 'data-bs-target="#scorecard-appointment-detail-panel"' in text_out
+    assert 'data-bs-target="#past-due-all"' in text_out
+    assert 'data-bs-target="#missing-outcome-all"' in text_out
+    assert "Appointment rows and CC-entered activity" not in text_out
+    assert "CC Activity" not in text_out
+    assert "FUB + CC" not in text_out
+    assert "CC contacts" not in text_out
+    assert "CC dials" not in text_out
 
 
 def test_active_pipeline_drill_includes_live_non_pending_statuses(app):

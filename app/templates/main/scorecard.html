@@ -66,7 +66,12 @@
   .sc-activity span { color:var(--tdg-muted); font-size:.62rem; }
   .sc-accountability-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; margin-top:.75rem; }
   .sc-accountability-card { overflow:hidden; border:1px solid var(--tdg-border); border-radius:9px; background:#fff; }
-  .sc-accountability-head { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.65rem .75rem; border-bottom:1px solid var(--tdg-border); font-size:.7rem; font-weight:750; }
+  .sc-accountability-head { display:flex; width:100%; align-items:center; justify-content:space-between; gap:.5rem; padding:.65rem .75rem; border:0; border-bottom:1px solid var(--tdg-border); color:inherit; text-align:left; font-size:.7rem; font-weight:750; }
+  button.sc-accountability-head { cursor:pointer; }
+  button.sc-accountability-head:hover,button.sc-accountability-head:focus-visible { filter:brightness(.985); }
+  .sc-accountability-head-end { display:flex; align-items:center; gap:.4rem; }
+  .sc-accountability-head .bi-chevron-down { transition:transform .18s ease; }
+  .sc-accountability-head[aria-expanded="true"] .bi-chevron-down { transform:rotate(180deg); }
   .sc-accountability-count { min-width:1.55rem; padding:.12rem .4rem; border-radius:99px; background:#f1f3f6; text-align:center; font-size:.65rem; }
   .sc-accountability-card.danger { border-color:#f2b8b5; }
   .sc-accountability-card.danger .sc-accountability-head { background:#fff3f3; color:#b42318; }
@@ -165,47 +170,52 @@
       <div class="sc-funnel-item"><div class="sc-funnel-label">My Business closed</div><div class="sc-funnel-value">{{ conversion_summary.production_closed }}</div><div class="sc-funnel-rate">Close-date production</div></div>
     </div>
   </div>
-  <details class="sc-detail-group">
-    <summary><span><i class="bi bi-calendar3 me-2"></i>Appointment rows and CC-entered activity</span><span class="text-muted fw-normal" style="font-size:.65rem;">Expand details</span></summary>
-    <div class="sc-detail-body">
-      <div class="table-responsive mb-3"><table class="table table-sm sc-table mb-0"><thead><tr><th>CC Activity</th><th class="text-end">Set</th><th class="text-end">Held</th><th class="text-end">Signed</th></tr></thead><tbody><tr><td>Listing appointments</td><td class="text-end">{{ lg.listing_set }}</td><td class="text-end">{{ lg.listing_held }} <span class="text-muted">({{ lg.listing_set_to_held }}%)</span></td><td class="text-end">{{ lg.listings_signed }} <span class="text-muted">({{ lg.listing_held_to_signed }}%)</span></td></tr><tr><td>Buyer appointments</td><td class="text-end">{{ lg.buyer_set }}</td><td class="text-end">{{ lg.buyer_held }} <span class="text-muted">({{ lg.buyer_set_to_held }}%)</span></td><td class="text-end">{{ lg.buyers_signed }} <span class="text-muted">({{ lg.buyer_held_to_signed }}%)</span></td></tr></tbody></table></div>
+  <div class="sc-surface sc-expand-card" id="scorecard-appointment-detail" style="border-top:4px solid var(--tdg-gold);">
+    <button type="button" class="sc-expand-toggle" data-bs-toggle="collapse" data-bs-target="#scorecard-appointment-detail-panel" aria-expanded="false" aria-controls="scorecard-appointment-detail-panel">
+      <div class="sc-expand-head mb-0"><div><span class="sc-surface-title"><i class="bi bi-calendar3 me-1"></i>Appointment details</span><span class="text-muted ms-2" style="font-size:.63rem;">Click for activity and upcoming appointments</span></div><i class="bi bi-chevron-down" aria-hidden="true"></i></div>
+    </button>
+    <div class="collapse" id="scorecard-appointment-detail-panel"><div class="sc-expand-detail">
+      <div class="table-responsive mb-3"><table class="table table-sm sc-table mb-0"><thead><tr><th>Appointment activity</th><th class="text-end">Set</th><th class="text-end">Held</th><th class="text-end">Signed</th></tr></thead><tbody><tr><td>Listing appointments</td><td class="text-end">{{ lg.listing_set }}</td><td class="text-end">{{ lg.listing_held }} <span class="text-muted">({{ lg.listing_set_to_held }}%)</span></td><td class="text-end">{{ lg.listings_signed }} <span class="text-muted">({{ lg.listing_held_to_signed }}%)</span></td></tr><tr><td>Buyer appointments</td><td class="text-end">{{ lg.buyer_set }}</td><td class="text-end">{{ lg.buyer_held }} <span class="text-muted">({{ lg.buyer_set_to_held }}%)</span></td><td class="text-end">{{ lg.buyers_signed }} <span class="text-muted">({{ lg.buyer_held_to_signed }}%)</span></td></tr></tbody></table></div>
       {% if perf %}
       <div class="sc-activity-grid mb-3"><div class="sc-activity"><strong>{{ perf.appts_held_30d }}</strong><span>Held · last 30 days</span></div><div class="sc-activity"><strong>{{ perf.appts_not_held_30d }}</strong><span>Not held · last 30 days</span></div><div class="sc-activity"><strong>{{ perf.appts_signed_30d }}</strong><span>Signed · last 30 days</span></div><div class="sc-activity"><strong>{{ perf.upcoming_appts|length }}</strong><span>Upcoming · next 14 days</span></div></div>
       {% if perf.upcoming_appts %}<div class="table-responsive"><table class="table table-sm sc-table mb-0"><thead><tr><th>Upcoming</th><th>Contact</th><th>Type</th></tr></thead><tbody>{% for a in perf.upcoming_appts %}<tr><td>{{ a.date }}</td><td>{% if a.contact_pid %}<a href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ a.contact_pid }}" target="_blank" rel="noopener">{{ a.contact }}</a>{% else %}{{ a.contact }}{% endif %}</td><td>{{ a.type }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
       {% else %}<div class="text-muted small">FUB appointment detail has not synced yet.</div>{% endif %}
-    </div>
-  </details>
+    </div></div>
+  </div>
 
   {% if perf %}
   <div class="sc-accountability-grid" aria-label="Appointment and task accountability preview">
     <article class="sc-accountability-card danger" data-accountability-kind="past-due">
-      <div class="sc-accountability-head"><span><i class="bi bi-exclamation-circle me-1"></i>Past-due tasks</span><span class="sc-accountability-count">{{ perf.overdue_tasks_count|default(0,true) }}</span></div>
+      {% if perf.overdue_tasks|length > 3 %}<button type="button" class="sc-accountability-head" data-bs-toggle="collapse" data-bs-target="#past-due-all" aria-expanded="false" aria-controls="past-due-all"><span><i class="bi bi-exclamation-circle me-1"></i>Past-due tasks</span><span class="sc-accountability-head-end"><span class="sc-accountability-count">{{ perf.overdue_tasks_count|default(0,true) }}</span><i class="bi bi-chevron-down" aria-hidden="true"></i></span></button>{% else %}<div class="sc-accountability-head"><span><i class="bi bi-exclamation-circle me-1"></i>Past-due tasks</span><span class="sc-accountability-count">{{ perf.overdue_tasks_count|default(0,true) }}</span></div>{% endif %}
       {% for task in perf.overdue_tasks[:3] %}
       <div class="sc-accountability-row">
-        {% if task.contact_pid %}<a class="sc-accountability-primary" href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ task.contact_pid }}" target="_blank" rel="noopener">{{ task.contact }}</a>{% elif task.contact %}<span class="sc-accountability-primary">{{ task.contact }}</span>{% else %}<span class="sc-accountability-primary">FUB task</span>{% endif %}
+        {% if task.contact_pid %}<a class="sc-accountability-primary" href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ task.contact_pid }}" target="_blank" rel="noopener">{{ task.contact }}</a>{% elif task.contact %}<span class="sc-accountability-primary">{{ task.contact }}</span>{% else %}<span class="sc-accountability-primary">Client name unavailable</span>{% endif %}
         <span class="sc-accountability-meta">{{ task.task_type }} · due {{ task.due_date|show_value }}{% if task.stage %} · {{ task.stage }}{% endif %}</span>
       </div>
       {% else %}<div class="sc-accountability-empty">No past-due tasks.</div>{% endfor %}
+      {% if perf.overdue_tasks|length > 3 %}<div class="collapse" id="past-due-all">{% for task in perf.overdue_tasks[3:] %}<div class="sc-accountability-row">{% if task.contact_pid %}<a class="sc-accountability-primary" href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ task.contact_pid }}" target="_blank" rel="noopener">{{ task.contact }}</a>{% elif task.contact %}<span class="sc-accountability-primary">{{ task.contact }}</span>{% else %}<span class="sc-accountability-primary">Client name unavailable</span>{% endif %}<span class="sc-accountability-meta">{{ task.task_type }} · due {{ task.due_date|show_value }}{% if task.stage %} · {{ task.stage }}{% endif %}</span></div>{% endfor %}</div>{% endif %}
     </article>
 
     <article class="sc-accountability-card warning" data-accountability-kind="missing-outcome">
-      <div class="sc-accountability-head"><span><i class="bi bi-clipboard-x me-1"></i>Missing outcome</span><span class="sc-accountability-count">{{ perf.missing_outcome_appts|length }}</span></div>
+      {% if perf.missing_outcome_appts|length > 3 %}<button type="button" class="sc-accountability-head" data-bs-toggle="collapse" data-bs-target="#missing-outcome-all" aria-expanded="false" aria-controls="missing-outcome-all"><span><i class="bi bi-clipboard-x me-1"></i>Missing outcome</span><span class="sc-accountability-head-end"><span class="sc-accountability-count">{{ perf.missing_outcome_appts|length }}</span><i class="bi bi-chevron-down" aria-hidden="true"></i></span></button>{% else %}<div class="sc-accountability-head"><span><i class="bi bi-clipboard-x me-1"></i>Missing outcome</span><span class="sc-accountability-count">{{ perf.missing_outcome_appts|length }}</span></div>{% endif %}
       {% for appt in perf.missing_outcome_appts[:3] %}
       <div class="sc-accountability-row">
         {% if appt.contact_pid %}<a class="sc-accountability-primary" href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ appt.contact_pid }}" target="_blank" rel="noopener">{{ appt.contact }}</a>{% else %}<span class="sc-accountability-primary">{{ appt.contact|show_value }}</span>{% endif %}
         <span class="sc-accountability-meta">{{ appt.date|show_value }} · {{ appt.type|show_value }}</span>
       </div>
       {% else %}<div class="sc-accountability-empty">All past appointments have outcomes.</div>{% endfor %}
+      {% if perf.missing_outcome_appts|length > 3 %}<div class="collapse" id="missing-outcome-all">{% for appt in perf.missing_outcome_appts[3:] %}<div class="sc-accountability-row">{% if appt.contact_pid %}<a class="sc-accountability-primary" href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ appt.contact_pid }}" target="_blank" rel="noopener">{{ appt.contact }}</a>{% else %}<span class="sc-accountability-primary">{{ appt.contact|show_value }}</span>{% endif %}<span class="sc-accountability-meta">{{ appt.date|show_value }} · {{ appt.type|show_value }}</span></div>{% endfor %}</div>{% endif %}
     </article>
 
     <article class="sc-accountability-card warning" data-accountability-kind="missing-type">
-      <div class="sc-accountability-head"><span><i class="bi bi-tag me-1"></i>Missing type</span><span class="sc-accountability-count">{{ perf.missing_type_appts|length }}</span></div>
+      {% if perf.missing_type_appts|length > 3 %}<button type="button" class="sc-accountability-head" data-bs-toggle="collapse" data-bs-target="#missing-type-all" aria-expanded="false" aria-controls="missing-type-all"><span><i class="bi bi-tag me-1"></i>Missing type</span><span class="sc-accountability-head-end"><span class="sc-accountability-count">{{ perf.missing_type_appts|length }}</span><i class="bi bi-chevron-down" aria-hidden="true"></i></span></button>{% else %}<div class="sc-accountability-head"><span><i class="bi bi-tag me-1"></i>Missing type</span><span class="sc-accountability-count">{{ perf.missing_type_appts|length }}</span></div>{% endif %}
       {% for appt in perf.missing_type_appts[:3] %}
       <div class="sc-accountability-row">
         {% if appt.contact_pid %}<a class="sc-accountability-primary" href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ appt.contact_pid }}" target="_blank" rel="noopener">{{ appt.contact }}</a>{% else %}<span class="sc-accountability-primary">{{ appt.contact|show_value }}</span>{% endif %}
         <span class="sc-accountability-meta">{{ appt.date|show_value }}{% if appt.title %} · {{ appt.title }}{% endif %}</span>
       </div>
       {% else %}<div class="sc-accountability-empty">All past appointments have types.</div>{% endfor %}
+      {% if perf.missing_type_appts|length > 3 %}<div class="collapse" id="missing-type-all">{% for appt in perf.missing_type_appts[3:] %}<div class="sc-accountability-row">{% if appt.contact_pid %}<a class="sc-accountability-primary" href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ appt.contact_pid }}" target="_blank" rel="noopener">{{ appt.contact }}</a>{% else %}<span class="sc-accountability-primary">{{ appt.contact|show_value }}</span>{% endif %}<span class="sc-accountability-meta">{{ appt.date|show_value }}{% if appt.title %} · {{ appt.title }}{% endif %}</span></div>{% endfor %}</div>{% endif %}
     </article>
   </div>
   {% endif %}
@@ -270,7 +280,7 @@
   <div class="sc-section-head"><div><div class="sc-section-kicker">05 · Growth inputs</div><div class="sc-section-title">Lead Generation</div></div><div class="sc-section-note">Activity and self-generated production separated from business outcomes</div></div>
   <div class="row g-3 mb-2">
     <div class="col-lg-6"><div class="sc-surface h-100"><div class="sc-surface-head"><div class="sc-surface-title">Self-Gen (SOI) Progress · Rolling 12 Months</div><span class="sc-pill">{{ self_gen_pct }}%</span></div><div class="d-flex justify-content-between small mb-1"><span>Self-Gen Closing GCI</span><strong>{{ compact_money(self_gen_income) }} of {{ compact_money(self_gen_target) }}</strong></div><div class="progress" style="height:12px;"><div class="progress-bar" style="width:{{ self_gen_pct }}%;background:{% if self_gen_pct >= 100 %}var(--tdg-green){% else %}var(--tdg-gold){% endif %};"></div></div><div class="sc-activity-grid mt-3"><a href="#" class="sc-activity sc-drill-link text-decoration-none text-reset" data-type="self_gen"><strong>{{ self_gen_units }}</strong><span>Self-gen units</span></a><a href="#" class="sc-activity sc-drill-link text-decoration-none text-reset" data-type="team_lead"><strong>{{ team_units }}</strong><span>Company units</span></a><div class="sc-activity"><strong>{{ compact_money(self_gen_income) }}</strong><span>Self-gen GCI</span></div><div class="sc-activity"><strong>{{ avg_comm_pct }}%</strong><span>Avg commission</span></div></div></div></div>
-    <div class="col-lg-6"><div class="sc-surface h-100"><div class="sc-surface-head"><div class="sc-surface-title">Outreach Activity</div><span class="sc-pill">FUB + CC</span></div><div class="sc-activity-grid"><div class="sc-activity"><strong>{{ perf.calls_7d if perf else '—' }}</strong><span>Calls · 7 days</span></div><div class="sc-activity"><strong>{{ perf.convos_7d if perf else '—' }}</strong><span>Conversations · 7 days</span></div><div class="sc-activity"><strong>{{ perf.texts_7d if perf else '—' }}</strong><span>Texts · 7 days</span></div><div class="sc-activity"><strong>{{ lg.contacts }}</strong><span>CC contacts · {{ year }}</span></div><div class="sc-activity"><strong>{{ lg.dials }}</strong><span>CC dials · {{ year }}</span></div><div class="sc-activity"><strong>{{ lg.hours }}</strong><span>Lead-gen hours</span></div></div></div></div>
+    <div class="col-lg-6"><div class="sc-surface h-100"><div class="sc-surface-head"><div class="sc-surface-title">Outreach Activity</div><span class="sc-pill">Client activity</span></div><div class="sc-activity-grid"><div class="sc-activity"><strong>{{ perf.calls_7d if perf else '—' }}</strong><span>Calls · 7 days</span></div><div class="sc-activity"><strong>{{ perf.convos_7d if perf else '—' }}</strong><span>Conversations · 7 days</span></div><div class="sc-activity"><strong>{{ perf.texts_7d if perf else '—' }}</strong><span>Texts · 7 days</span></div><div class="sc-activity"><strong>{{ lg.contacts }}</strong><span>Contacts · {{ year }}</span></div><div class="sc-activity"><strong>{{ lg.dials }}</strong><span>Dials · {{ year }}</span></div><div class="sc-activity"><strong>{{ lg.hours }}</strong><span>Lead-gen hours</span></div></div></div></div>
   </div>
 </section>
 {% endblock %}
