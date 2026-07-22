@@ -172,7 +172,15 @@
   </div>
   <div class="sc-surface sc-expand-card" id="scorecard-appointment-detail" style="border-top:4px solid var(--tdg-gold);">
     <button type="button" class="sc-expand-toggle" data-bs-toggle="collapse" data-bs-target="#scorecard-appointment-detail-panel" aria-expanded="false" aria-controls="scorecard-appointment-detail-panel">
-      <div class="sc-expand-head mb-0"><div><span class="sc-surface-title"><i class="bi bi-calendar3 me-1"></i>Appointment details</span><span class="text-muted ms-2" style="font-size:.63rem;">Click for activity and upcoming appointments</span></div><i class="bi bi-chevron-down" aria-hidden="true"></i></div>
+      <div class="sc-expand-head"><div><span class="sc-surface-title"><i class="bi bi-calendar3 me-1"></i>Appointment details</span><span class="text-muted ms-2" style="font-size:.63rem;">Click for activity and upcoming appointments</span></div><i class="bi bi-chevron-down" aria-hidden="true"></i></div>
+      <div class="sc-funnel-grid">
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Listing set</div><div class="sc-funnel-value">{{ lg.listing_set }}</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Listing held</div><div class="sc-funnel-value">{{ lg.listing_held }}</div><div class="sc-funnel-rate">{{ lg.listing_set_to_held }}% of set</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Listings signed</div><div class="sc-funnel-value">{{ lg.listings_signed }}</div><div class="sc-funnel-rate">{{ lg.listing_held_to_signed }}% of held</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Buyer set</div><div class="sc-funnel-value">{{ lg.buyer_set }}</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Buyer held</div><div class="sc-funnel-value">{{ lg.buyer_held }}</div><div class="sc-funnel-rate">{{ lg.buyer_set_to_held }}% of set</div></div>
+        <div class="sc-funnel-item"><div class="sc-funnel-label">Buyers signed</div><div class="sc-funnel-value">{{ lg.buyers_signed }}</div><div class="sc-funnel-rate">{{ lg.buyer_held_to_signed }}% of held</div></div>
+      </div>
     </button>
     <div class="collapse" id="scorecard-appointment-detail-panel"><div class="sc-expand-detail">
       <div class="table-responsive mb-3"><table class="table table-sm sc-table mb-0"><thead><tr><th>Appointment activity</th><th class="text-end">Set</th><th class="text-end">Held</th><th class="text-end">Signed</th></tr></thead><tbody><tr><td>Listing appointments</td><td class="text-end">{{ lg.listing_set }}</td><td class="text-end">{{ lg.listing_held }} <span class="text-muted">({{ lg.listing_set_to_held }}%)</span></td><td class="text-end">{{ lg.listings_signed }} <span class="text-muted">({{ lg.listing_held_to_signed }}%)</span></td></tr><tr><td>Buyer appointments</td><td class="text-end">{{ lg.buyer_set }}</td><td class="text-end">{{ lg.buyer_held }} <span class="text-muted">({{ lg.buyer_set_to_held }}%)</span></td><td class="text-end">{{ lg.buyers_signed }} <span class="text-muted">({{ lg.buyer_held_to_signed }}%)</span></td></tr></tbody></table></div>

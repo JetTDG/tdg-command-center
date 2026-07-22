@@ -423,10 +423,17 @@ def test_jet_center_uses_supplied_logo_assets_in_shell_and_login(app):
 
 def test_scorecard_client_activity_previews_accountability_rows_and_separates_offers(app):
     import json
+    from datetime import date
     from app import db
+    from app.models import LeadGenLog
     from sqlalchemy import text
 
     with app.app_context():
+        db.session.add(LeadGenLog(
+            agent_id=app.test_ids["a1"], log_date=date(2026, 7, 21),
+            listing_appts_set=3, listing_appts_held=2, listings_signed=1,
+            buyer_appts_set=5, buyer_appts_held=4, buyers_signed=2,
+        ))
         db.session.execute(text("""
             CREATE TABLE agent_perf_cache (
                 agent_id INTEGER, cache_date DATE, calls_7d INTEGER, convos_7d INTEGER,
@@ -496,6 +503,18 @@ def test_scorecard_client_activity_previews_accountability_rows_and_separates_of
     assert "Appointment details" in text_out
     assert 'class="sc-surface sc-expand-card" id="scorecard-appointment-detail"' in text_out
     assert 'data-bs-target="#scorecard-appointment-detail-panel"' in text_out
+    appointment_preview = text_out[
+        text_out.index('data-bs-target="#scorecard-appointment-detail-panel"'):
+        text_out.index('id="scorecard-appointment-detail-panel"')
+    ]
+    assert "Listing set" in appointment_preview
+    assert "Listing held" in appointment_preview
+    assert "Listings signed" in appointment_preview
+    assert "Buyer set" in appointment_preview
+    assert "Buyer held" in appointment_preview
+    assert "Buyers signed" in appointment_preview
+    for value in ("3", "2", "1", "5", "4"):
+        assert f'>{value}</div>' in appointment_preview
     assert 'data-bs-target="#past-due-all"' in text_out
     assert 'data-bs-target="#missing-outcome-all"' in text_out
     assert "Appointment rows and CC-entered activity" not in text_out
