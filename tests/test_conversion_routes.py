@@ -503,6 +503,7 @@ def test_scorecard_client_activity_previews_accountability_rows_and_separates_of
     assert "FUB + CC" not in text_out
     assert "CC contacts" not in text_out
     assert "CC dials" not in text_out
+    assert "align-items:start" in text_out
 
 
 def test_active_pipeline_drill_includes_live_non_pending_statuses(app):
