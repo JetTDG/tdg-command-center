@@ -1,5 +1,5 @@
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, current_app, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from app.models import AuditLog, ScorecardAccess, User
 
@@ -37,7 +37,6 @@ from app import db
 from datetime import datetime, date
 from sqlalchemy import func, extract, or_, and_
 import calendar
-import psycopg2
 import requests
 
 bp = Blueprint('main', __name__)
@@ -2208,11 +2207,11 @@ def ask():
 def api_ask():
     import re
     from app.ask_jet_llm import call_ask_jet
-    body = request.json or {}
-    question = (body.get('question') or '').strip()
-    history = body.get('history') or []  # list of {role: 'user'|'assistant', text: str}, most recent last
-    if not question:
-        return jsonify({'error': 'No question provided'}), 400
+    from app.ask_tdg_security import execute_read_only_query, validate_ask_payload
+    try:
+        question, history = validate_ask_payload(request.get_json(silent=True))
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
 
 
     schema = """
@@ -2295,6 +2294,7 @@ Answer with ONE word: DATABASE or DOCS or BOTH.
 
     db_result_text = ''
     sql_used = ''
+    rows = []
     resolved_question = question  # may be rewritten below if this is a short follow-up
 
     if q_type in ('DATABASE', 'BOTH'):
@@ -2358,21 +2358,14 @@ SQL:"""
             sql = call_ask_jet(sql_prompt)
             sql = re.sub(r'^```\w*\n?', '', sql)
             sql = re.sub(r'\n?```$', '', sql).strip()
-            if sql.upper().lstrip().startswith('SELECT'):
-                conn = psycopg2.connect(
-                    host='ballast.proxy.rlwy.net', port=34083,
-                    dbname='railway', user='postgres',
-                    password='SiAmCHSPejkeAVLMAOaZPvUjccxWtTVb'
-                )
-                cur = conn.cursor()
-                cur.execute(sql)
-                rows = cur.fetchall()
-                cols = [d[0] for d in cur.description]
-                conn.close()
-                db_result_text = f"DB Results — Columns: {cols}\nRows: {rows[:20]}"
-                sql_used = sql
-        except Exception as e:
-            db_result_text = f'(DB query failed: {e})'
+            result = execute_read_only_query(sql)
+            rows = result.rows
+            truncation_note = ' (first 20 rows)' if result.truncated else ''
+            db_result_text = f"DB Results{truncation_note} — Columns: {result.columns}\nRows: {rows}"
+            sql_used = sql
+        except Exception:
+            current_app.logger.exception('Ask TDG read-only database query failed')
+            db_result_text = '(Jet Center database data is temporarily unavailable.)'
 
     # Build final answer with all available context
     context_sections = []
@@ -2397,9 +2390,13 @@ Answer in 1-3 sentences:"""
 
     try:
         answer = call_ask_jet(answer_prompt, max_tokens=300)
-        return jsonify({'answer': answer, 'sql': sql_used, 'rows': len(rows) if db_result_text and 'rows' in dir() else 0})
-    except Exception as e:
-        return jsonify({'answer': f"Sorry, I couldn't answer that: {str(e)}", 'sql': ''}), 200
+        return jsonify({'answer': answer, 'sql': sql_used, 'rows': len(rows)})
+    except Exception:
+        current_app.logger.exception('Ask TDG inference failed')
+        return jsonify({
+            'answer': 'Sorry, Ask TDG is temporarily unavailable. Please try again.',
+            'sql': '',
+        }), 200
 
 
 

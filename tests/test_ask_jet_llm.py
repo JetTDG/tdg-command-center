@@ -62,3 +62,18 @@ def test_call_ask_jet_rejects_malformed_worker_response(monkeypatch):
 
     with pytest.raises(RuntimeError, match="valid answer"):
         call_ask_jet("Answer this")
+
+
+def test_call_ask_jet_rejects_unexpected_model_route(monkeypatch):
+    monkeypatch.setenv("ASK_JET_HERMES_URL", "https://worker.example/askjet")
+    monkeypatch.setenv("ASK_JET_API_SERVER_KEY", "transport-secret")
+    monkeypatch.setattr(
+        "app.ask_jet_llm.requests.post",
+        lambda *args, **kwargs: FakeResponse({
+            "model": "unexpected-route",
+            "choices": [{"message": {"role": "assistant", "content": "answer"}}],
+        }),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected model route"):
+        call_ask_jet("Answer this")

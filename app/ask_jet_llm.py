@@ -34,7 +34,13 @@ def call_ask_jet(prompt: str, max_tokens: int = 300) -> str:
     response.raise_for_status()
 
     try:
-        answer = response.json()["choices"][0]["message"]["content"].strip()
+        payload = response.json()
+        model = payload["model"]
+        if model != "ask-jet":
+            raise RuntimeError("Ask Jet Hermes worker returned an unexpected model route")
+        answer = payload["choices"][0]["message"]["content"].strip()
+    except RuntimeError:
+        raise
     except (KeyError, IndexError, TypeError, AttributeError, ValueError) as exc:
         raise RuntimeError("Ask Jet Hermes worker returned no valid answer") from exc
     if not answer:
