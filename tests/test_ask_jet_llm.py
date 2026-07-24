@@ -77,3 +77,22 @@ def test_call_ask_jet_rejects_unexpected_model_route(monkeypatch):
 
     with pytest.raises(RuntimeError, match="unexpected model route"):
         call_ask_jet("Answer this")
+
+
+def test_call_ask_jet_unwraps_answer_only_json_content(monkeypatch):
+    monkeypatch.setenv("ASK_JET_HERMES_URL", "https://worker.example/askjet")
+    monkeypatch.setenv("ASK_JET_API_SERVER_KEY", "transport-secret")
+    monkeypatch.setattr(
+        "app.ask_jet_llm.requests.post",
+        lambda *args, **kwargs: FakeResponse({
+            "model": "ask-jet",
+            "choices": [{
+                "message": {
+                    "role": "assistant",
+                    "content": '{"answer":"The Delia Group currently has 48 active listings."}',
+                },
+            }],
+        }),
+    )
+
+    assert call_ask_jet("Answer this") == "The Delia Group currently has 48 active listings."

@@ -1,5 +1,6 @@
 """Dedicated Hermes subscription bridge for Jet Center's Ask Jet page."""
 
+import json
 import os
 
 import requests
@@ -45,4 +46,20 @@ def call_ask_jet(prompt: str, max_tokens: int = 300) -> str:
         raise RuntimeError("Ask Jet Hermes worker returned no valid answer") from exc
     if not answer:
         raise RuntimeError("Ask Jet Hermes worker returned no valid answer")
+
+    # Some reasoning models occasionally wrap a plain response in an
+    # answer-only JSON object despite a prose prompt. Normalize only that
+    # exact shape so the existing chat UI never renders raw JSON braces.
+    if answer.startswith("{") and answer.endswith("}"):
+        try:
+            wrapped = json.loads(answer)
+        except json.JSONDecodeError:
+            wrapped = None
+        if (
+            isinstance(wrapped, dict)
+            and set(wrapped) == {"answer"}
+            and isinstance(wrapped["answer"], str)
+            and wrapped["answer"].strip()
+        ):
+            answer = wrapped["answer"].strip()
     return answer
