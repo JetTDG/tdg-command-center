@@ -2130,7 +2130,7 @@ def load_knowledge_base():
     except Exception:
         return ''
 
-def fetch_gdrive_context(question, api_key):
+def fetch_gdrive_context(question):
     """Fetch relevant content from Google Drive folder for the question."""
     try:
         import os, json
@@ -2206,14 +2206,14 @@ def ask():
 @bp.route('/api/ask', methods=['POST'])
 @login_required
 def api_ask():
-    import re, os
+    import re
+    from app.ask_jet_llm import call_ask_jet
     body = request.json or {}
     question = (body.get('question') or '').strip()
     history = body.get('history') or []  # list of {role: 'user'|'assistant', text: str}, most recent last
     if not question:
         return jsonify({'error': 'No question provided'}), 400
 
-    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
 
     schema = """
 DB: PostgreSQL. Tables:
@@ -2274,31 +2274,12 @@ CRITICAL QUERY RULES:
 Agent name matching: use ILIKE '%name%'
 """
 
-    def claude(prompt, max_tokens=300):
-        resp = requests.post(
-            'https://api.anthropic.com/v1/messages',
-            headers={
-                'x-api-key': api_key,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
-            },
-            json={
-                'model': 'claude-haiku-4-5',
-                'max_tokens': max_tokens,
-                'messages': [{'role': 'user', 'content': prompt}]
-            },
-            timeout=15
-        )
-        data = resp.json()
-        if 'content' not in data:
-            raise ValueError(f"Anthropic API error: {data.get('error', {}).get('message', str(data)[:200])}")
-        return data['content'][0]['text'].strip()
 
     # Load static knowledge base (TDG Canva site + docs)
     kb_context = load_knowledge_base()
 
     # Fetch Drive context
-    drive_context = fetch_gdrive_context(question, api_key)
+    drive_context = fetch_gdrive_context(question)
 
     # Decide: does this look like a DB question or a docs question?
     _classify_history = ''
@@ -2308,7 +2289,7 @@ Agent name matching: use ILIKE '%name%'
 Answer with ONE word: DATABASE or DOCS or BOTH.
 {_classify_history}Question: {question}"""
     try:
-        q_type = claude(classify_prompt, max_tokens=10).upper().strip()
+        q_type = call_ask_jet(classify_prompt, max_tokens=10).upper().strip()
     except Exception:
         q_type = 'BOTH'
 
@@ -2354,7 +2335,7 @@ Return ONLY the rewritten question, nothing else.
 
 Rewritten question:"""
             try:
-                resolved_question = claude(resolve_prompt, max_tokens=100).strip().strip('"')
+                resolved_question = call_ask_jet(resolve_prompt, max_tokens=100).strip().strip('"')
                 if not resolved_question:
                     resolved_question = question
             except Exception:
@@ -2374,7 +2355,7 @@ Return ONLY the SQL, no markdown, no explanation.
 Question: {resolved_question}
 SQL:"""
         try:
-            sql = claude(sql_prompt)
+            sql = call_ask_jet(sql_prompt)
             sql = re.sub(r'^```\w*\n?', '', sql)
             sql = re.sub(r'\n?```$', '', sql).strip()
             if sql.upper().lstrip().startswith('SELECT'):
@@ -2415,7 +2396,7 @@ Question: "{resolved_question}"
 Answer in 1-3 sentences:"""
 
     try:
-        answer = claude(answer_prompt, max_tokens=300)
+        answer = call_ask_jet(answer_prompt, max_tokens=300)
         return jsonify({'answer': answer, 'sql': sql_used, 'rows': len(rows) if db_result_text and 'rows' in dir() else 0})
     except Exception as e:
         return jsonify({'answer': f"Sorry, I couldn't answer that: {str(e)}", 'sql': ''}), 200
