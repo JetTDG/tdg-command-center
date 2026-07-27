@@ -25,6 +25,7 @@ from app.models import (
 )
 from app.conversion_stats import get_blended_defaults
 from app.conversion import aggregate_funnel, classify_lead, safe_rate
+from app.transaction_metrics import recognized_volume
 from app.luxury import (
     apply_segment_filter,
     effective_luxury_price,
@@ -485,6 +486,7 @@ def home():
                 Transaction.close_date.isnot(None),
                 mb_year_filter(),
                 extract('month', Transaction.close_date) == m,
+                or_(Transaction.transaction_type.is_(None), func.lower(func.trim(Transaction.transaction_type)) != 'referral'),
             )
             closed_q = _div_filter(closed_q, division_filter)
             closed_sum = float(closed_q.scalar() or 0)
@@ -502,6 +504,7 @@ def home():
                 Transaction.projected_close_date.isnot(None),
                 extract('year', Transaction.projected_close_date) == year,
                 extract('month', Transaction.projected_close_date) == m,
+                or_(Transaction.transaction_type.is_(None), func.lower(func.trim(Transaction.transaction_type)) != 'referral'),
             )
             pending_q = _div_filter(pending_q, division_filter)
             pending_sum = float(pending_q.scalar() or 0)
@@ -2465,9 +2468,11 @@ def ceo_summary():
         closed  = seg_filter(all_closed, seg)
         pending = seg_filter(all_pending, seg)
         def pending_price(t):
+            if recognized_volume(t.transaction_type, t.sale_price) == 0 and str(t.transaction_type or '').strip().lower() == 'referral':
+                return 0
             if seg == 'luxury':
                 return effective_luxury_price(t.status, t.sale_price, t.list_price)
-            return t.sale_price or 0
+            return recognized_volume(t.transaction_type, t.sale_price)
         # monthly breakdown
         monthly = []
         for m in range(1, 13):
@@ -2478,7 +2483,7 @@ def ceo_summary():
                 'month':          calendar.month_abbr[m],
                 'closed_gci':     round(sum((t.gci or 0) for t in mc), 2),
                 'pending_gci':    round(sum((t.gci or 0) for t in mp), 2),
-                'closed_volume':  round(sum((t.sale_price or 0) for t in mc), 2),
+                'closed_volume':  round(sum(recognized_volume(t.transaction_type, t.sale_price) for t in mc), 2),
                 'pending_volume': round(sum(pending_price(t) for t in mp), 2),
                 'closed_co':      round(sum(company_dollar(t) for t in mc), 2),
                 'pending_co':     round(sum(company_dollar(t) for t in mp), 2),
