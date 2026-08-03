@@ -144,6 +144,20 @@ def home():
         )
         return float(_div_filter(q, division_filter).scalar() or 0)
 
+    def closed_volume_sum_base(start_date, end_date, division_filter=None):
+        """Closed volume for a bounded period, excluding Referral transactions."""
+        q = db.session.query(func.sum(Transaction.sale_price)).filter(
+            Transaction.archived == False,
+            Transaction.status == 'Closed',
+            Transaction.close_date >= start_date,
+            Transaction.close_date <= end_date,
+            or_(
+                Transaction.transaction_type.is_(None),
+                func.lower(func.trim(Transaction.transaction_type)) != 'referral',
+            ),
+        )
+        return float(_div_filter(q, division_filter).scalar() or 0)
+
     def mtd_closed_count(division_filter=None):
         q = Transaction.query.filter(
             Transaction.archived == False,
@@ -164,9 +178,10 @@ def home():
 
     ytd_closed = closed_q_base().count()
     ytd_gci    = closed_sum_base(Transaction.gci)
-    ytd_volume = closed_sum_base(Transaction.sale_price)
+    ytd_volume = closed_volume_sum_base(ytd_start, ytd_end)
     month_closed = mtd_closed_count()
     month_gci    = mtd_closed_gci()
+    month_volume = closed_volume_sum_base(mtd_start, mtd_end)
 
     # ── Pending / Pre-Signed: same year_filter as MyBusiness ─────────────────
     def mb_year_filter():
@@ -307,7 +322,9 @@ def home():
     kpi = {
         'combined': {
             'ytd_closed':           ytd_closed,
+            'ytd_volume':           ytd_volume,
             'ytd_gci':              ytd_gci,
+            'month_volume':         month_volume,
             'month_gci':            month_gci,
             'month_closed':         month_closed,
             'pending_count':        pending_count,
@@ -334,7 +351,9 @@ def home():
         },
         'res': {
             'ytd_closed':           closed_q_base(division_filter='Residential').count(),
+            'ytd_volume':           closed_volume_sum_base(ytd_start, ytd_end, division_filter='Residential'),
             'ytd_gci':              closed_sum_base(Transaction.gci, division_filter='Residential'),
+            'month_volume':         closed_volume_sum_base(mtd_start, mtd_end, division_filter='Residential'),
             'month_gci':            mtd_closed_gci(division_filter='Residential'),
             'month_closed':         mtd_closed_count(division_filter='Residential'),
             'pending_count':        pending_count_q(division_filter='Residential'),
@@ -361,7 +380,9 @@ def home():
         },
         'comm': {
             'ytd_closed':           closed_q_base(division_filter='Commercial').count(),
+            'ytd_volume':           closed_volume_sum_base(ytd_start, ytd_end, division_filter='Commercial'),
             'ytd_gci':              closed_sum_base(Transaction.gci, division_filter='Commercial'),
+            'month_volume':         closed_volume_sum_base(mtd_start, mtd_end, division_filter='Commercial'),
             'month_gci':            mtd_closed_gci(division_filter='Commercial'),
             'month_closed':         mtd_closed_count(division_filter='Commercial'),
             'pending_count':        pending_count_q(division_filter='Commercial'),
@@ -388,7 +409,9 @@ def home():
         },
         'luxury': {
             'ytd_closed':           closed_q_base(division_filter='Luxury').count(),
+            'ytd_volume':           closed_volume_sum_base(ytd_start, ytd_end, division_filter='Luxury'),
             'ytd_gci':              closed_sum_base(Transaction.gci, division_filter='Luxury'),
+            'month_volume':         closed_volume_sum_base(mtd_start, mtd_end, division_filter='Luxury'),
             'month_gci':            mtd_closed_gci(division_filter='Luxury'),
             'month_closed':         mtd_closed_count(division_filter='Luxury'),
             'pending_count':        pending_count_q(division_filter='Luxury'),
@@ -586,6 +609,7 @@ def home():
         ytd_closed=ytd_closed,
         ytd_gci=ytd_gci,
         ytd_volume=ytd_volume,
+        month_volume=month_volume,
         listings_signed=listings_signed,
         listings_signed_mtd=listings_signed_mtd,
         buyers_signed=buyers_signed,

@@ -62,6 +62,34 @@ def app(tmp_path, monkeypatch):
             tx("CRE Tenant Rep", date(2026, 5, 1), 700_000),
             tx("CRE Tenant Rep", date(2025, 5, 1), 900_000),
             tx("CRE Listing", date(2026, 6, 1), 9_000_000, archived=True),
+            Transaction(
+                agent_id=agent.id, primary_agent_id=agent.id,
+                primary_agent_name=agent.name, address="Commercial Closed",
+                status="Closed", division="Commercial", transaction_type="CRE Listing",
+                close_date=date(2026, 7, 15), sale_price=300_000,
+                year=2026, month=7, archived=False,
+            ),
+            Transaction(
+                agent_id=agent.id, primary_agent_id=agent.id,
+                primary_agent_name=agent.name, address="Residential Closed",
+                status="Closed", division="Residential", transaction_type="Listing",
+                close_date=date(2026, 6, 15), sale_price=400_000,
+                year=2026, month=6, archived=False,
+            ),
+            Transaction(
+                agent_id=agent.id, primary_agent_id=agent.id,
+                primary_agent_name=agent.name, address="Luxury Closed",
+                status="Closed", division="Residential", transaction_type="Listing",
+                close_date=date(2026, 7, 20), sale_price=800_000,
+                year=2026, month=7, archived=False,
+            ),
+            Transaction(
+                agent_id=agent.id, primary_agent_id=agent.id,
+                primary_agent_name=agent.name, address="Referral Closed",
+                status="Closed", division="Commercial", transaction_type="Referral",
+                close_date=date(2026, 7, 21), sale_price=5_000_000,
+                year=2026, month=7, archived=False,
+            ),
         ])
         db.session.commit()
         app.test_admin_id = admin.id
@@ -124,10 +152,66 @@ def test_commercial_view_renders_rep_section_and_listing_volume_footer(app):
     assert "signed listing volume" in text
     assert "commercial-rep-section" in text and "classList.toggle" in text
 
-    signed_row_start = text.index('id="signed-kpi-row"')
+    signed_row_start = text.index('id="home-kpi-representation"')
     signed_row_end = text.index("<!-- Commercial-only representation activity -->", signed_row_start)
     signed_row = text[signed_row_start:signed_row_end]
-    assert signed_row.count('class="stat-card h-100"') == 4
+    # Representation keeps the same four cards; Offer Activity now follows it
+    # before the Commercial-only conditional cards.
+    assert signed_row.count('class="stat-card h-100"') == 6
+
+
+def test_home_closed_volume_is_referral_safe_for_every_segment(app):
+    client = app.test_client()
+    login(client, app.test_admin_id)
+    text = client.get("/home").get_data(as_text=True)
+    match = re.search(r"const kpi\s*=\s*(\{.*?\});", text, re.S)
+    assert match, "Home KPI JSON not found"
+    kpi = json.loads(match.group(1))
+
+    assert (kpi["combined"]["ytd_volume"], kpi["combined"]["month_volume"]) == (1_500_000, 1_100_000)
+    assert (kpi["res"]["ytd_volume"], kpi["res"]["month_volume"]) == (1_200_000, 800_000)
+    assert (kpi["comm"]["ytd_volume"], kpi["comm"]["month_volume"]) == (300_000, 300_000)
+    assert (kpi["luxury"]["ytd_volume"], kpi["luxury"]["month_volume"]) == (800_000, 800_000)
+
+
+def test_home_groups_every_existing_card_around_units_volume_and_gci(app):
+    client = app.test_client()
+    login(client, app.test_admin_id)
+    text = client.get("/home").get_data(as_text=True)
+
+    expected_groups = {
+        'id="home-kpi-closed"': ["Closed Units", "Closed Volume", "Closed GCI", "Goal Progress"],
+        'id="home-kpi-pipeline"': ["Pending (Projected)", "Pending GCI", "Pre-Signed Pipeline"],
+        'id="home-kpi-representation"': ["Listings Signed", "Active Listings", "Buyers Signed", "Active Buyers"],
+        'id="home-kpi-offers"': ["Offers Out", "Acceptance Rate MTD"],
+    }
+    group_markers = list(expected_groups)
+    for index, (marker, labels) in enumerate(expected_groups.items()):
+        start = text.index(marker)
+        end = text.index(group_markers[index + 1], start) if index + 1 < len(group_markers) else text.index('id="commercial-rep-section"', start)
+        section = text[start:end]
+        positions = [section.index(label) for label in labels]
+        assert positions == sorted(positions), (marker, positions)
+        assert section.count('class="stat-card h-100"') == len(labels)
+
+    assert 'id="k-ytd-volume"' in text
+    assert 'id="k-month-volume"' in text
+    for preserved_label in (
+        "Goal Progress", "Pending (Projected)", "Pending GCI", "Pre-Signed Pipeline",
+        "Listings Signed", "Active Listings", "Buyers Signed", "Active Buyers",
+        "Offers Out", "Acceptance Rate MTD",
+    ):
+        assert preserved_label in text
+
+
+def test_home_kpi_grid_is_bounded_to_the_mobile_viewport(app):
+    client = app.test_client()
+    login(client, app.test_admin_id)
+    text = client.get("/home").get_data(as_text=True)
+
+    assert '@media (max-width: 575.98px)' in text
+    assert '.home-kpi-row' in text
+    assert 'max-width:calc(100vw - 1.5rem)' in text
 
 
 def test_commercial_signed_drilldown_returns_exact_rows_for_each_kpi(app):
