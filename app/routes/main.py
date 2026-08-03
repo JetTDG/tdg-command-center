@@ -3322,6 +3322,11 @@ def scorecard(agent_id):
     has_commercial = Transaction.query.filter(txn_filter, Transaction.division == 'Commercial').count() > 0
 
     # ── FUB Perf Cache (nightly sync) ────────────────────────────────────────
+    # Some active TDG agents intentionally do not have FUB accounts. Keep their
+    # Command Center production fully visible while making FUB-only sections
+    # explicitly unavailable instead of presenting fabricated zero activity.
+    _db_only_agent_names = {'alia molhem'}
+    fub_activity_available = agent.name.strip().casefold() not in _db_only_agent_names
     import json as _json
     from app import db as _db
     from sqlalchemy import text as _text
@@ -3354,6 +3359,8 @@ def scorecard(agent_id):
                 perf['overdue_avg_30d'] = None
     except Exception as _e:
         import logging; logging.getLogger('scorecard').warning(f'perf cache read failed: {_e}')
+    if not fub_activity_available:
+        perf = None
 
     # Zillow summary stays lightweight; full detail is lazy-loaded on click.
     zillow_snapshot = _latest_zillow_agent_snapshot(agent_id)
@@ -3407,6 +3414,7 @@ def scorecard(agent_id):
         pct=pct,
         today=today,
         perf=perf,
+        fub_activity_available=fub_activity_available,
         self_gen_income=self_gen_income,
         team_income_val=team_income_val,
         self_gen_units=self_gen_units,

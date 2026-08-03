@@ -17,7 +17,8 @@ def app(tmp_path, monkeypatch):
     with app.app_context():
         agent = Agent(name="Alpha Agent", email="alpha@example.com", status="Active")
         other = Agent(name="Beta Agent", email="beta@example.com", status="Active")
-        db.session.add_all([agent, other])
+        alia = Agent(name="Alia Molhem", email="alia@thedeliagroup.com", status="Active")
+        db.session.add_all([agent, other, alia])
         db.session.flush()
         agent_user = User(
             username="Alpha", email="alpha@example.com", role="agent",
@@ -31,6 +32,7 @@ def app(tmp_path, monkeypatch):
         app.test_ids = {
             "agent": agent.id,
             "other": other.id,
+            "alia": alia.id,
             "agent_user": agent_user.id,
             "admin": admin.id,
         }
@@ -76,3 +78,17 @@ def test_admin_preview_and_wrong_agent_redirect_are_not_counted(app):
 
     with app.app_context():
         assert ScorecardAccess.query.count() == 0
+
+
+def test_db_only_agent_scorecard_marks_fub_sections_unavailable(app):
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    response = client.get(f"/scorecard/{app.test_ids['alia']}?year=2026")
+    text = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "No Follow Up Boss account" in text
+    assert "Transaction production remains available" in text
+    assert 'data-appointment-source="conversion-cohort"' not in text
+    assert "FUB appointment detail has not synced yet" not in text

@@ -160,6 +160,11 @@
 
 <section class="sc-section" id="scorecard-appointments">
   <div class="sc-section-head"><div><div class="sc-section-kicker">02 · Client activity</div><div class="sc-section-title">Appointments</div></div><div class="sc-section-note">Person-linked Conversion funnel with supporting appointment detail</div></div>
+  {% if not fub_activity_available %}
+  <div class="alert alert-light border mb-3">
+    <strong>No Follow Up Boss account.</strong> FUB appointments, calls, texts, rankings, tasks, and conversion activity are not applicable for this agent. Transaction production remains available in the Closed, Pending, and Projected cards above.
+  </div>
+  {% else %}
   <div class="sc-surface mb-2">
     <div class="sc-funnel-grid">
       <div class="sc-funnel-item"><div class="sc-funnel-label">Appointments set</div><div class="sc-funnel-value">{{ cv.appointment_set }}</div><div class="sc-funnel-rate">{{ conversion_pct(cv.appointment_rate) }} of leads</div></div>
@@ -227,6 +232,7 @@
     </article>
   </div>
   {% endif %}
+  {% endif %}
 
   <div class="sc-surface sc-expand-card mt-3" id="scorecard-offers-activity">
     <button type="button" class="sc-expand-toggle" data-bs-toggle="collapse" data-bs-target="#scorecard-offers-activity-panel" aria-expanded="false" aria-controls="scorecard-offers-activity-panel">
@@ -260,6 +266,9 @@
 
 <section class="sc-section" id="scorecard-conversion">
   <div class="sc-section-head"><div><div class="sc-section-kicker">03 · Funnel performance</div><div class="sc-section-title">Conversion</div></div><div class="sc-section-note">Same governed defaults as the Conversion page · original receiving agent</div></div>
+  {% if not fub_activity_available %}
+  <div class="alert alert-light border mb-0">Not applicable — this agent has no Follow Up Boss account. Command Center production is reported above.</div>
+  {% else %}
   <div class="sc-surface sc-expand-card" style="border-top:4px solid var(--tdg-gold);">
     <button type="button" class="sc-expand-toggle" data-bs-toggle="collapse" data-bs-target="#scorecard-conversion-detail" aria-expanded="false" aria-controls="scorecard-conversion-detail">
       <div class="sc-expand-head"><div><span class="sc-surface-title">Overall Conversion</span><span class="text-muted ms-2" style="font-size:.63rem;">Click for source-group detail</span></div><i class="bi bi-chevron-down" aria-hidden="true"></i></div>
@@ -278,6 +287,7 @@
       <div class="text-muted mt-2" style="font-size:.62rem;">SOI excluded; Bulk Import source family excluded. FUB supplies the received cohort and person milestones. My Business is authoritative for closings. <a href="{{ url_for('main.conversion', agent_id=agent.id, start=conversion_summary.period_start.isoformat(), end=conversion_summary.period_end.isoformat()) }}">Open full Conversion page →</a></div>
     </div></div>
   </div>
+  {% endif %}
 </section>
 
 <section class="sc-section" id="scorecard-zillow">
