@@ -569,6 +569,21 @@ def test_active_pipeline_drill_includes_live_non_pending_statuses(app):
                 year=2026, archived=False, is_import_duplicate=False,
                 client_name="Expired Listing", address="30 Old St", list_price=300000,
             ),
+            Transaction(
+                agent_id=app.test_ids["a1"], transaction_type="Listing", status="x-Cancelled",
+                year=2026, archived=False, is_import_duplicate=False,
+                client_name="Cancelled Listing", address="40 Cancelled St", list_price=300000,
+            ),
+            Transaction(
+                agent_id=app.test_ids["a1"], transaction_type="Buyer", status="y-Sale Failed",
+                year=2026, archived=False, is_import_duplicate=False,
+                client_name="Failed Buyer", address="50 Failed St", sale_price=325000,
+            ),
+            Transaction(
+                agent_id=app.test_ids["a1"], transaction_type="Listing", status="z-Expired",
+                year=2026, archived=False, is_import_duplicate=False,
+                client_name="Canonical Expired Listing", address="60 Expired St", list_price=275000,
+            ),
         ])
         db.session.commit()
 
@@ -576,7 +591,9 @@ def test_active_pipeline_drill_includes_live_non_pending_statuses(app):
     login(client, app.test_ids["admin"])
     response = client.get(f"/scorecard/{app.test_ids['a1']}/drill?type=pipeline&year=2026")
     payload = response.get_json()
+    scorecard = client.get(f"/scorecard/{app.test_ids['a1']}?year=2026")
 
     assert response.status_code == 200
     assert payload["count"] == 2
     assert {row["status"] for row in payload["deals"]} == {"Active", "Pending"}
+    assert b"View 2 live deals" in scorecard.data

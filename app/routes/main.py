@@ -42,6 +42,20 @@ import requests
 
 bp = Blueprint('main', __name__)
 
+# Canonical CTE/Jet Center terminal statuses plus legacy/plain aliases. Keep
+# scorecard summary and drill-downs on this single rule so failed deals can
+# never appear as live pipeline.
+SCORECARD_TERMINAL_STATUSES = frozenset({
+    'Closed',
+    'Withdrawn',
+    'Expired',
+    'Cancelled',
+    'Dead',
+    'x-Cancelled',
+    'y-Sale Failed',
+    'z-Expired',
+})
+
 
 def _record_agent_scorecard_access(agent_id):
     """Record successful self-service agent scorecard loads without blocking UI."""
@@ -3046,8 +3060,7 @@ def scorecard(agent_id):
         return income
 
     # ── Pipeline (open deals) ────────────────────────────────────────────────
-    CLOSED_STATUSES = {'Closed', 'Withdrawn', 'Expired', 'Cancelled', 'Dead'}
-    pipeline_txns = [t for t in all_txns if t.status not in CLOSED_STATUSES]
+    pipeline_txns = [t for t in all_txns if t.status not in SCORECARD_TERMINAL_STATUSES]
     closed_txns   = [t for t in all_txns if t.status == 'Closed']
     active_pipeline_units = len(pipeline_txns)
     if division == 'Luxury':
@@ -3532,7 +3545,7 @@ def scorecard_drill(agent_id):
         if drill_type == 'pending':
             q = q.filter(Transaction.status == 'Pending')
         else:
-            q = q.filter(Transaction.status.notin_({'Closed', 'Withdrawn', 'Expired', 'Cancelled', 'Dead'}))
+            q = q.filter(Transaction.status.notin_(SCORECARD_TERMINAL_STATUSES))
         q = apply_segment_filter(q, division)
         txns = q.order_by(Transaction.projected_close_date.asc()).all()
 
