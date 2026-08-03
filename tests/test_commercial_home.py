@@ -61,6 +61,7 @@ def app(tmp_path, monkeypatch):
             tx("CRE Landlord Rep", date(2026, 4, 1), 400_000),
             tx("CRE Tenant Rep", date(2026, 5, 1), 700_000),
             tx("CRE Tenant Rep", date(2025, 5, 1), 900_000),
+            tx("CRE Business Only", date(2026, 7, 22), 250_000),
             tx("CRE Listing", date(2026, 6, 1), 9_000_000, archived=True),
             Transaction(
                 agent_id=agent.id, primary_agent_id=agent.id,
@@ -115,8 +116,19 @@ def test_ceo_summary_uses_normalized_commercial_signed_types(app):
 
     assert segments["comm"]["listings_signed"] == 2
     assert segments["comm"]["buyers_signed"] == 1
+    assert segments["comm"]["landlord_reps_signed"] == 2
+    assert segments["comm"]["tenant_reps_signed"] == 1
+    assert segments["comm"]["business_only_signed"] == 1
     assert segments["combined"]["listings_signed"] == 2
     assert segments["combined"]["buyers_signed"] == 1
+
+    assert 'id="ceo-commercial-signed-types"' in text
+    assert 'id="c-landlord-reps"' in text
+    assert 'id="c-tenant-reps"' in text
+    assert 'id="c-business-only"' in text
+    assert "Landlord Reps Signed" in text
+    assert "Tenant Reps Signed" in text
+    assert "Business Only Signed" in text
 
 
 def test_commercial_signed_kpis_use_date_signed_and_keep_rep_types_separate(app):
@@ -136,6 +148,7 @@ def test_commercial_signed_kpis_use_date_signed_and_keep_rep_types_separate(app)
     assert commercial["buyers_signed"] == 1
     assert commercial["landlord_reps_signed"] == 2
     assert commercial["tenant_reps_signed"] == 1
+    assert commercial["business_only_signed"] == 1
 
 
 def test_commercial_view_renders_rep_section_and_listing_volume_footer(app):
@@ -146,9 +159,11 @@ def test_commercial_view_renders_rep_section_and_listing_volume_footer(app):
     assert 'id="commercial-rep-section"' in text
     assert 'id="k-landlord-reps"' in text
     assert 'id="k-tenant-reps"' in text
+    assert 'id="k-business-only"' in text
     assert 'id="k-ls-volume"' in text
     assert "Landlord Reps Signed" in text
     assert "Tenant Reps Signed" in text
+    assert "Business Only Signed" in text
     assert "signed listing volume" in text
     assert "commercial-rep-section" in text and "classList.toggle" in text
 
@@ -227,6 +242,7 @@ def test_commercial_signed_drilldown_returns_exact_rows_for_each_kpi(app):
             {"CRE Landlord Rep 2026-03-01", "CRE Landlord Rep 2026-04-01"},
         ),
         "tenant_reps": (1, 0, {"CRE Tenant Rep 2026-05-01"}),
+        "business_only": (1, 0, {"CRE Business Only 2026-07-22"}),
     }
 
     for drill_type, (count, volume, addresses) in expected.items():
@@ -256,7 +272,7 @@ def test_commercial_signed_numbers_are_drillable_and_drawer_is_rendered(app):
     login(client, app.test_admin_id)
     text = client.get("/home").get_data(as_text=True)
 
-    for drill_type in ("listings", "buyers", "landlord_reps", "tenant_reps"):
+    for drill_type in ("listings", "buyers", "landlord_reps", "tenant_reps", "business_only"):
         assert f'data-drill-type="{drill_type}"' in text
     assert text.count('data-drill-type="listings"') >= 2  # count + volume
     assert 'id="home-drill-drawer"' in text

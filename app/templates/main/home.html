@@ -158,17 +158,24 @@
 
 <!-- Commercial-only representation activity -->
 <div class="row g-3 mb-3 d-none" id="commercial-rep-section">
-  <div class="col-6">
-    <div class="stat-card">
+  <div class="col-12 col-md-4">
+    <div class="stat-card h-100">
       <div class="stat-label">Landlord Reps Signed</div>
       <div class="stat-value"><button type="button" class="home-drill-number" id="k-landlord-reps" data-drill-type="landlord_reps" disabled>0</button></div>
       <div class="stat-sub">YTD by Date Signed</div>
     </div>
   </div>
-  <div class="col-6">
-    <div class="stat-card">
+  <div class="col-12 col-md-4">
+    <div class="stat-card h-100">
       <div class="stat-label">Tenant Reps Signed</div>
       <div class="stat-value"><button type="button" class="home-drill-number" id="k-tenant-reps" data-drill-type="tenant_reps" disabled>0</button></div>
+      <div class="stat-sub">YTD by Date Signed</div>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="stat-card h-100">
+      <div class="stat-label">Business Only Signed</div>
+      <div class="stat-value"><button type="button" class="home-drill-number" id="k-business-only" data-drill-type="business_only" disabled>0</button></div>
       <div class="stat-sub">YTD by Date Signed</div>
     </div>
   </div>
@@ -401,6 +408,7 @@ function refreshKPI() {
   document.getElementById('k-bs-mtd').textContent = fmtInt(k.buyers_signed_mtd);
   document.getElementById('k-landlord-reps').textContent = fmtInt(k.landlord_reps_signed || 0);
   document.getElementById('k-tenant-reps').textContent = fmtInt(k.tenant_reps_signed || 0);
+  document.getElementById('k-business-only').textContent = fmtInt(k.business_only_signed || 0);
   document.getElementById('commercial-rep-section').classList.toggle('d-none', segment !== 'comm');
   document.getElementById('k-al').textContent     = fmtInt(k.active_listings);
   document.getElementById('k-ab').textContent     = fmtInt(k.active_buyers);

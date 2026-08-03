@@ -295,6 +295,7 @@ def home():
     ).count()
     commercial_landlord_reps_signed = commercial_signed_q('CRE Landlord Rep').count()
     commercial_tenant_reps_signed = commercial_signed_q('CRE Tenant Rep').count()
+    commercial_business_only_signed = commercial_signed_q('CRE Business Only').count()
 
     # ── Offers Out MTD + acceptance rate — from offers_cache table (synced hourly from Master Tracker) ──
     def get_offers_from_db(start_date, end_date):
@@ -340,6 +341,7 @@ def home():
             'buyers_signed_mtd':    buyers_signed_mtd,
             'landlord_reps_signed': 0,
             'tenant_reps_signed':   0,
+            'business_only_signed': 0,
             'active_listings':      active_listings,
             'active_buyers':        active_buyers,
             'offers_mtd':           offers_mtd,
@@ -369,6 +371,7 @@ def home():
             'buyers_signed_mtd':    buyers_signed_mtd,
             'landlord_reps_signed': 0,
             'tenant_reps_signed':   0,
+            'business_only_signed': 0,
             'active_listings':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.transaction_type=='Listing', Transaction.status=='Active').count(),
             'active_buyers':        Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.transaction_type=='Buyer',   Transaction.status=='Active').count(),
             'offers_mtd':           offers_mtd,
@@ -398,6 +401,7 @@ def home():
             'buyers_signed_mtd':    commercial_buyers_signed_mtd,
             'landlord_reps_signed': commercial_landlord_reps_signed,
             'tenant_reps_signed':   commercial_tenant_reps_signed,
+            'business_only_signed': commercial_business_only_signed,
             'active_listings':      Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.status=='Active').count(),
             'active_buyers':        Transaction.query.filter(Transaction.archived==False, Transaction.division=='Commercial', Transaction.status=='Active', Transaction.transaction_type.in_(['CRE Buyer', 'CRE Tenant Rep'])).count(),
             'offers_mtd':           0,
@@ -427,6 +431,7 @@ def home():
             'buyers_signed_mtd':    Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Buyer', Transaction.signed_date>=mtd_start, Transaction.signed_date<=mtd_end).count(),
             'landlord_reps_signed': 0,
             'tenant_reps_signed':   0,
+            'business_only_signed': 0,
             'active_listings':      Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Listing', Transaction.status=='Active').count(),
             'active_buyers':        Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.transaction_type=='Buyer',   Transaction.status=='Active').count(),
             'offers_mtd':           0,
@@ -649,6 +654,7 @@ def home_commercial_signed_drill():
         'buyers': ('CRE Buyer', 'Commercial Buyers Signed'),
         'landlord_reps': ('CRE Landlord Rep', 'Commercial Landlord Reps Signed'),
         'tenant_reps': ('CRE Tenant Rep', 'Commercial Tenant Reps Signed'),
+        'business_only': ('CRE Business Only', 'Commercial Business Only Signed'),
     }
     if drill_type not in type_map:
         return jsonify({'error': 'invalid drill type'}), 400
@@ -2541,12 +2547,21 @@ def ceo_summary():
         if seg == 'comm':
             listing_types = ('CRE Listing',)
             buyer_types = ('CRE Buyer',)
+            landlord_types = ('CRE Landlord Rep',)
+            tenant_types = ('CRE Tenant Rep',)
+            business_only_types = ('CRE Business Only',)
         elif seg == 'combined':
             listing_types = ('Listing', 'CRE Listing')
             buyer_types = ('Buyer', 'CRE Buyer')
+            landlord_types = ('CRE Landlord Rep',)
+            tenant_types = ('CRE Tenant Rep',)
+            business_only_types = ('CRE Business Only',)
         else:
             listing_types = ('Listing',)
             buyer_types = ('Buyer',)
+            landlord_types = ()
+            tenant_types = ()
+            business_only_types = ()
 
         ls = sum(1 for t in seg_filter(
             Transaction.query.filter(
@@ -2562,6 +2577,21 @@ def ceo_summary():
                 Transaction.signed_date >= ytd_start_tx,
                 Transaction.signed_date <= ytd_end_tx,
             ).all(), 'combined' if seg=='combined' else seg))
+
+        def signed_count(transaction_types):
+            if not transaction_types:
+                return 0
+            return sum(1 for t in seg_filter(
+                Transaction.query.filter(
+                    Transaction.archived == False,
+                    Transaction.transaction_type.in_(transaction_types),
+                    Transaction.signed_date >= ytd_start_tx,
+                    Transaction.signed_date <= ytd_end_tx,
+                ).all(), 'combined' if seg == 'combined' else seg))
+
+        landlord_reps_signed = signed_count(landlord_types)
+        tenant_reps_signed = signed_count(tenant_types)
+        business_only_signed = signed_count(business_only_types)
         # prior-year same-day for listings/buyers signed
         prior_ls = sum(1 for t in seg_filter(
             Transaction.query.filter(
@@ -2604,6 +2634,9 @@ def ceo_summary():
             'proj_units':     len(pending),
             'listings_signed':    ls,
             'buyers_signed':      bs,
+            'landlord_reps_signed': landlord_reps_signed,
+            'tenant_reps_signed': tenant_reps_signed,
+            'business_only_signed': business_only_signed,
             'prior_ls':           prior_ls,
             'prior_bs':           prior_bs,
             'ls_yoy_pct':         round((ls - prior_ls) / prior_ls * 100, 1) if prior_ls else 0,

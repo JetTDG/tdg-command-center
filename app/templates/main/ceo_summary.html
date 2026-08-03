@@ -107,6 +107,31 @@
   </div>
 </div>
 
+<!-- Commercial-only signed document types -->
+<div class="row g-3 mb-4 d-none" id="ceo-commercial-signed-types">
+  <div class="col-12 col-md-4">
+    <div class="stat-card h-100">
+      <div class="stat-label">Landlord Reps Signed</div>
+      <div class="stat-value" id="c-landlord-reps">0</div>
+      <div class="stat-sub">YTD by Date Signed</div>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="stat-card h-100">
+      <div class="stat-label">Tenant Reps Signed</div>
+      <div class="stat-value" id="c-tenant-reps">0</div>
+      <div class="stat-sub">YTD by Date Signed</div>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="stat-card h-100">
+      <div class="stat-label">Business Only Signed</div>
+      <div class="stat-value" id="c-business-only">0</div>
+      <div class="stat-sub">YTD by Date Signed</div>
+    </div>
+  </div>
+</div>
+
 <!-- ── MONTHLY CHART ──────────────────────────────────────────── -->
 <div class="card mb-4">
   <div class="card-body">
@@ -300,6 +325,10 @@ function setSegment(s, btn) {
   document.getElementById('c-proj-gci2').textContent  = usd(d.proj_gci);
   document.getElementById('c-listings').textContent   = d.listings_signed;
   document.getElementById('c-buyers').textContent     = d.buyers_signed;
+  document.getElementById('c-landlord-reps').textContent = d.landlord_reps_signed || 0;
+  document.getElementById('c-tenant-reps').textContent = d.tenant_reps_signed || 0;
+  document.getElementById('c-business-only').textContent = d.business_only_signed || 0;
+  document.getElementById('ceo-commercial-signed-types').classList.toggle('d-none', s !== 'comm');
   refreshLuxuryDrillControls();
 
   // YoY comparison lines
