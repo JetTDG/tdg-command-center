@@ -18,6 +18,21 @@ def log_change(record_id, field_name, old_value, new_value, table_name='transact
         # committed together with the main change
     except Exception:
         pass  # audit failure never blocks the real save
+
+
+def log_business_plan_changes(plan, changes):
+    """Audit actual self-service plan edits plus one save marker."""
+    if not changes:
+        return
+    for field_name, old_value, new_value in changes:
+        log_change(plan.id, field_name, old_value, new_value, table_name='business_plan')
+    log_change(
+        plan.id,
+        '__save__',
+        '',
+        ','.join(field_name for field_name, _, _ in changes),
+        table_name='business_plan',
+    )
 from app.models import (
     Agent, Transaction, LeadGenLog, BusinessPlan, Pipeline, TeamGoal,
     AgentConversionStats, ZillowSyncRun, ZillowCompanySnapshot,
@@ -3817,48 +3832,48 @@ def business_plan_form_for(agent_id):
 
     if request.method == 'POST':
         f = request.form
+        updates = {
+            'listing_unit_goal': int(f.get('listing_unit_goal') or 0),
+            'buyer_unit_goal': int(f.get('buyer_unit_goal') or 0),
+            'total_unit_goal': int(f.get('total_unit_goal') or 0),
+            'gci_goal': float(f.get('gci_goal') or 0),
+            'avg_sale_price': float(f.get('avg_sale_price') or 0),
+            'listing_comm_pct': float(f.get('listing_comm_pct') or 3) / 100,
+            'buyer_comm_pct': float(f.get('buyer_comm_pct') or 3) / 100,
+            'split_pct': float(f.get('split_pct') or 70) / 100,
+            'notes': f.get('notes', ''),
+            'listing_appts_set_goal': int(f.get('listing_appts_set_goal') or 0),
+            'listing_held_rate': float(f.get('listing_held_rate') or 0) / 100,
+            'listing_signed_rate': float(f.get('listing_signed_rate') or 0) / 100,
+            'listing_close_rate': float(f.get('listing_close_rate') or 0) / 100,
+            'buyer_appts_set_goal': int(f.get('buyer_appts_set_goal') or 0),
+            'buyer_held_rate': float(f.get('buyer_held_rate') or 0) / 100,
+            'buyer_signed_rate': float(f.get('buyer_signed_rate') or 0) / 100,
+            'buyer_close_rate': float(f.get('buyer_close_rate') or 0) / 100,
+        }
         if plan:
-            plan.listing_unit_goal = int(f.get('listing_unit_goal') or 0)
-            plan.buyer_unit_goal   = int(f.get('buyer_unit_goal') or 0)
-            plan.total_unit_goal   = int(f.get('total_unit_goal') or 0)
-            plan.gci_goal          = float(f.get('gci_goal') or 0)
-            plan.avg_sale_price    = float(f.get('avg_sale_price') or 0)
-            plan.listing_comm_pct  = float(f.get('listing_comm_pct') or 3) / 100
-            plan.buyer_comm_pct    = float(f.get('buyer_comm_pct') or 3) / 100
-            plan.split_pct         = float(f.get('split_pct') or 70) / 100
-            plan.notes             = f.get('notes', '')
-            plan.listing_appts_set_goal = int(f.get('listing_appts_set_goal') or 0)
-            plan.listing_held_rate      = float(f.get('listing_held_rate') or 0) / 100
-            plan.listing_signed_rate    = float(f.get('listing_signed_rate') or 0) / 100
-            plan.listing_close_rate     = float(f.get('listing_close_rate') or 0) / 100
-            plan.buyer_appts_set_goal   = int(f.get('buyer_appts_set_goal') or 0)
-            plan.buyer_held_rate        = float(f.get('buyer_held_rate') or 0) / 100
-            plan.buyer_signed_rate      = float(f.get('buyer_signed_rate') or 0) / 100
-            plan.buyer_close_rate       = float(f.get('buyer_close_rate') or 0) / 100
+            changes = [
+                (field_name, getattr(plan, field_name), new_value)
+                for field_name, new_value in updates.items()
+                if getattr(plan, field_name) != new_value
+            ]
+            for field_name, new_value in updates.items():
+                setattr(plan, field_name, new_value)
         else:
             plan = BusinessPlan(
                 agent_id=agent_id,
                 year=year,
-                listing_unit_goal=int(f.get('listing_unit_goal') or 0),
-                buyer_unit_goal=int(f.get('buyer_unit_goal') or 0),
-                total_unit_goal=int(f.get('total_unit_goal') or 0),
-                gci_goal=float(f.get('gci_goal') or 0),
-                avg_sale_price=float(f.get('avg_sale_price') or 0),
-                listing_comm_pct=float(f.get('listing_comm_pct') or 3) / 100,
-                buyer_comm_pct=float(f.get('buyer_comm_pct') or 3) / 100,
-                split_pct=float(f.get('split_pct') or 70) / 100,
-                notes=f.get('notes', ''),
                 submitted_by=agent.name,
-                listing_appts_set_goal=int(f.get('listing_appts_set_goal') or 0),
-                listing_held_rate=float(f.get('listing_held_rate') or 0) / 100,
-                listing_signed_rate=float(f.get('listing_signed_rate') or 0) / 100,
-                listing_close_rate=float(f.get('listing_close_rate') or 0) / 100,
-                buyer_appts_set_goal=int(f.get('buyer_appts_set_goal') or 0),
-                buyer_held_rate=float(f.get('buyer_held_rate') or 0) / 100,
-                buyer_signed_rate=float(f.get('buyer_signed_rate') or 0) / 100,
-                buyer_close_rate=float(f.get('buyer_close_rate') or 0) / 100,
+                **updates,
             )
             db.session.add(plan)
+            changes = [
+                (field_name, None, new_value)
+                for field_name, new_value in updates.items()
+            ]
+        if current_user.role == 'agent' and current_user.agent_id == agent_id:
+            db.session.flush()
+            log_business_plan_changes(plan, changes)
         db.session.commit()
         flash(f'Business plan for {agent.name} ({year}) saved.', 'success')
         return redirect(url_for('main.scorecard', agent_id=agent_id, year=year))

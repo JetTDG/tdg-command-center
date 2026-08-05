@@ -92,3 +92,70 @@ def test_db_only_agent_scorecard_marks_fub_sections_unavailable(app):
     assert "Transaction production remains available" in text
     assert 'data-appointment-source="conversion-cohort"' not in text
     assert "FUB appointment detail has not synced yet" not in text
+
+
+def _business_plan_payload(**overrides):
+    payload = {
+        "listing_unit_goal": "8",
+        "buyer_unit_goal": "6",
+        "total_unit_goal": "14",
+        "gci_goal": "180000",
+        "avg_sale_price": "425000",
+        "listing_comm_pct": "3",
+        "buyer_comm_pct": "2.5",
+        "split_pct": "70",
+        "notes": "Initial plan",
+        "listing_appts_set_goal": "20",
+        "listing_held_rate": "75",
+        "listing_signed_rate": "60",
+        "listing_close_rate": "80",
+        "buyer_appts_set_goal": "18",
+        "buyer_held_rate": "70",
+        "buyer_signed_rate": "55",
+        "buyer_close_rate": "75",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_agent_business_plan_changes_are_audited_by_field_and_save(app):
+    from app.models import AuditLog, BusinessPlan
+
+    client = app.test_client()
+    login(client, app.test_ids["agent_user"])
+    response = client.post(
+        f"/scorecard/{app.test_ids['agent']}/business-plan?year=2026",
+        data=_business_plan_payload(),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    with app.app_context():
+        plan = BusinessPlan.query.filter_by(
+            agent_id=app.test_ids["agent"], year=2026
+        ).one()
+        rows = AuditLog.query.filter_by(
+            table_name="business_plan", record_id=plan.id
+        ).all()
+        field_rows = [row for row in rows if row.field_name != "__save__"]
+        save_rows = [row for row in rows if row.field_name == "__save__"]
+        assert len(save_rows) == 1
+        assert save_rows[0].changed_by == "alpha@example.com"
+        assert {row.field_name for row in field_rows} >= {
+            "gci_goal", "listing_unit_goal", "buyer_unit_goal", "notes"
+        }
+
+
+def test_agent_business_plan_noop_save_creates_no_extra_audit_rows(app):
+    from app.models import AuditLog
+
+    client = app.test_client()
+    login(client, app.test_ids["agent_user"])
+    url = f"/scorecard/{app.test_ids['agent']}/business-plan?year=2026"
+    assert client.post(url, data=_business_plan_payload()).status_code == 302
+    with app.app_context():
+        first_count = AuditLog.query.filter_by(table_name="business_plan").count()
+
+    assert client.post(url, data=_business_plan_payload()).status_code == 302
+    with app.app_context():
+        assert AuditLog.query.filter_by(table_name="business_plan").count() == first_count
