@@ -181,6 +181,9 @@
   </div>
 </div>
 
+{% set projection = kpi['combined'] %}
+{% include 'main/_year_end_projection.html' %}
+
 <div class="row g-3">
   <!-- GCI Trend Chart -->
   <div class="col-lg-7">
@@ -368,6 +371,20 @@ function fmtDollar(v) {
 }
 function fmtInt(v) { return Number(v).toLocaleString('en-US'); }
 
+function refreshYearEndProjection(d) {
+  document.getElementById('ye-units').textContent = fmtInt(d.ye_units);
+  document.getElementById('ye-volume').textContent = fmtDollar(d.ye_volume);
+  document.getElementById('ye-gci').textContent = fmtDollar(d.ye_gci);
+  document.getElementById('ye-prior-units').textContent = fmtInt(d.prior_full_units);
+  document.getElementById('ye-prior-volume').textContent = fmtDollar(d.prior_full_volume);
+  document.getElementById('ye-prior-gci').textContent = fmtDollar(d.prior_full_gci);
+  [['units', d.ye_units_yoy_pct], ['volume', d.ye_volume_yoy_pct], ['gci', d.ye_gci_yoy_pct]].forEach(([metric, pct]) => {
+    const badge = document.getElementById(`ye-${metric}-yoy`);
+    badge.className = pct === null ? 'text-muted' : pct >= 0 ? 'text-success' : 'text-danger';
+    badge.textContent = pct === null ? '—' : `${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%`;
+  });
+}
+
 function refreshChart() {
   const d = data[metric][segment];
   chart.data.datasets[0].data = d.closed;
@@ -420,6 +437,7 @@ function refreshKPI() {
   document.getElementById('k-accept-ytd').textContent   = k.acceptance_rate_ytd + '%';
   document.getElementById('k-presigned').textContent    = fmtInt(k.presigned_count);
   document.getElementById('k-presigned-gci').textContent = Number(k.presigned_gci).toLocaleString('en-US', {maximumFractionDigits:0});
+  refreshYearEndProjection(k);
   document.querySelectorAll('.home-drill-number').forEach(btn => {
     const enabled = segment === 'comm' || (segment === 'luxury' && btn.hasAttribute('data-luxury-drill'));
     btn.disabled = !enabled;

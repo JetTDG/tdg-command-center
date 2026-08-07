@@ -40,7 +40,7 @@ from app.models import (
 )
 from app.conversion_stats import get_blended_defaults
 from app.conversion import aggregate_funnel, classify_lead, safe_rate
-from app.transaction_metrics import recognized_volume
+from app.transaction_metrics import recognized_volume, seasonal_year_end_projection
 from app.luxury import (
     apply_segment_filter,
     effective_luxury_price,
@@ -99,6 +99,107 @@ def get_team_volume_goal(year):
     """Return company-level volume goal for the year. Falls back to 0 if not set."""
     tg = TeamGoal.query.filter_by(year=year).first()
     return tg.volume_goal if tg else 0
+
+
+def _team_year_end_projection_segments(year, as_of=None):
+    """Return company year-end pace projections and prior full-year actuals."""
+    as_of = as_of or date.today()
+    current_start = date(year, 1, 1)
+    current_end = date(year, 12, 31)
+    prior_year = year - 1
+    history_start_year = 2022
+
+    current_closed = Transaction.query.filter(
+        Transaction.archived == False,
+        Transaction.status == 'Closed',
+        Transaction.close_date >= current_start,
+        Transaction.close_date <= current_end,
+    ).all()
+    current_pending = Transaction.query.filter(
+        Transaction.archived == False,
+        Transaction.status == 'Pending',
+        Transaction.projected_close_date.isnot(None),
+        extract('year', Transaction.projected_close_date) == year,
+    ).all()
+    historical_closed = Transaction.query.filter(
+        Transaction.status == 'Closed',
+        Transaction.close_date.isnot(None),
+        Transaction.close_date >= date(history_start_year, 1, 1),
+        Transaction.close_date <= date(prior_year, 12, 31),
+    ).all()
+
+    def segment_rows(rows, segment):
+        if segment == 'res':
+            return [row for row in rows if (row.division or '') != 'Commercial']
+        if segment == 'comm':
+            return [row for row in rows if (row.division or '') == 'Commercial']
+        if segment == 'luxury':
+            return [row for row in rows if qualifies_as_luxury(
+                row.status, row.sale_price, row.list_price, row.division
+            )]
+        return rows
+
+    def row_volume(row, segment, pending=False):
+        if str(row.transaction_type or '').strip().casefold() == 'referral':
+            return 0.0
+        if pending and segment == 'luxury':
+            return effective_luxury_price(
+                row.status, row.sale_price, row.list_price
+            )
+        return recognized_volume(row.transaction_type, row.sale_price)
+
+    def pct_change(projected, prior):
+        return round((projected - prior) / prior * 100, 1) if prior else None
+
+    result = {}
+    for segment in ('combined', 'res', 'comm', 'luxury'):
+        closed = segment_rows(current_closed, segment)
+        pending = segment_rows(current_pending, segment)
+        history = segment_rows(historical_closed, segment)
+        prior = [row for row in history if row.close_date.year == prior_year]
+
+        seasonal_units = [0.0] * 12
+        seasonal_volume = [0.0] * 12
+        seasonal_gci = [0.0] * 12
+        for row in history:
+            month_index = row.close_date.month - 1
+            seasonal_units[month_index] += 1
+            seasonal_volume[month_index] += row_volume(row, segment)
+            seasonal_gci[month_index] += float(row.gci or 0)
+
+        closed_units = len(closed)
+        closed_volume = sum(row_volume(row, segment) for row in closed)
+        closed_gci = sum(float(row.gci or 0) for row in closed)
+        pending_units = len(pending)
+        pending_volume = sum(row_volume(row, segment, pending=True) for row in pending)
+        pending_gci = sum(float(row.gci or 0) for row in pending)
+
+        ye_units = round(seasonal_year_end_projection(
+            closed_units, pending_units, seasonal_units, year, as_of
+        ))
+        ye_volume = round(seasonal_year_end_projection(
+            closed_volume, pending_volume, seasonal_volume, year, as_of
+        ))
+        ye_gci = round(seasonal_year_end_projection(
+            closed_gci, pending_gci, seasonal_gci, year, as_of
+        ))
+        prior_full_units = len(prior)
+        prior_full_volume = round(sum(row_volume(row, segment) for row in prior))
+        prior_full_gci = round(sum(float(row.gci or 0) for row in prior))
+
+        result[segment] = {
+            'ye_units': ye_units,
+            'ye_volume': ye_volume,
+            'ye_gci': ye_gci,
+            'prior_full_units': prior_full_units,
+            'prior_full_volume': prior_full_volume,
+            'prior_full_gci': prior_full_gci,
+            'ye_units_yoy_pct': pct_change(ye_units, prior_full_units),
+            'ye_volume_yoy_pct': pct_change(ye_volume, prior_full_volume),
+            'ye_gci_yoy_pct': pct_change(ye_gci, prior_full_gci),
+        }
+    return result
+
 
 # ─── HOME ───────────────────────────────────────────────────────────────────
 
@@ -457,6 +558,9 @@ def home():
             'presigned_gci':        float(db.session.query(func.sum(Transaction.gci)).filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.status.in_(['Pre-Signed','Signed','Coming Soon'])).scalar() or 0),
         },
     }
+    projection_segments = _team_year_end_projection_segments(year)
+    for segment_name, projection in projection_segments.items():
+        kpi[segment_name].update(projection)
 
     # Recent transactions — each segment gets its own top-10 query so Commercial
     # always shows 10 even when the combined top-20 has few commercial rows.
@@ -2673,6 +2777,9 @@ def ceo_summary():
         'comm':     build_segment('comm'),
         'luxury':  build_segment('luxury'),
     }
+    projection_segments = _team_year_end_projection_segments(year, as_of=today)
+    for segment_name, projection in projection_segments.items():
+        seg[segment_name].update(projection)
 
     team_gci_goal = get_team_goal(year)
     team_unit_goal = db.session.query(

@@ -151,6 +151,86 @@ def test_commercial_signed_kpis_use_date_signed_and_keep_rep_types_separate(app)
     assert commercial["business_only_signed"] == 1
 
 
+@pytest.mark.parametrize("url,json_var", [
+    ("/home", "kpi"),
+    ("/ceo-summary?year=2026", "segData"),
+])
+def test_executive_pages_render_segment_aware_year_end_projection_and_prior_year_comparison(app, url, json_var):
+    client = app.test_client()
+    login(client, app.test_admin_id)
+
+    response = client.get(url)
+    assert response.status_code == 200
+    text = response.get_data(as_text=True)
+    match = re.search(r"const " + re.escape(json_var) + r"\s*=\s*(\{.*?\});", text, re.S)
+    assert match, f"{json_var} JSON not found"
+    segments = json.loads(match.group(1))
+
+    for segment in ("combined", "res", "comm", "luxury"):
+        assert {
+            "ye_units", "ye_volume", "ye_gci",
+            "prior_full_units", "prior_full_volume", "prior_full_gci",
+            "ye_units_yoy_pct", "ye_volume_yoy_pct", "ye_gci_yoy_pct",
+        } <= segments[segment].keys()
+
+    assert 'id="year-end-projection"' in text
+    assert "Projected Year-End" in text
+    assert "Based on seasonal pace" in text
+    assert "Full-Year 2025" in text
+    for metric in ("units", "volume", "gci"):
+        assert f'id="ye-{metric}"' in text
+        assert f'id="ye-prior-{metric}"' in text
+        assert f'id="ye-{metric}-yoy"' in text
+
+
+def test_year_end_projection_uses_full_prior_year_and_referral_safe_volume(app):
+    from app import db
+    from app.models import Agent, Transaction
+
+    with app.app_context():
+        agent = Agent.query.filter_by(name="Commercial Agent").one()
+
+        def production(address, year, status, price, gci, transaction_type="CRE Buyer", archived=False):
+            return Transaction(
+                agent_id=agent.id,
+                primary_agent_id=agent.id,
+                primary_agent_name=agent.name,
+                address=address,
+                status=status,
+                division="Commercial",
+                transaction_type=transaction_type,
+                sale_price=price,
+                gci=gci,
+                close_date=date(year, 6, 1) if status == "Closed" else None,
+                projected_close_date=date(year, 9, 1) if status == "Pending" else None,
+                signed_date=date(year, 1, 1),
+                year=year,
+                month=6,
+                archived=archived,
+            )
+
+        db.session.add_all([
+            production("Prior normal", 2025, "Closed", 1_000_000, 30_000, archived=True),
+            production("Prior referral", 2025, "Closed", 500_000, 5_000, "Referral", archived=True),
+            production("Current closed", 2026, "Closed", 500_000, 15_000),
+            production("Current pending", 2026, "Pending", 400_000, 12_000),
+        ])
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_admin_id)
+    for url, json_var in (("/home", "kpi"), ("/ceo-summary?year=2026", "segData")):
+        text = client.get(url).get_data(as_text=True)
+        match = re.search(r"const " + re.escape(json_var) + r"\s*=\s*(\{.*?\});", text, re.S)
+        commercial = json.loads(match.group(1))["comm"]
+        assert commercial["prior_full_units"] == 2
+        assert commercial["prior_full_volume"] == 1_000_000
+        assert commercial["prior_full_gci"] == 35_000
+        assert commercial["ye_units"] >= 2
+        assert commercial["ye_volume"] >= 900_000
+        assert commercial["ye_gci"] >= 27_000
+
+
 def test_commercial_view_renders_rep_section_and_listing_volume_footer(app):
     client = app.test_client()
     login(client, app.test_admin_id)

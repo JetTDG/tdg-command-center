@@ -1,0 +1,45 @@
+{# Requires projection (segment dict) and year. Shared by Home + CEO Summary. #}
+{% macro yoy_badge(value, id) -%}
+  {% if value is none %}
+    <span class="text-muted" id="{{ id }}">—</span>
+  {% elif value >= 0 %}
+    <span class="text-success" id="{{ id }}">▲ {{ value }}%</span>
+  {% else %}
+    <span class="text-danger" id="{{ id }}">▼ {{ value|abs }}%</span>
+  {% endif %}
+{%- endmacro %}
+
+<div class="card mb-4" id="year-end-projection" style="border-top:4px solid var(--tdg-gold);">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start gap-2 mb-3 flex-wrap">
+      <div>
+        <h6 class="fw-bold mb-1">Projected Year-End</h6>
+        <div class="text-muted small">Based on seasonal pace, current closed production, and pending deals without double-counting.</div>
+      </div>
+      <span class="badge rounded-pill text-bg-light border">Full-Year {{ year - 1 }} comparison</span>
+    </div>
+    <div class="row g-3">
+      <div class="col-12 col-md-4">
+        <div class="stat-card h-100" style="background:#fffdf5;">
+          <div class="stat-label">Projected Units</div>
+          <div class="stat-value" id="ye-units">{{ "{:,.0f}".format(projection.ye_units) }}</div>
+          <div class="stat-sub mt-2">Full-Year {{ year - 1 }}: <strong id="ye-prior-units">{{ "{:,.0f}".format(projection.prior_full_units) }}</strong> &nbsp;·&nbsp; {{ yoy_badge(projection.ye_units_yoy_pct, 'ye-units-yoy') }}</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="stat-card h-100" style="background:#fffdf5;">
+          <div class="stat-label">Projected Volume</div>
+          <div class="stat-value" id="ye-volume">${{ "{:,.0f}".format(projection.ye_volume) }}</div>
+          <div class="stat-sub mt-2">Full-Year {{ year - 1 }}: <strong id="ye-prior-volume">${{ "{:,.0f}".format(projection.prior_full_volume) }}</strong> &nbsp;·&nbsp; {{ yoy_badge(projection.ye_volume_yoy_pct, 'ye-volume-yoy') }}</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="stat-card h-100" style="background:#fffdf5;">
+          <div class="stat-label">Projected GCI</div>
+          <div class="stat-value" id="ye-gci">${{ "{:,.0f}".format(projection.ye_gci) }}</div>
+          <div class="stat-sub mt-2">Full-Year {{ year - 1 }}: <strong id="ye-prior-gci">${{ "{:,.0f}".format(projection.prior_full_gci) }}</strong> &nbsp;·&nbsp; {{ yoy_badge(projection.ye_gci_yoy_pct, 'ye-gci-yoy') }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
