@@ -378,6 +378,22 @@ class FubClient:
                 for person in payload.get("people") or []:
                     if person.get("id") is not None:
                         people[int(person["id"])] = person
+        if not people and str(transaction.get("address") or "").strip():
+            params = {"q": str(transaction["address"]).strip(), "limit": 100}
+            seen_tokens = set()
+            for _ in range(5):
+                payload = self._get("/people", params)
+                for person in payload.get("people") or []:
+                    if (
+                        person.get("id") is not None
+                        and address_matches(transaction.get("address"), json.dumps(person.get("addresses") or []))
+                    ):
+                        people[int(person["id"])] = person
+                next_token = (payload.get("_metadata") or {}).get("next")
+                if not next_token or next_token in seen_tokens:
+                    break
+                seen_tokens.add(next_token)
+                params = {**params, "next": next_token}
         notes = []
         for person_id in sorted(people):
             payload = self._get("/notes", {"personId": person_id, "limit": 100})

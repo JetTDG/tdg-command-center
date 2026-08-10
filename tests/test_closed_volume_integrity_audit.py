@@ -94,6 +94,32 @@ def test_future_or_far_from_projected_close_date_fails_closed():
     assert audit.resolve_close_date(future, notes, today=date(2026, 7, 27)) is None
 
 
+def test_fub_lookup_falls_back_to_exact_address_search_when_identity_fields_are_blank(monkeypatch):
+    client = audit.FubClient.__new__(audit.FubClient)
+    calls = []
+
+    def fake_get(endpoint, params):
+        calls.append((endpoint, dict(params)))
+        if endpoint == "/people":
+            return {
+                "people": [
+                    {"id": 10, "addresses": [{"street": "999 Other St"}]},
+                    {"id": 20, "addresses": [{"street": "19434 Saint Aubin St", "city": "Detroit"}]},
+                ],
+                "_metadata": {},
+            }
+        if endpoint == "/notes":
+            assert params["personId"] == 20
+            return {"notes": [{"body": "Closed on 7/2/2026 19434 Saint Aubin Purchase Price $105,000"}]}
+        raise AssertionError((endpoint, params))
+
+    monkeypatch.setattr(client, "_get", fake_get)
+    notes = client.closing_notes(tx(client_name="", fub_id=None, close_date=None))
+
+    assert calls[0] == ("/people", {"q": "19434 Saint Aubin St Detroit MI 48234", "limit": 100})
+    assert [note["person_id"] for note in notes] == [20]
+
+
 def test_duplicate_detection_flags_two_closed_rows_not_lifecycle_predecessor():
     rows = [
         tx(id=1, status="Closed"),

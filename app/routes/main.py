@@ -1531,6 +1531,19 @@ def my_business():
 def add_transaction():
     if request.method == 'POST':
         f = request.form
+        submitted_close_date = _parse_date(f.get('close_date'))
+        if (f.get('status') or '').strip().casefold() == 'closed' and not submitted_close_date:
+            agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
+            statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
+                        'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
+            lead_sources = [r[0] for r in db.session.query(Transaction.lead_source)
+                            .filter(Transaction.lead_source.isnot(None), Transaction.lead_source != '')
+                            .distinct().order_by(Transaction.lead_source).all()]
+            return render_template(
+                'main/transaction_form.html', agents=agents, statuses=statuses,
+                lead_sources=lead_sources, t=None,
+                form_error='Close Date is required when Status is Closed.'
+            ), 400
         t = Transaction(
             agent_id=int(f['agent_id']),
             transaction_type=f['transaction_type'],
@@ -1574,7 +1587,7 @@ def add_transaction():
             expiry_date=_parse_date(f.get('expiry_date')),
             under_contract_date=_parse_date(f.get('contract_date')),
             projected_close_date=_parse_date(f.get('projected_close_date')),
-            close_date=_parse_date(f.get('close_date')),
+            close_date=submitted_close_date,
             inspection_date=_parse_date(f.get('inspection_date')),
             appraisal_date=_parse_date(f.get('appraisal_date')),
             notes=f.get('notes', ''),
@@ -1633,6 +1646,19 @@ def edit_transaction(tid):
     t = Transaction.query.get_or_404(tid)
     if request.method == 'POST':
         f = request.form
+        submitted_close_date = _parse_date(f.get('close_date'))
+        if (f.get('status') or '').strip().casefold() == 'closed' and not submitted_close_date:
+            agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
+            statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
+                        'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
+            lead_sources = [r[0] for r in db.session.query(Transaction.lead_source)
+                            .filter(Transaction.lead_source.isnot(None), Transaction.lead_source != '')
+                            .distinct().order_by(Transaction.lead_source).all()]
+            return render_template(
+                'main/transaction_form.html', agents=agents, statuses=statuses,
+                lead_sources=lead_sources, t=t,
+                form_error='Close Date is required when Status is Closed.'
+            ), 400
 
         # ── Conflict guard: reject save if someone else edited this row since the form opened ──
         opened_at_str = f.get('opened_updated_at', '').strip()
@@ -1696,7 +1722,7 @@ def edit_transaction(tid):
         t.expiry_date = _parse_date(f.get('expiry_date'))
         t.under_contract_date = _parse_date(f.get('contract_date'))
         t.projected_close_date = _parse_date(f.get('projected_close_date'))
-        t.close_date = _parse_date(f.get('close_date'))
+        t.close_date = submitted_close_date
         t.inspection_date = _parse_date(f.get('inspection_date'))
         t.appraisal_date = _parse_date(f.get('appraisal_date'))
         # Derive year/month from close_date → signed_date → today (never from form input)
@@ -1778,6 +1804,11 @@ def patch_transaction(tid):
     try:
         # Capture old value for audit log BEFORE setting new value
         old_val = getattr(t, field, None)
+
+        proposed_status = value.strip() if field == 'status' else (t.status or '')
+        proposed_close_date = None if field == 'close_date' and not value.strip() else t.close_date
+        if proposed_status.casefold() == 'closed' and not proposed_close_date:
+            return jsonify({'error': 'Close Date is required when Status is Closed.'}), 400
 
         # ── Address guard: Active Buyers have no property yet ──────────────
         # Address only makes sense for Buyers once they go Pending (property found).
