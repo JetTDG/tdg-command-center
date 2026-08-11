@@ -1532,7 +1532,8 @@ def add_transaction():
     if request.method == 'POST':
         f = request.form
         submitted_close_date = _parse_date(f.get('close_date'))
-        if (f.get('status') or '').strip().casefold() == 'closed' and not submitted_close_date:
+        missing_fields = _transaction_missing_required_fields(f, submitted_close_date)
+        if missing_fields:
             agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
             statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
                         'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
@@ -1542,7 +1543,7 @@ def add_transaction():
             return render_template(
                 'main/transaction_form.html', agents=agents, statuses=statuses,
                 lead_sources=lead_sources, t=None,
-                form_error='Close Date is required when Status is Closed.'
+                form_error='Save blocked. Missing required fields: ' + ', '.join(missing_fields) + '.'
             ), 400
         t = Transaction(
             agent_id=int(f['agent_id']),
@@ -1647,7 +1648,8 @@ def edit_transaction(tid):
     if request.method == 'POST':
         f = request.form
         submitted_close_date = _parse_date(f.get('close_date'))
-        if (f.get('status') or '').strip().casefold() == 'closed' and not submitted_close_date:
+        missing_fields = _transaction_missing_required_fields(f, submitted_close_date)
+        if missing_fields:
             agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
             statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
                         'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
@@ -1657,7 +1659,7 @@ def edit_transaction(tid):
             return render_template(
                 'main/transaction_form.html', agents=agents, statuses=statuses,
                 lead_sources=lead_sources, t=t,
-                form_error='Close Date is required when Status is Closed.'
+                form_error='Save blocked. Missing required fields: ' + ', '.join(missing_fields) + '.'
             ), 400
 
         # ── Conflict guard: reject save if someone else edited this row since the form opened ──
@@ -4174,6 +4176,20 @@ def _parse_date(val):
         except (ValueError, TypeError):
             continue
     return None
+
+
+def _transaction_missing_required_fields(form, submitted_close_date=None):
+    """Return every missing field that must block a transaction save."""
+    required = (
+        ('agent_id', 'Agent (Primary)'),
+        ('transaction_type', 'Type'),
+        ('status', 'Status'),
+        ('division', 'Division'),
+    )
+    missing = [label for field, label in required if not (form.get(field) or '').strip()]
+    if (form.get('status') or '').strip().casefold() == 'closed' and not submitted_close_date:
+        missing.append('Close Date is required when Status is Closed')
+    return missing
 
 
 def apply_formulas(t, recalc_gci=True,

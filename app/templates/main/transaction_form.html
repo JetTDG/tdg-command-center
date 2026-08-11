@@ -508,14 +508,26 @@ calcAll();
 // ── Required field validation ─────────────────────────────────────────────
 document.getElementById('tx-form').addEventListener('submit', function(e) {
   var errors = [];
+  var firstMissing = null;
   document.querySelectorAll('#tx-form select[data-required]').forEach(function(sel) {
     if (!sel.value || sel.value === '') {
       errors.push(sel.getAttribute('data-required'));
+      if (!firstMissing) firstMissing = sel;
       sel.style.borderColor = '#f87171';
     } else {
       sel.style.borderColor = '';
     }
   });
+  var statusField = document.querySelector('#tx-form select[name="status"]');
+  var closeDateField = document.querySelector('#tx-form input[name="close_date"]');
+  if (statusField && statusField.value.trim().toLowerCase() === 'closed' &&
+      closeDateField && !closeDateField.value) {
+    errors.push('Close Date is required when Status is Closed');
+    if (!firstMissing) firstMissing = closeDateField;
+    closeDateField.style.borderColor = '#f87171';
+  } else if (closeDateField) {
+    closeDateField.style.borderColor = '';
+  }
   if (errors.length > 0) {
     e.preventDefault();
     var alertBox = document.getElementById('tx-validation-alert');
@@ -523,6 +535,7 @@ document.getElementById('tx-form').addEventListener('submit', function(e) {
     list.innerHTML = errors.map(function(f) { return '<li>' + f + '</li>'; }).join('');
     alertBox.style.display = 'block';
     alertBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (firstMissing) firstMissing.focus({ preventScroll: true });
   }
 });
 document.querySelectorAll('#tx-form select[data-required]').forEach(function(sel) {
