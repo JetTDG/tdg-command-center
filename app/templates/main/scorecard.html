@@ -7,7 +7,7 @@
   .sc-section-kicker { color:var(--tdg-gold-dark); font-size:.64rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
   .sc-section-title { font-size:1.12rem; font-weight:750; letter-spacing:-.015em; }
   .sc-section-note { color:var(--tdg-muted); font-size:.7rem; text-align:right; }
-  .sc-business-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.8rem; }
+  .sc-business-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; }
   .sc-business-card { display:block; min-height:118px; padding:.9rem 1rem; background:#fff; border:1px solid var(--tdg-border); border-top:3px solid var(--tdg-gold); border-radius:10px; box-shadow:var(--shadow-card); color:inherit; text-decoration:none; transition:transform .12s,box-shadow .12s,border-color .12s; }
   .sc-business-card:hover,.sc-business-card:focus { color:inherit; transform:translateY(-1px); border-color:#d8c681; box-shadow:var(--shadow-md); }
   .sc-business-card.projected { background:#fffdf6; }
@@ -124,9 +124,13 @@
       <div class="sc-business-label"><span><i class="bi bi-check-circle-fill text-success me-1"></i>Closed YTD</span><span class="sc-business-hint">View {{ ytd_units }} deals ›</span></div>
       <div class="sc-metrics"><div class="sc-metric"><div class="sc-metric-label">Units</div><div class="sc-metric-value">{{ ytd_units }}</div></div><div class="sc-metric"><div class="sc-metric-label">Volume</div><div class="sc-metric-value" title="${{ '{:,.0f}'.format(ytd_volume) }}">{{ compact_money(ytd_volume) }}</div></div><div class="sc-metric"><div class="sc-metric-label">GCI to agent</div><div class="sc-metric-value" title="${{ '{:,.0f}'.format(ytd_income) }}">{{ compact_money(ytd_income) }}</div></div></div>
     </a>
-    <a href="#" class="sc-business-card sc-drill-link" data-type="pipeline" aria-label="View active pipeline" title="Pending under contract: ${{ '{:,.0f}'.format(w_pending_volume) }} volume · ${{ '{:,.0f}'.format(w_pending_income) }} GCI to agent">
-      <div class="sc-business-label"><span><i class="bi bi-hourglass-split me-1" style="color:#b45309;"></i>Active Pipeline</span><span class="sc-business-hint">View {{ active_pipeline_units }} live deals ›</span></div>
-      <div class="sc-metrics"><div class="sc-metric"><div class="sc-metric-label">Units</div><div class="sc-metric-value">{{ active_pipeline_units }}</div></div><div class="sc-metric"><div class="sc-metric-label">Volume</div><div class="sc-metric-value" title="${{ '{:,.0f}'.format(active_pipeline_volume) }}">{{ compact_money(active_pipeline_volume) }}</div></div><div class="sc-metric"><div class="sc-metric-label">GCI to agent</div><div class="sc-metric-value" title="${{ '{:,.0f}'.format(active_pipeline_income) }}">{{ compact_money(active_pipeline_income) }}</div></div></div>
+    <a href="#" class="sc-business-card sc-drill-link" data-type="pending" aria-label="View under-contract deals">
+      <div class="sc-business-label"><span><i class="bi bi-file-earmark-check-fill me-1" style="color:#b45309;"></i>Under Contract</span><span class="sc-business-hint">View {{ pending_units }} deal{{ '' if pending_units == 1 else 's' }} ›</span></div>
+      <div class="sc-metrics"><div class="sc-metric"><div class="sc-metric-label">Units</div><div class="sc-metric-value">{{ pending_units }}</div></div><div class="sc-metric"><div class="sc-metric-label">Volume</div><div class="sc-metric-value" title="${{ '{:,.0f}'.format(pending_volume) }}">{{ compact_money(pending_volume) }}</div></div><div class="sc-metric"><div class="sc-metric-label">GCI to agent</div><div class="sc-metric-value" title="${{ '{:,.0f}'.format(pending_income) }}">{{ compact_money(pending_income) }}</div></div></div>
+    </a>
+    <a href="#" class="sc-business-card sc-drill-link" data-type="pipeline" aria-label="View active buyer and seller pipeline">
+      <div class="sc-business-label"><span><i class="bi bi-people-fill me-1" style="color:#b45309;"></i>Active Buyer &amp; Seller Pipeline</span><span class="sc-business-hint">View {{ active_pipeline_units }} active clients ›</span></div>
+      <div class="sc-metrics"><div class="sc-metric"><div class="sc-metric-label">Buyers</div><div class="sc-metric-value" data-active-pipeline-metric="buyers">{{ active_pipeline_buyers }}</div></div><div class="sc-metric"><div class="sc-metric-label">Sellers</div><div class="sc-metric-value" data-active-pipeline-metric="sellers">{{ active_pipeline_sellers }}</div></div><div class="sc-metric"><div class="sc-metric-label">Total</div><div class="sc-metric-value" data-active-pipeline-metric="total">{{ active_pipeline_units }}</div></div></div>
     </a>
     <button type="button" class="sc-business-card projected text-start" data-bs-toggle="collapse" data-bs-target="#projection-method" aria-expanded="false" aria-controls="projection-method">
       <div class="sc-business-label"><span><i class="bi bi-star-fill me-1" style="color:var(--tdg-gold);"></i>Projected Year-End</span><span class="sc-business-hint">How calculated ›</span></div>
@@ -324,7 +328,7 @@
 const SC_AGENT_ID={{ agent.id }};
 const SC_YEAR={{ year }};
 const SC_DIVISION={{ division|tojson }};
-const DRILL_LABELS={self_gen:'Self-Gen (SOI) — Rolling 12 Months',team_lead:'Company Lead Deals — Rolling 12 Months',closed:'Closed Deals — {{ year }}',pending:'Pending Deals — {{ year }}',pipeline:'Active Pipeline — {{ year }}'};
+const DRILL_LABELS={self_gen:'Self-Gen (SOI) — Rolling 12 Months',team_lead:'Company Lead Deals — Rolling 12 Months',closed:'Closed Deals — {{ year }}',pending:'Under Contract — {{ year }}',pipeline:'Active Buyer & Seller Pipeline — {{ year }}'};
 function closeScDrawer(){document.getElementById('sc-drawer-overlay').style.display='none';document.getElementById('sc-drawer').classList.remove('open');}
 function openScDrawer(type){const overlay=document.getElementById('sc-drawer-overlay'),drawer=document.getElementById('sc-drawer'),title=document.getElementById('sc-drawer-title'),body=document.getElementById('sc-drawer-body');title.textContent=DRILL_LABELS[type]||type;body.innerHTML='<div class="text-center py-5 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>';overlay.style.display='block';drawer.classList.add('open');fetch(`/scorecard/${SC_AGENT_ID}/drill?type=${encodeURIComponent(type)}&year=${SC_YEAR}&division=${encodeURIComponent(SC_DIVISION)}`).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(renderScDrawer).catch(()=>{body.innerHTML='<div class="text-danger p-3">Failed to load data.</div>'});}
 function escapeHtml(value){const div=document.createElement('div');div.textContent=value??'';return div.innerHTML;}

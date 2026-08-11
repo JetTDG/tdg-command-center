@@ -3269,18 +3269,21 @@ def scorecard(agent_id):
             income += t.member4_gci or 0
         return income
 
-    # ── Pipeline (open deals) ────────────────────────────────────────────────
+    # ── Transaction and client pipeline populations ─────────────────────────
+    # Pending is committed, under-contract business. Active buyer/seller rows
+    # are a separate client pipeline and must not inflate under-contract dollars.
     pipeline_txns = [t for t in all_txns if t.status not in SCORECARD_TERMINAL_STATUSES]
-    closed_txns   = [t for t in all_txns if t.status == 'Closed']
-    active_pipeline_units = len(pipeline_txns)
-    if division == 'Luxury':
-        active_pipeline_volume = sum(
-            effective_luxury_price(t.status, t.sale_price, t.list_price)
-            for t in pipeline_txns
-        )
-    else:
-        active_pipeline_volume = sum((t.sale_price or t.list_price or 0) for t in pipeline_txns)
-    active_pipeline_income = sum(agent_income(t) for t in pipeline_txns)
+    closed_txns = [t for t in all_txns if t.status == 'Closed']
+    active_buyer_types = {'Buyer', 'CRE Buyer', 'CRE Tenant Rep'}
+    active_seller_types = {'Listing', 'CRE Listing', 'CRE Landlord Rep', 'CRE Business Only'}
+    active_client_txns = [
+        t for t in all_txns
+        if t.status == 'Active'
+        and t.transaction_type in active_buyer_types | active_seller_types
+    ]
+    active_pipeline_buyers = sum(t.transaction_type in active_buyer_types for t in active_client_txns)
+    active_pipeline_sellers = sum(t.transaction_type in active_seller_types for t in active_client_txns)
+    active_pipeline_units = len(active_client_txns)
 
     # ── YTD Summary ──────────────────────────────────────────────────────────
     ytd_units  = len(closed_txns)
@@ -3621,8 +3624,8 @@ def scorecard(agent_id):
         pending_volume=pending_volume,
         pending_income=pending_income,
         active_pipeline_units=active_pipeline_units,
-        active_pipeline_volume=active_pipeline_volume,
-        active_pipeline_income=active_pipeline_income,
+        active_pipeline_buyers=active_pipeline_buyers,
+        active_pipeline_sellers=active_pipeline_sellers,
         w_pending_units=w_pending_units,
         w_pending_volume=w_pending_volume,
         w_pending_income=w_pending_income,
@@ -3755,7 +3758,13 @@ def scorecard_drill(agent_id):
         if drill_type == 'pending':
             q = q.filter(Transaction.status == 'Pending')
         else:
-            q = q.filter(Transaction.status.notin_(SCORECARD_TERMINAL_STATUSES))
+            q = q.filter(
+                Transaction.status == 'Active',
+                Transaction.transaction_type.in_([
+                    'Buyer', 'Listing', 'CRE Buyer', 'CRE Tenant Rep',
+                    'CRE Listing', 'CRE Landlord Rep', 'CRE Business Only',
+                ]),
+            )
         q = apply_segment_filter(q, division)
         txns = q.order_by(Transaction.projected_close_date.asc()).all()
 

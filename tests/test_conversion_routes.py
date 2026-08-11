@@ -548,7 +548,7 @@ def test_scorecard_client_activity_previews_accountability_rows_and_separates_of
     assert "align-items:start" in text_out
 
 
-def test_active_pipeline_drill_includes_live_non_pending_statuses(app):
+def test_scorecard_separates_under_contract_from_active_buyer_seller_pipeline(app):
     from app import db
     from app.models import Transaction
 
@@ -557,7 +557,12 @@ def test_active_pipeline_drill_includes_live_non_pending_statuses(app):
             Transaction(
                 agent_id=app.test_ids["a1"], transaction_type="Listing", status="Active",
                 year=2026, archived=False, is_import_duplicate=False,
-                client_name="Active Listing", address="10 Live St", list_price=450000,
+                client_name="Active Seller", address="10 Live St", list_price=450000,
+            ),
+            Transaction(
+                agent_id=app.test_ids["a1"], transaction_type="Buyer", status="Active",
+                year=2026, archived=False, is_import_duplicate=False,
+                client_name="Active Buyer", address="15 Search St", list_price=400000,
             ),
             Transaction(
                 agent_id=app.test_ids["a1"], transaction_type="Buyer", status="Pending",
@@ -589,11 +594,23 @@ def test_active_pipeline_drill_includes_live_non_pending_statuses(app):
 
     client = app.test_client()
     login(client, app.test_ids["admin"])
-    response = client.get(f"/scorecard/{app.test_ids['a1']}/drill?type=pipeline&year=2026")
-    payload = response.get_json()
+    active_response = client.get(f"/scorecard/{app.test_ids['a1']}/drill?type=pipeline&year=2026")
+    pending_response = client.get(f"/scorecard/{app.test_ids['a1']}/drill?type=pending&year=2026")
+    active_payload = active_response.get_json()
+    pending_payload = pending_response.get_json()
     scorecard = client.get(f"/scorecard/{app.test_ids['a1']}?year=2026")
+    text_out = scorecard.get_data(as_text=True)
 
-    assert response.status_code == 200
-    assert payload["count"] == 2
-    assert {row["status"] for row in payload["deals"]} == {"Active", "Pending"}
-    assert b"View 2 live deals" in scorecard.data
+    assert active_response.status_code == 200
+    assert active_payload["count"] == 2
+    assert {row["client"] for row in active_payload["deals"]} == {"Active Buyer", "Active Seller"}
+    assert {row["status"] for row in active_payload["deals"]} == {"Active"}
+    assert pending_response.status_code == 200
+    assert pending_payload["count"] == 1
+    assert {row["client"] for row in pending_payload["deals"]} == {"Pending Buyer"}
+    assert "Under Contract" in text_out
+    assert "Active Buyer &amp; Seller Pipeline" in text_out
+    assert 'data-active-pipeline-metric="buyers">1</div>' in text_out
+    assert 'data-active-pipeline-metric="sellers">1</div>' in text_out
+    assert "View 1 deal" in text_out
+    assert "View 2 active clients" in text_out
