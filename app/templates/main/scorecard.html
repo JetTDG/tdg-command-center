@@ -332,7 +332,54 @@ const DRILL_LABELS={self_gen:'Self-Gen (SOI) — Rolling 12 Months',team_lead:'C
 function closeScDrawer(){document.getElementById('sc-drawer-overlay').style.display='none';document.getElementById('sc-drawer').classList.remove('open');}
 function openScDrawer(type){const overlay=document.getElementById('sc-drawer-overlay'),drawer=document.getElementById('sc-drawer'),title=document.getElementById('sc-drawer-title'),body=document.getElementById('sc-drawer-body');title.textContent=DRILL_LABELS[type]||type;body.innerHTML='<div class="text-center py-5 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>';overlay.style.display='block';drawer.classList.add('open');fetch(`/scorecard/${SC_AGENT_ID}/drill?type=${encodeURIComponent(type)}&year=${SC_YEAR}&division=${encodeURIComponent(SC_DIVISION)}`).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(renderScDrawer).catch(()=>{body.innerHTML='<div class="text-danger p-3">Failed to load data.</div>'});}
 function escapeHtml(value){const div=document.createElement('div');div.textContent=value??'';return div.innerHTML;}
-function renderScDrawer(data){const body=document.getElementById('sc-drawer-body');if(!data.deals||!data.deals.length){body.innerHTML='<div class="text-center text-muted py-5">No deals found.</div>';return;}const isPipeline=data.drill_type==='pending'||data.drill_type==='pipeline';let html=`<div class="d-flex flex-wrap gap-2 p-3"><span class="badge rounded-pill" style="background:var(--tdg-gold);color:#1a1a2e;">${data.count} deal${data.count===1?'':'s'}</span><span class="badge rounded-pill bg-success">Agent GCI ${escapeHtml(data.total_income)}</span></div><div class="table-responsive"><table class="table table-hover table-sm mb-0" style="font-size:.78rem;min-width:680px"><thead><tr><th>Client / Address</th><th>Type</th><th>Status</th><th>Source</th><th class="text-end">Agent GCI</th><th class="text-end">Sale Price</th><th>${isPipeline?'Proj. Close':'Close Date'}</th></tr></thead><tbody>`;for(const d of data.deals){html+=`<tr><td><strong>${escapeHtml(d.client)}</strong><div class="text-muted small">${escapeHtml(d.address)}</div></td><td>${escapeHtml(d.type)}</td><td>${escapeHtml(d.status)}</td><td>${escapeHtml(d.source)}</td><td class="text-end fw-semibold">${escapeHtml(d.agent_gci)}</td><td class="text-end">${escapeHtml(d.sale_price)}</td><td>${escapeHtml(isPipeline?d.proj_close:d.close_date)}</td></tr>`;}body.innerHTML=html+'</tbody></table></div>';}
+function applyScDrawerFilters(){
+  const table=document.getElementById('sc-drill-table');
+  if(!table)return;
+  const filters=[...table.querySelectorAll('[data-filter-column]')];
+  const rows=[...table.tBodies[0].rows];
+  let visible=0;
+  for(const row of rows){
+    const matches=filters.every((input,index)=>{
+      const query=input.value.trim().toLocaleLowerCase();
+      return !query||row.cells[index].textContent.toLocaleLowerCase().includes(query);
+    });
+    row.hidden=!matches;
+    if(matches)visible++;
+  }
+  const count=document.getElementById('sc-filter-count');
+  if(count)count.textContent=visible===rows.length?`${rows.length} deal${rows.length===1?'':'s'}`:`${visible} of ${rows.length} deals`;
+  const empty=document.getElementById('sc-filter-empty');
+  if(empty)empty.hidden=visible!==0;
+}
+function clearScDrawerFilters(){
+  document.querySelectorAll('#sc-drill-table [data-filter-column]').forEach(input=>{input.value='';});
+  applyScDrawerFilters();
+}
+function renderScDrawer(data){
+  const body=document.getElementById('sc-drawer-body');
+  if(!data.deals||!data.deals.length){body.innerHTML='<div class="text-center text-muted py-5">No deals found.</div>';return;}
+  const isPipeline=data.drill_type==='pending'||data.drill_type==='pipeline';
+  const columns=[
+    ['client_address','Client / Address'],['type','Type'],['status','Status'],['source','Source'],
+    ['agent_gci','Agent GCI'],['sale_price','Sale Price'],['date',isPipeline?'Proj. Close':'Close Date'],
+  ];
+  let html=`<div class="d-flex flex-wrap align-items-center gap-2 p-3"><span id="sc-filter-count" class="badge rounded-pill" style="background:var(--tdg-gold);color:#1a1a2e;">${data.count} deal${data.count===1?'':'s'}</span><span class="badge rounded-pill bg-success">Agent GCI ${escapeHtml(data.total_income)}</span><button id="sc-clear-filters" type="button" class="btn btn-sm btn-outline-secondary ms-auto">Clear filters</button></div><div class="table-responsive"><table id="sc-drill-table" class="table table-hover table-sm mb-0" style="font-size:.78rem;min-width:680px"><thead><tr>`;
+  for(const [key,label] of columns){
+    const numeric=key==='agent_gci'||key==='sale_price';
+    html+=`<th${numeric?' class="text-end"':''}>${escapeHtml(label)}</th>`;
+  }
+  html+='</tr><tr class="sc-filter-row">';
+  for(const [key,label] of columns){
+    html+=`<th><input type="search" class="form-control form-control-sm sc-column-filter" data-filter-column="${key}" aria-label="Filter ${escapeHtml(label)}" placeholder="Filter" autocomplete="off"></th>`;
+  }
+  html+='</tr></thead><tbody>';
+  for(const d of data.deals){
+    html+=`<tr><td><strong>${escapeHtml(d.client)}</strong><div class="text-muted small">${escapeHtml(d.address)}</div></td><td>${escapeHtml(d.type)}</td><td>${escapeHtml(d.status)}</td><td>${escapeHtml(d.source)}</td><td class="text-end fw-semibold">${escapeHtml(d.agent_gci)}</td><td class="text-end">${escapeHtml(d.sale_price)}</td><td>${escapeHtml(isPipeline?d.proj_close:d.close_date)}</td></tr>`;
+  }
+  body.innerHTML=html+'</tbody></table><div id="sc-filter-empty" class="text-center text-muted py-4" hidden>No deals match these filters.</div></div>';
+  body.querySelectorAll('[data-filter-column]').forEach(input=>input.addEventListener('input',applyScDrawerFilters));
+  document.getElementById('sc-clear-filters').addEventListener('click',clearScDrawerFilters);
+}
 document.addEventListener('click',e=>{const link=e.target.closest('.sc-drill-link');if(link){e.preventDefault();openScDrawer(link.dataset.type);}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeScDrawer();});
 (function(){const btn=document.getElementById('zillow-toggle'),panel=document.getElementById('zillow-detail-panel'),chevron=document.getElementById('zillow-chevron');if(!btn||!panel)return;let loaded=false;btn.addEventListener('click',async()=>{const opening=panel.hidden;panel.hidden=!opening;btn.setAttribute('aria-expanded',String(opening));chevron.className='bi '+(opening?'bi-chevron-up':'bi-chevron-down');if(opening&&!loaded){try{const response=await fetch('{{ url_for("main.scorecard_zillow_detail",agent_id=agent.id) }}',{credentials:'same-origin'});if(!response.ok)throw new Error(response.status);panel.innerHTML=await response.text();loaded=true;}catch(_){panel.innerHTML='<div class="alert alert-danger m-3">Unable to load Zillow details. Please refresh and try again.</div>';}}});})();

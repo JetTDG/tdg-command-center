@@ -621,3 +621,12 @@ def test_scorecard_separates_under_contract_from_active_buyer_seller_pipeline(ap
     assert 'data-active-pipeline-metric="sellers">2</div>' in text_out
     assert "View 1 deal" in text_out
     assert "View 3 active clients" in text_out
+    # Every visible drill-down column is configured for its own client-side filter.
+    for column in (
+        "client_address", "type", "status", "source",
+        "agent_gci", "sale_price", "date",
+    ):
+        assert f"['{column}'," in text_out
+    assert 'data-filter-column="${key}"' in text_out
+    assert "function applyScDrawerFilters()" in text_out
+    assert "Clear filters" in text_out
