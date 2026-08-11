@@ -3277,8 +3277,8 @@ def scorecard(agent_id):
     active_buyer_types = {'Buyer', 'CRE Buyer', 'CRE Tenant Rep'}
     active_seller_types = {'Listing', 'CRE Listing', 'CRE Landlord Rep', 'CRE Business Only'}
     active_client_txns = [
-        t for t in all_txns
-        if t.status == 'Active'
+        t for t in pipeline_txns
+        if t.status != 'Pending'
         and t.transaction_type in active_buyer_types | active_seller_types
     ]
     active_pipeline_buyers = sum(t.transaction_type in active_buyer_types for t in active_client_txns)
@@ -3759,7 +3759,8 @@ def scorecard_drill(agent_id):
             q = q.filter(Transaction.status == 'Pending')
         else:
             q = q.filter(
-                Transaction.status == 'Active',
+                Transaction.status.notin_(SCORECARD_TERMINAL_STATUSES),
+                Transaction.status != 'Pending',
                 Transaction.transaction_type.in_([
                     'Buyer', 'Listing', 'CRE Buyer', 'CRE Tenant Rep',
                     'CRE Listing', 'CRE Landlord Rep', 'CRE Business Only',

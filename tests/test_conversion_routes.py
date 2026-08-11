@@ -565,6 +565,11 @@ def test_scorecard_separates_under_contract_from_active_buyer_seller_pipeline(ap
                 client_name="Active Buyer", address="15 Search St", list_price=400000,
             ),
             Transaction(
+                agent_id=app.test_ids["a1"], transaction_type="Listing", status="Pre-Signed",
+                year=2026, archived=False, is_import_duplicate=False,
+                client_name="Pre-Signed Seller", address="17 Prep St", list_price=425000,
+            ),
+            Transaction(
                 agent_id=app.test_ids["a1"], transaction_type="Buyer", status="Pending",
                 year=2026, archived=False, is_import_duplicate=False,
                 client_name="Pending Buyer", address="20 Contract St", sale_price=350000,
@@ -602,15 +607,17 @@ def test_scorecard_separates_under_contract_from_active_buyer_seller_pipeline(ap
     text_out = scorecard.get_data(as_text=True)
 
     assert active_response.status_code == 200
-    assert active_payload["count"] == 2
-    assert {row["client"] for row in active_payload["deals"]} == {"Active Buyer", "Active Seller"}
-    assert {row["status"] for row in active_payload["deals"]} == {"Active"}
+    assert active_payload["count"] == 3
+    assert {row["client"] for row in active_payload["deals"]} == {
+        "Active Buyer", "Active Seller", "Pre-Signed Seller",
+    }
+    assert {row["status"] for row in active_payload["deals"]} == {"Active", "Pre-Signed"}
     assert pending_response.status_code == 200
     assert pending_payload["count"] == 1
     assert {row["client"] for row in pending_payload["deals"]} == {"Pending Buyer"}
     assert "Under Contract" in text_out
     assert "Active Buyer &amp; Seller Pipeline" in text_out
     assert 'data-active-pipeline-metric="buyers">1</div>' in text_out
-    assert 'data-active-pipeline-metric="sellers">1</div>' in text_out
+    assert 'data-active-pipeline-metric="sellers">2</div>' in text_out
     assert "View 1 deal" in text_out
-    assert "View 2 active clients" in text_out
+    assert "View 3 active clients" in text_out
