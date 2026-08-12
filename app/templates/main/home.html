@@ -62,7 +62,7 @@
   </div>
   <div class="col-6 col-md-3">
     <div class="stat-card h-100">
-      <div class="stat-label">Closed GCI</div>
+      <div class="stat-label">Closed Company GCI / Revenue</div>
       <div class="stat-value"><button type="button" class="transaction-drill-number" id="k-ytd-gci" data-luxury-drill="closed" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">${{ "{:,.0f}".format(ytd_gci) }}</button></div>
       <div class="stat-sub">YTD &nbsp;|&nbsp; MTD: $<span id="k-month-gci">{{ "{:,.0f}".format(month_gci) }}</span></div>
     </div>
@@ -89,7 +89,7 @@
   </div>
   <div class="col-12 col-md-4">
     <div class="stat-card h-100">
-      <div class="stat-label">Pending GCI</div>
+      <div class="stat-label">Pending Company GCI / Revenue</div>
       <div class="stat-value"><button type="button" class="transaction-drill-number" id="k-pending-gci" data-luxury-drill="pending" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">${{ "{:,.0f}".format(pending_gci) }}</button></div>
       <div class="stat-sub"><span id="k-pending-count2">{{ pending_count }}</span> deals in pending</div>
     </div>
@@ -98,7 +98,7 @@
     <div class="stat-card h-100">
       <div class="stat-label">Pre-Signed Pipeline</div>
       <div class="stat-value"><button type="button" class="transaction-drill-number" id="k-presigned" data-luxury-drill="presigned" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">{{ presigned_count }}</button></div>
-      <div class="stat-sub"><button type="button" class="transaction-drill-number" data-luxury-drill="presigned" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">$<span id="k-presigned-gci">{{ "{:,.0f}".format(presigned_gci) }}</span></button> projected GCI</div>
+      <div class="stat-sub"><button type="button" class="transaction-drill-number" data-luxury-drill="presigned" data-drill-surface="home" data-drill-year="{{ year }}" aria-disabled="true">$<span id="k-presigned-gci">{{ "{:,.0f}".format(presigned_gci) }}</span></button> projected company revenue</div>
     </div>
   </div>
 </div>
@@ -189,7 +189,7 @@
   <div class="col-lg-7">
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span id="chart-title">GCI Trend — Full Year {{ year }} — Combined</span>
+        <span id="chart-title">Company GCI / Revenue Trend — Full Year {{ year }} — Combined</span>
         <!-- Metric-only toggle here; segment controlled globally above -->
         <div class="btn-group btn-group-sm" role="group">
           <button type="button" class="btn btn-outline-secondary" id="btn-gci" onclick="setMetric('gci')">GCI</button>
@@ -389,7 +389,7 @@ function refreshChart() {
   const d = data[metric][segment];
   chart.data.datasets[0].data = d.closed;
   chart.data.datasets[1].data = d.pending;
-  const mLabel = metric==='gci' ? 'GCI' : metric==='vol' ? 'Volume' : 'Units';
+  const mLabel = metric==='gci' ? 'Company GCI / Revenue' : metric==='vol' ? 'Volume' : 'Units';
   const sLabel = segment==='combined' ? 'Combined' : segment==='res' ? 'Residential' : segment==='comm' ? 'Commercial' : 'Luxury';
   document.getElementById('chart-title').textContent = `${mLabel} Trend — Full Year {{ year }} — ${sLabel}`;
   chart.options.scales.y.ticks.callback = v => metric==='units' ? v : '$'+fmt(v);

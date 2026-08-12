@@ -275,8 +275,8 @@ def test_home_groups_every_existing_card_around_units_volume_and_gci(app):
     text = client.get("/home").get_data(as_text=True)
 
     expected_groups = {
-        'id="home-kpi-closed"': ["Closed Units", "Closed Volume", "Closed GCI", "Goal Progress"],
-        'id="home-kpi-pipeline"': ["Pending (Projected)", "Pending GCI", "Pre-Signed Pipeline"],
+        'id="home-kpi-closed"': ["Closed Units", "Closed Volume", "Closed Company GCI / Revenue", "Goal Progress"],
+        'id="home-kpi-pipeline"': ["Pending (Projected)", "Pending Company GCI / Revenue", "Pre-Signed Pipeline"],
         'id="home-kpi-representation"': ["Listings Signed", "Active Listings", "Buyers Signed", "Active Buyers"],
         'id="home-kpi-offers"': ["Offers Out", "Acceptance Rate MTD"],
     }
@@ -292,7 +292,7 @@ def test_home_groups_every_existing_card_around_units_volume_and_gci(app):
     assert 'id="k-ytd-volume"' in text
     assert 'id="k-month-volume"' in text
     for preserved_label in (
-        "Goal Progress", "Pending (Projected)", "Pending GCI", "Pre-Signed Pipeline",
+        "Goal Progress", "Pending (Projected)", "Pending Company GCI / Revenue", "Pre-Signed Pipeline",
         "Listings Signed", "Active Listings", "Buyers Signed", "Active Buyers",
         "Offers Out", "Acceptance Rate MTD",
     ):

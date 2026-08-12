@@ -81,6 +81,8 @@ def app(tmp_path, monkeypatch):
                 address="50 Closed St",
                 close_date=date(2026, 7, 1),
                 sale_price=400000,
+                gci=10000,
+                transaction_fee=595,
                 primary_agent_gci=8000,
             ),
             Transaction(
@@ -142,6 +144,7 @@ def test_home_live_kpis_exclude_canonical_terminal_statuses(app):
     assert kpi["pending_count"] == 1
     assert kpi["presigned_count"] == 1
     assert kpi["ytd_closed"] == 1
+    assert kpi["ytd_gci"] == 10595
 
 
 def test_my_business_summary_excludes_terminal_statuses_from_live_counts(app):
@@ -181,6 +184,7 @@ def test_ceo_summary_and_leaderboard_use_only_closed_and_pending(app):
     assert response.status_code == 200
     assert combined["ytd_units"] == 1
     assert combined["proj_units"] == 1
+    assert combined["ytd_gci"] == 10595
 
     with app.app_context():
         closed = _build_leaderboard(2026, ["Closed"])

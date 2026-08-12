@@ -40,7 +40,12 @@ from app.models import (
 )
 from app.conversion_stats import get_blended_defaults
 from app.conversion import aggregate_funnel, classify_lead, safe_rate
-from app.transaction_metrics import recognized_volume, seasonal_year_end_projection
+from app.transaction_metrics import (
+    company_revenue,
+    company_revenue_expression,
+    recognized_volume,
+    seasonal_year_end_projection,
+)
 from app.luxury import (
     apply_segment_filter,
     effective_luxury_price,
@@ -165,14 +170,14 @@ def _team_year_end_projection_segments(year, as_of=None):
             month_index = row.close_date.month - 1
             seasonal_units[month_index] += 1
             seasonal_volume[month_index] += row_volume(row, segment)
-            seasonal_gci[month_index] += float(row.gci or 0)
+            seasonal_gci[month_index] += company_revenue(row)
 
         closed_units = len(closed)
         closed_volume = sum(row_volume(row, segment) for row in closed)
-        closed_gci = sum(float(row.gci or 0) for row in closed)
+        closed_gci = sum(company_revenue(row) for row in closed)
         pending_units = len(pending)
         pending_volume = sum(row_volume(row, segment, pending=True) for row in pending)
-        pending_gci = sum(float(row.gci or 0) for row in pending)
+        pending_gci = sum(company_revenue(row) for row in pending)
 
         ye_units = round(seasonal_year_end_projection(
             closed_units, pending_units, seasonal_units, year, as_of
@@ -185,7 +190,7 @@ def _team_year_end_projection_segments(year, as_of=None):
         ))
         prior_full_units = len(prior)
         prior_full_volume = round(sum(row_volume(row, segment) for row in prior))
-        prior_full_gci = round(sum(float(row.gci or 0) for row in prior))
+        prior_full_gci = round(sum(company_revenue(row) for row in prior))
 
         result[segment] = {
             'ye_units': ye_units,
@@ -284,7 +289,7 @@ def home():
         return _div_filter(q, division_filter).count()
 
     def mtd_closed_gci(division_filter=None):
-        q = db.session.query(func.sum(Transaction.gci)).filter(
+        q = db.session.query(func.sum(company_revenue_expression(Transaction))).filter(
             Transaction.archived == False,
             Transaction.status == 'Closed',
             Transaction.close_date >= mtd_start,
@@ -293,7 +298,7 @@ def home():
         return float(_div_filter(q, division_filter).scalar() or 0)
 
     ytd_closed = closed_q_base().count()
-    ytd_gci    = closed_sum_base(Transaction.gci)
+    ytd_gci    = closed_sum_base(company_revenue_expression(Transaction))
     ytd_volume = closed_volume_sum_base(ytd_start, ytd_end)
     month_closed = mtd_closed_count()
     month_gci    = mtd_closed_gci()
@@ -319,7 +324,7 @@ def home():
         return _div_filter(q, division_filter).count()
 
     def pending_gci_q(division_filter=None):
-        q = db.session.query(func.sum(Transaction.gci)).filter(
+        q = db.session.query(func.sum(company_revenue_expression(Transaction))).filter(
             Transaction.archived == False,
             Transaction.status == 'Pending',
             Transaction.projected_close_date.isnot(None),
@@ -349,9 +354,9 @@ def home():
     # Commercial  = status 'Coming Soon' (division='Commercial')
     # Combined    = both
     presigned_count_res  = Transaction.query.filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.status.in_(['Pre-Signed','Signed','Coming Soon'])).count()
-    presigned_gci_res    = float(db.session.query(func.sum(Transaction.gci)).filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.status.in_(['Pre-Signed','Signed','Coming Soon'])).scalar() or 0)
+    presigned_gci_res    = float(db.session.query(func.sum(company_revenue_expression(Transaction))).filter(Transaction.archived==False, Transaction.division=='Residential', Transaction.status.in_(['Pre-Signed','Signed','Coming Soon'])).scalar() or 0)
     presigned_count_comm = Transaction.query.filter_by(status='Coming Soon', archived=False, division='Commercial').count()
-    presigned_gci_comm   = float(db.session.query(func.sum(Transaction.gci)).filter_by(status='Coming Soon', archived=False, division='Commercial').scalar() or 0)
+    presigned_gci_comm   = float(db.session.query(func.sum(company_revenue_expression(Transaction))).filter_by(status='Coming Soon', archived=False, division='Commercial').scalar() or 0)
     presigned_count = presigned_count_res + presigned_count_comm
     presigned_gci   = presigned_gci_res + presigned_gci_comm
 
@@ -470,7 +475,7 @@ def home():
         'res': {
             'ytd_closed':           closed_q_base(division_filter='Residential').count(),
             'ytd_volume':           closed_volume_sum_base(ytd_start, ytd_end, division_filter='Residential'),
-            'ytd_gci':              closed_sum_base(Transaction.gci, division_filter='Residential'),
+            'ytd_gci':              closed_sum_base(company_revenue_expression(Transaction), division_filter='Residential'),
             'month_volume':         closed_volume_sum_base(mtd_start, mtd_end, division_filter='Residential'),
             'month_gci':            mtd_closed_gci(division_filter='Residential'),
             'month_closed':         mtd_closed_count(division_filter='Residential'),
@@ -500,7 +505,7 @@ def home():
         'comm': {
             'ytd_closed':           closed_q_base(division_filter='Commercial').count(),
             'ytd_volume':           closed_volume_sum_base(ytd_start, ytd_end, division_filter='Commercial'),
-            'ytd_gci':              closed_sum_base(Transaction.gci, division_filter='Commercial'),
+            'ytd_gci':              closed_sum_base(company_revenue_expression(Transaction), division_filter='Commercial'),
             'month_volume':         closed_volume_sum_base(mtd_start, mtd_end, division_filter='Commercial'),
             'month_gci':            mtd_closed_gci(division_filter='Commercial'),
             'month_closed':         mtd_closed_count(division_filter='Commercial'),
@@ -530,7 +535,7 @@ def home():
         'luxury': {
             'ytd_closed':           closed_q_base(division_filter='Luxury').count(),
             'ytd_volume':           closed_volume_sum_base(ytd_start, ytd_end, division_filter='Luxury'),
-            'ytd_gci':              closed_sum_base(Transaction.gci, division_filter='Luxury'),
+            'ytd_gci':              closed_sum_base(company_revenue_expression(Transaction), division_filter='Luxury'),
             'month_volume':         closed_volume_sum_base(mtd_start, mtd_end, division_filter='Luxury'),
             'month_gci':            mtd_closed_gci(division_filter='Luxury'),
             'month_closed':         mtd_closed_count(division_filter='Luxury'),
@@ -555,7 +560,7 @@ def home():
             'offers_ytd':           0,
             'acceptance_rate_ytd':  0.0,
             'presigned_count':      Transaction.query.filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.status.in_(['Pre-Signed','Signed','Coming Soon'])).count(),
-            'presigned_gci':        float(db.session.query(func.sum(Transaction.gci)).filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.status.in_(['Pre-Signed','Signed','Coming Soon'])).scalar() or 0),
+            'presigned_gci':        float(db.session.query(func.sum(company_revenue_expression(Transaction))).filter(Transaction.archived==False, sql_luxury_predicate(), Transaction.status.in_(['Pre-Signed','Signed','Coming Soon'])).scalar() or 0),
         },
     }
     projection_segments = _team_year_end_projection_segments(year)
@@ -611,7 +616,7 @@ def home():
     for m in range(1, 13):
         def msum(status_list, division_filter=None):
             # Closed: use close_date month
-            closed_q = db.session.query(func.sum(Transaction.gci)).filter(
+            closed_q = db.session.query(func.sum(company_revenue_expression(Transaction))).filter(
                 Transaction.archived == False,
                 Transaction.status == 'Closed',
                 Transaction.close_date.isnot(None),
@@ -622,7 +627,7 @@ def home():
             closed_sum = float(closed_q.scalar() or 0)
 
             # Pending: use projected_close_date month
-            pending_q = db.session.query(func.sum(Transaction.gci)).filter(
+            pending_q = db.session.query(func.sum(company_revenue_expression(Transaction))).filter(
                 Transaction.archived == False,
                 Transaction.status == 'Pending',
                 Transaction.projected_close_date.isnot(None),
@@ -924,7 +929,8 @@ def luxury_drill():
             'signed_date': t.signed_date.isoformat() if t.signed_date else None,
             'close_or_projected_date': close_or_projected.isoformat() if close_or_projected else None,
             'price': float(price or 0),
-            'gci': float(t.gci or 0),
+            'gci': company_revenue(t),
+            'commission_gci': float(t.gci or 0),
             'company_dollar': float(company_dollar(t)),
         })
 
@@ -1294,7 +1300,7 @@ def luxury():
         month_index = tx.close_date.month - 1
         metric_data[str(tx_year)]['units'][month_index] += 1
         metric_data[str(tx_year)]['volume'][month_index] += float(tx.sale_price or 0)
-        metric_data[str(tx_year)]['gci'][month_index] += float(tx.gci or 0)
+        metric_data[str(tx_year)]['gci'][month_index] += company_revenue(tx)
 
     current_closings = [tx for tx in all_closings if tx.close_date.year == year]
     top_volume_sale = max(current_closings, key=lambda tx: tx.sale_price or 0, default=None)
@@ -1323,7 +1329,7 @@ def luxury():
     closing_totals = {
         'units': len(selected_closings),
         'volume': sum(float(tx.sale_price or 0) for tx in selected_closings),
-        'gci': sum(float(tx.gci or 0) for tx in selected_closings),
+        'gci': sum(company_revenue(tx) for tx in selected_closings),
     }
 
     pending_txns = Transaction.query.filter(
@@ -1342,7 +1348,7 @@ def luxury():
             float(effective_luxury_price(tx.status, tx.sale_price, tx.list_price) or 0)
             for tx in pending_txns
         ),
-        'gci': sum(float(tx.gci or 0) for tx in pending_txns),
+        'gci': sum(company_revenue(tx) for tx in pending_txns),
     }
 
     return render_template(
@@ -2449,7 +2455,9 @@ Only add a primary_agent_name filter when the question names an actual individua
 METRIC DEFINITIONS — do not confuse these terms:
 - "volume" / "sales volume" / "closed volume" = SUM(sale_price). NEVER count rows for this.
 - "units" / "closings" / "deals" / "transactions" (as a count) = COUNT(*). NEVER sum sale_price for this.
-- "GCI" / "commission" = SUM(gci), or SUM(primary_agent_gci) when the question is agent-specific ("agent's GCI", "my GCI").
+- "company GCI" / "company revenue" / "team GCI" / "TDG GCI" = SUM(COALESCE(gci,0) + COALESCE(transaction_fee,0)); transaction fees collected are 100% company revenue.
+- "commission GCI" / "deal GCI" / "commission" = SUM(gci), or SUM(primary_agent_gci) when the question is agent-specific ("agent's GCI", "my GCI").
+- When an unqualified "GCI" question refers to TDG/the company/the team/we/our, use company GCI above. When it refers to an individual agent or commission rate, do not add transaction fees.
 - "net income" / "company dollar" = use the net_income column if present, else compute per the CEO summary formula (do not approximate with gci alone).
 - A "record" question always names ONE of the metrics above (volume, units, GCI, net income, sale price). Identify which metric the question is asking about and query ONLY that metric's correct aggregate — do not substitute one for another.
   Example: "what's our volume record" -> SELECT SUM(sale_price) ... GROUP BY month/year ... ORDER BY SUM(sale_price) DESC LIMIT 1  (NOT COUNT(*)).
@@ -2677,8 +2685,8 @@ def ceo_summary():
             mp = [t for t in pending if t.projected_close_date and t.projected_close_date.month == m]
             monthly.append({
                 'month':          calendar.month_abbr[m],
-                'closed_gci':     round(sum((t.gci or 0) for t in mc), 2),
-                'pending_gci':    round(sum((t.gci or 0) for t in mp), 2),
+                'closed_gci':     round(sum(company_revenue(t) for t in mc), 2),
+                'pending_gci':    round(sum(company_revenue(t) for t in mp), 2),
                 'closed_volume':  round(sum(recognized_volume(t.transaction_type, t.sale_price) for t in mc), 2),
                 'pending_volume': round(sum(pending_price(t) for t in mp), 2),
                 'closed_co':      round(sum(company_dollar(t) for t in mc), 2),
@@ -2767,11 +2775,11 @@ def ceo_summary():
                 (t.close_date.month == prior_cutoff_month and t.close_date.day <= prior_cutoff_day)
             )
         ]
-        prior_gci       = sum((t.gci or 0)        for t in prior)
+        prior_gci       = sum(company_revenue(t)      for t in prior)
         prior_volume    = sum((t.sale_price or 0)  for t in prior)
         prior_co_dollar = sum(company_dollar(t)    for t in prior)
         prior_units     = len(prior)
-        ytd_gci   = sum((t.gci or 0)        for t in closed)
+        ytd_gci   = sum(company_revenue(t)      for t in closed)
         ytd_units = len(closed)
         ytd_volume    = round(sum((t.sale_price or 0) for t in closed), 2)
         ytd_co_dollar = round(sum(company_dollar(t)   for t in closed), 2)
@@ -2780,7 +2788,7 @@ def ceo_summary():
             'ytd_volume':     ytd_volume,
             'ytd_co_dollar':  ytd_co_dollar,
             'ytd_units':      ytd_units,
-            'proj_gci':       round(sum((t.gci or 0) for t in pending), 2),
+            'proj_gci':       round(sum(company_revenue(t) for t in pending), 2),
             'proj_volume':    round(sum(pending_price(t) for t in pending), 2),
             'proj_co_dollar': round(sum(company_dollar(t) for t in pending), 2),
             'proj_units':     len(pending),

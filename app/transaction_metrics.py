@@ -18,6 +18,21 @@ def recognized_volume(transaction_type, source_price) -> float:
         return 0.0
 
 
+def company_revenue(transaction) -> float:
+    """Company revenue/GCI: commission GCI plus transaction fees collected."""
+    return float(transaction.gci or 0) + float(transaction.transaction_fee or 0)
+
+
+def company_revenue_expression(transaction_model):
+    """SQL expression matching :func:`company_revenue` for aggregate queries."""
+    from sqlalchemy import func
+
+    return (
+        func.coalesce(transaction_model.gci, 0)
+        + func.coalesce(transaction_model.transaction_fee, 0)
+    )
+
+
 def seasonal_year_end_projection(
     ytd_value,
     pending_value,

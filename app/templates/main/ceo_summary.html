@@ -25,7 +25,7 @@
 <div class="row g-3 mb-4">
   <div class="col-md-4">
     <div class="stat-card">
-      <div class="stat-label">Total GCI</div>
+      <div class="stat-label">Total Company GCI / Revenue</div>
       <div class="stat-value"><button type="button" class="transaction-drill-number" id="c-ytd-gci" data-luxury-drill="closed" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ "${:,.0f}".format(ytd_gci) }}</button></div>
       <div class="stat-sub">+ <button type="button" class="transaction-drill-number" id="c-proj-gci" data-luxury-drill="pending" data-drill-surface="ceo" data-drill-year="{{ year }}" aria-disabled="true">{{ "${:,.0f}".format(proj_gci) }}</button> pending</div>
       <div class="stat-sub mt-1">Goal: <span id="c-gci-goal-display">{{ "${:,.0f}".format(team_gci_goal) }}</span> &nbsp;·&nbsp; <strong id="c-goal-pct">{{ goal_pct }}%</strong>

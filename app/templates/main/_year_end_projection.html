@@ -35,7 +35,7 @@
       </div>
       <div class="col-12 col-md-4">
         <div class="stat-card h-100" style="background:#fffdf5;">
-          <div class="stat-label">Projected GCI</div>
+          <div class="stat-label">Projected Company GCI / Revenue</div>
           <div class="stat-value" id="ye-gci">${{ "{:,.0f}".format(projection.ye_gci) }}</div>
           <div class="stat-sub mt-2">Full-Year {{ year - 1 }}: <strong id="ye-prior-gci">${{ "{:,.0f}".format(projection.prior_full_gci) }}</strong> &nbsp;·&nbsp; {{ yoy_badge(projection.ye_gci_yoy_pct, 'ye-gci-yoy') }}</div>
         </div>
