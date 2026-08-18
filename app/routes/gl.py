@@ -11,6 +11,8 @@ from flask_login import login_required
 from datetime import datetime
 from app import db
 from app.models import GLScan
+from app.residential_gl_analytics import extract_residential_sheet_events
+from app.google_token import decode_google_token_json
 import os, io, logging, requests as http
 
 log = logging.getLogger(__name__)
@@ -23,7 +25,7 @@ BASE_URL = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "web-production-1adf7.up.rail
 @bp.route("/debug/sheets")
 def gl_debug_sheets():
     """Unauthenticated debug endpoint — tests Google Sheets connectivity."""
-    import os as _os, json as _j, base64 as _b
+    import os as _os
     result = {"env_var_set": False, "token_parsed": False, "token_expired": None,
               "refresh_ok": None, "sheets_ok": False, "rows_resi": 0,
               "rows_2026": 0, "rows_2025": 0, "area_meta_count": 0, "error": None}
@@ -33,7 +35,7 @@ def gl_debug_sheets():
         result["env_var_len"] = len(_tok)
         if not _tok:
             return jsonify(result)
-        _td = _j.loads(_b.b64decode(_tok).decode())
+        _td = decode_google_token_json(_tok)
         result["token_parsed"] = True
         result["token_account"] = _td.get("account", "?")
         result["token_expiry"] = _td.get("expiry", "?")
@@ -1267,10 +1269,10 @@ def gl_analytics():
     try:
         from googleapiclient.discovery import build as goog_build
         from google.oauth2.credentials import Credentials as GCreds
-        import os, json as _json2, base64 as _b64_2
+        import os
         _token_env2 = os.environ.get("GOOGLE_TOKEN_JSON_FOR_RAILWAY", "")
         if _token_env2:
-            _token_dict2 = _json2.loads(_b64_2.b64decode(_token_env2).decode())
+            _token_dict2 = decode_google_token_json(_token_env2)
             import google.auth.transport.requests as _gtr2
             _gcreds = GCreds.from_authorized_user_info(_token_dict2)
             if _gcreds.expired and _gcreds.refresh_token:
@@ -1865,15 +1867,16 @@ def gl_residential_analytics():
 
     # ── 1. Pull letter counts from Residential GLs Schedule + Company Mailings ──
     _gsvc    = None
+    mailing_data_error = None
     SHEET_ID = "1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo"
     try:
         from googleapiclient.discovery import build as goog_build
         from google.oauth2.credentials import Credentials as GCreds
-        import os as _os, json as _json, base64 as _b64, tempfile as _tf
-        # Support Railway env var (base64-encoded token JSON) OR local file
+        import os as _os
+        # Support Railway env var (raw or base64 token JSON) OR local file
         _token_env = _os.environ.get("GOOGLE_TOKEN_JSON_FOR_RAILWAY", "")
         if _token_env:
-            _token_dict = _json.loads(_b64.b64decode(_token_env).decode())
+            _token_dict = decode_google_token_json(_token_env)
             import google.auth.transport.requests as _gtr
             _gcreds = GCreds.from_authorized_user_info(_token_dict)
             if _gcreds.expired and _gcreds.refresh_token:
@@ -1900,6 +1903,8 @@ def gl_residential_analytics():
 
     except Exception as e:
         rows_resi_sched, rows_2026, rows_2025 = [], [], []
+        mailing_data_error = f"{type(e).__name__}: {e}"
+        log.exception("Residential GL analytics could not load mailing data")
 
     # area_meta: normalised_area → {display, letters, mail_date}
     # We accumulate letters/mail_date from both the Schedule tab and Company Mailings.
@@ -1990,6 +1995,8 @@ def gl_residential_analytics():
         SELECT LOWER(TRIM(area)) as area_key, event_type, COUNT(*) as cnt
         FROM   res_gl_scans
         WHERE  area IS NOT NULL AND area != ''
+          AND  event_type = 'scan'
+          AND  source != 'fello_audit'
         GROUP  BY 1, 2
     """)).fetchall()
 
@@ -2003,55 +2010,30 @@ def gl_residential_analytics():
         et  = r[1] or 'scan'
         cnt = r[2]
         if et == 'scan':
-            scans_by_area[ak]  += cnt
-        elif et == 'call':
-            calls_by_area[ak]  += cnt
-        elif et == 'text':
-            texts_by_area[ak]  += cnt
-        elif et == 'email':
-            emails_by_area[ak] += cnt
-        else:
-            # gl_contact = legacy pre-event_type rows from gl_nightly
-            calls_by_area[ak] += cnt   # attribute to calls conservatively
+            scans_by_area[ak] += cnt
 
     # Grand totals from DB (all areas, including unattributed)
-    total_counts = db.session.execute(sa_text("""
-        SELECT event_type, COUNT(*)
+    total_scans = db.session.execute(sa_text("""
+        SELECT COUNT(*)
         FROM   res_gl_scans
-        GROUP  BY 1
-    """)).fetchall()
-
-    total_scans  = 0
+        WHERE  event_type = 'scan'
+          AND  source != 'fello_audit'
+    """)).scalar() or 0
     total_calls  = 0
     total_texts  = 0
     total_emails = 0
-    total_fello  = 0
-
-    for et, cnt in total_counts:
-        et = et or 'scan'
-        if et == 'scan':
-            total_scans  += cnt
-        elif et == 'call':
-            total_calls  += cnt
-        elif et == 'text':
-            total_texts  += cnt
-        elif et == 'email':
-            total_emails += cnt
-        else:
-            total_calls  += cnt   # gl_contact legacy
 
     total_fello = db.session.execute(
         sa_text("SELECT COUNT(*) FROM res_gl_scans WHERE source = 'fello_audit'")
     ).scalar() or 0
 
-    # ── 3. Calls/Texts/Emails from historical Google Sheet (VA-entered rows) ───
-    # These are pre-automation entries; we merge them into the per-area counts
-    # AND into grand totals (DB event_type='call' rows are 0 — sheet is the source of truth).
+    # ── 3. Calls/Texts/Emails from the live Google Sheet ────────────────────
+    # The tracker is the source of truth; repeated database backfills are not
+    # included in either the cards, area attribution, or weekly trend.
     # Sheet cols: A(0)=Phone#, B(1)=Call Date, C(2)=Text Date, D(3)=Email Date,
     #             E(4)=Client Name, F(5)=Agent, G(6)=Subdivision, H(7)=Address, I(8)=Notes
-    sheet_calls = 0
-    sheet_texts = 0
-    sheet_emails = 0
+    sheet_events = []
+    activity_data_error = None
     try:
         if _gsvc is None:
             raise RuntimeError("Sheets not initialized")
@@ -2060,29 +2042,10 @@ def gl_residential_analytics():
             range="'Resi Inbound Calls/Texts/Emails'!A:I"
         ).execute()
         cte_rows = cte_res.get("values", [])[1:]
+        sheet_events = extract_residential_sheet_events(cte_rows)
 
-        for cr in cte_rows:
-            def _c(i): return cr[i].strip() if len(cr) > i else ''
-            # Sheet cols: A(0)=Phone#, B(1)=Call Date, C(2)=Text Date, D(3)=Email Date,
-            #             E(4)=Client Name, F(5)=Agent, G(6)=Subdivision, H(7)=Address, I(8)=Notes
-            call_d  = _c(1)
-            text_d  = _c(2)
-            email_d = _c(3)
-            name    = _c(4)
-            agent   = _c(5)
-            address = _c(7)
-
-            # Skip CRE rows
-            if '(cre)' in agent.lower():
-                continue
-
-            has_call  = bool(call_d  and call_d.upper()  != 'X' and call_d  != '')
-            has_text  = bool(text_d  and text_d.upper()  != 'X' and text_d  != '')
-            has_email = bool(email_d and email_d.upper() != 'X' and email_d != '')
-
-            if not (has_call or has_text or has_email):
-                continue
-
+        for event in sheet_events:
+            address = event['address']
             # Parse city from address to find area
             city = ''
             if address and ',' in address:
@@ -2098,28 +2061,26 @@ def gl_residential_analytics():
                     matched_area = key
                     break
 
-            if has_call:
-                sheet_calls += 1
-                # Sheet data adds to area attribution only (totals come from DB)
+            if event['event_type'] == 'call':
                 if matched_area:
                     calls_by_area[matched_area] += 1
-            if has_text:
-                sheet_texts += 1
+            elif event['event_type'] == 'text':
                 if matched_area:
                     texts_by_area[matched_area] += 1
-            if has_email:
-                sheet_emails += 1
+            elif event['event_type'] == 'email':
                 if matched_area:
                     emails_by_area[matched_area] += 1
 
-    except Exception:
-        pass
+    except Exception as e:
+        activity_data_error = f"{type(e).__name__}: {e}"
+        log.exception("Residential GL analytics could not load activity data")
 
-    # Merge sheet-sourced totals into grand totals
-    # (DB event_type='call'/'text'/'email' rows are typically 0 — sheet is the live source)
-    total_calls  += sheet_calls
-    total_texts  += sheet_texts
-    total_emails += sheet_emails
+    # The live tracker is authoritative for calls/texts/emails. Database
+    # backfill rows are intentionally excluded because historical imports were
+    # repeated and gl_nightly rows are also written to this same tracker.
+    total_calls  = sum(1 for e in sheet_events if e['event_type'] == 'call')
+    total_texts  = sum(1 for e in sheet_events if e['event_type'] == 'text')
+    total_emails = sum(1 for e in sheet_events if e['event_type'] == 'email')
 
     # ── 4. Build per-area stats table ─────────────────────────────────────
     area_stats = []
@@ -2185,19 +2146,33 @@ def gl_residential_analytics():
 
     weekly_rows = db.session.execute(sa_text("""
         SELECT DATE_TRUNC('week', scan_date)::date AS week,
-               SUM(CASE WHEN event_type = 'scan' THEN 1 ELSE 0 END) AS scans,
-               SUM(CASE WHEN event_type = 'call' THEN 1 ELSE 0 END) AS calls,
-               SUM(CASE WHEN event_type IN ('text') THEN 1 ELSE 0 END) AS texts
+               COUNT(*) AS scans
         FROM   res_gl_scans
         WHERE  scan_date >= NOW() - (:weeks * INTERVAL '1 week')
+          AND  event_type = 'scan'
+          AND  source != 'fello_audit'
         GROUP  BY 1
         ORDER  BY 1
     """), {'weeks': chart_weeks}).fetchall()
 
-    chart_labels = [str(r[0]) for r in weekly_rows]
-    chart_scans  = [r[1]      for r in weekly_rows]
-    chart_calls  = [r[2]      for r in weekly_rows]
-    chart_texts  = [r[3]      for r in weekly_rows]
+    from datetime import date as _chart_date, timedelta as _chart_delta
+    chart_data = {
+        str(r[0]): {'scans': r[1], 'calls': 0, 'texts': 0}
+        for r in weekly_rows
+    }
+    chart_cutoff = _chart_date.today() - _chart_delta(weeks=chart_weeks)
+    for event in sheet_events:
+        event_date = event.get('event_date')
+        if event['event_type'] not in ('call', 'text') or not event_date or event_date < chart_cutoff:
+            continue
+        week = event_date - _chart_delta(days=event_date.weekday())
+        bucket = chart_data.setdefault(str(week), {'scans': 0, 'calls': 0, 'texts': 0})
+        bucket[event['event_type'] + 's'] += 1
+
+    chart_labels = sorted(chart_data)
+    chart_scans  = [chart_data[w]['scans'] for w in chart_labels]
+    chart_calls  = [chart_data[w]['calls'] for w in chart_labels]
+    chart_texts  = [chart_data[w]['texts'] for w in chart_labels]
 
     # ── 7. Batch summary table ─────────────────────────────────────────────
     # Re-use area_meta, sorted by mail_date
@@ -2221,6 +2196,8 @@ def gl_residential_analytics():
         total_emails    = total_emails,
         total_resp_all  = total_resp_all,
         unattributed    = unattributed,
+        mailing_data_error = mailing_data_error,
+        activity_data_error = activity_data_error,
         chart_weeks     = chart_weeks,
         scan_pct        = round(total_scans / total_letters * 100, 1) if total_letters else 0,
         fello_pct       = round(total_fello  / total_letters * 100, 1) if total_letters else 0,
