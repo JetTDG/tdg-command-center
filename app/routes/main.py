@@ -40,6 +40,7 @@ from app.models import (
 )
 from app.conversion_stats import get_blended_defaults
 from app.conversion import aggregate_funnel, classify_lead, safe_rate
+from app.sources import build_source_dashboard
 from app.transaction_metrics import (
     company_revenue,
     company_revenue_expression,
@@ -1009,6 +1010,50 @@ def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter,
     if lead_source_filter: query = query.filter(Transaction.lead_source == lead_source_filter)
     if admin_filter: query = query.filter(Transaction.admin_name == admin_filter)
     return apply_segment_filter(query, segment)
+
+# ─── SOURCES PAGE ───────────────────────────────────────────────────────────
+
+@bp.route('/sources')
+@login_required
+def sources():
+    """Leadership-only source production and active-agreement dashboard."""
+    if not current_user.is_admin:
+        return 'Forbidden', 403
+
+    try:
+        year = int(request.args.get('year', 2026))
+    except (TypeError, ValueError):
+        year = 2026
+    division = str(request.args.get('division', 'combined')).strip().lower()
+    if division not in {'combined', 'residential', 'commercial'}:
+        division = 'combined'
+
+    dashboard = build_source_dashboard(
+        Transaction.query.filter(
+            Transaction.archived == False,
+            Transaction.is_import_duplicate == False,
+        ).all(),
+        ConversionLead.query.all(),
+        year=year,
+        division=division,
+        as_of=date.today(),
+    )
+    latest_year = max(date.today().year, 2026)
+    years = list(range(latest_year, 2021, -1))
+    if year not in years:
+        years.append(year)
+        years.sort(reverse=True)
+
+    return render_template(
+        'main/sources.html',
+        dashboard=dashboard,
+        rows=dashboard['rows'],
+        totals=dashboard['totals'],
+        year=year,
+        years=years,
+        division=division,
+    )
+
 
 # ─── CONVERSION PAGE ────────────────────────────────────────────────────────
 

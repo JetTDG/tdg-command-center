@@ -572,6 +572,12 @@
            href="{{ url_for('main.home') }}">
           <i class="bi bi-house-door"></i> Home
         </a>
+        {% if current_user.is_admin %}
+        <a class="nav-link {% if request.endpoint == 'main.sources' %}active{% endif %}"
+           href="{{ url_for('main.sources') }}">
+          <i class="bi bi-diagram-3"></i> Sources
+        </a>
+        {% endif %}
         <a class="nav-link {% if 'my_business' in request.endpoint or 'transaction' in request.endpoint %}active{% endif %}"
            href="{{ url_for('main.my_business') }}">
           <i class="bi bi-briefcase"></i> My Business
@@ -696,6 +702,9 @@
           <i class="bi bi-gem" style="font-size:1.1rem;{% if request.endpoint == 'main.luxury' %}color:var(--tdg-gold);{% endif %}"></i>TDG Luxury
         </a>
         {% if current_user.is_admin %}
+        <a href="{{ url_for('main.sources') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if request.endpoint == 'main.sources' %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
+          <i class="bi bi-diagram-3" style="font-size:1.1rem;"></i>Sources
+        </a>
         <a href="{{ url_for('main.zillow_performance') }}" style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 0.75rem;border-radius:10px;background:var(--tdg-bg);color:var(--tdg-text);text-decoration:none;font-size:0.82rem;font-weight:600;{% if request.endpoint == 'main.zillow_performance' %}border:1px solid var(--tdg-gold);color:var(--tdg-gold);{% else %}border:1px solid var(--tdg-border);{% endif %}">
           <i class="bi bi-house-heart" style="font-size:1.1rem;"></i>Zillow
         </a>

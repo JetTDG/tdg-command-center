@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block title %}Sources | Jet Center{% endblock %}
+{% block content %}
+<style>
+  .source-tabs { display:flex; gap:.45rem; flex-wrap:wrap; }
+  .source-tab { padding:.48rem .9rem; border:1px solid var(--tdg-border); border-radius:8px; color:var(--tdg-muted); text-decoration:none; background:var(--tdg-surface); font-size:.82rem; font-weight:600; }
+  .source-tab.active { background:var(--tdg-gold-light); border-color:var(--tdg-gold); color:var(--tdg-gold-dark); }
+  .sources-table th { white-space:nowrap; }
+  .sources-card { overflow-x:auto; max-width:100%; min-width:0; }
+  .sources-table { min-width:860px; table-layout:fixed; }
+  .sources-table th:first-child, .sources-table td:first-child { width:24%; }
+  .sources-table th:not(:first-child), .sources-table td:not(:first-child) { width:19%; }
+  .detail-table { min-width:1200px; table-layout:auto; }
+  @media (max-width: 900px) {
+    .sources-table { min-width:820px; }
+  }
+  .source-name { font-weight:700; color:var(--tdg-text); }
+  .source-row { cursor:pointer; }
+  .source-row:hover .source-name { color:var(--tdg-gold-dark); }
+  .metric-main { display:block; font-weight:700; color:var(--tdg-text); }
+  .metric-sub { display:block; color:var(--tdg-muted); font-size:.73rem; margin-top:2px; }
+  .source-chevron { transition:transform .18s ease; }
+  .source-row[aria-expanded="true"] .source-chevron { transform:rotate(90deg); }
+  .source-detail-cell { padding:0 !important; background:#FAFBFC; }
+  .source-detail-wrap { padding:1rem 1.2rem 1.25rem; }
+  .source-detail-title { display:flex; justify-content:space-between; gap:1rem; align-items:center; margin-bottom:.75rem; font-size:.82rem; font-weight:700; }
+  .profile-note { color:var(--tdg-muted); font-size:.74rem; }
+  .profile-warning { color:#B45309; font-weight:600; }
+  .detail-table tfoot td { font-weight:700; background:#F3F4F6; border-top:2px solid var(--tdg-border); }
+  .sources-total td { font-weight:800; background:var(--tdg-gold-light); border-top:2px solid var(--tdg-gold); }
+  .definition-note { font-size:.76rem; color:var(--tdg-muted); line-height:1.55; }
+  .empty-state { text-align:center; color:var(--tdg-muted); padding:3rem 1rem !important; }
+</style>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+  <div>
+    <div class="page-title">Sources</div>
+    <div class="page-subtitle">Production and active pipeline by current FUB source</div>
+  </div>
+  <div class="d-flex align-items-end gap-2 flex-wrap">
+    <div>
+      <label for="sourceSort" class="form-label mb-1">Sort by</label>
+      <select id="sourceSort" class="form-select form-select-sm" style="width:auto" onchange="sortSourceTable(this.value)">
+        <option value="closed-gci" selected>Closed Total GCI</option>
+        <option value="closed-units">Closed Units</option><option value="closed-volume">Closed Volume</option>
+        <option value="pending-units">Pending Units</option><option value="pending-volume">Pending Volume</option>
+        <option value="listing-units">Active Listing Units</option><option value="listing-volume">Active Listing Volume</option>
+        <option value="buyer-units">Signed Buyer Units</option><option value="buyer-volume">Signed Buyer Volume</option>
+        <option value="source">Source A–Z</option>
+      </select>
+    </div>
+    <form method="get">
+      <input type="hidden" name="division" value="{{ division }}">
+      <label for="sourceYear" class="form-label mb-1">Year</label>
+      <select id="sourceYear" name="year" class="form-select form-select-sm" onchange="this.form.submit()" style="width:auto">
+        {% for option in years %}<option value="{{ option }}" {% if option == year %}selected{% endif %}>{{ option }}</option>{% endfor %}
+      </select>
+    </form>
+  </div>
+</div>
+
+<div class="source-tabs mb-3" aria-label="Division views">
+  {% for key, label in [('combined','Combined'),('residential','Residential'),('commercial','Commercial')] %}
+  <a class="source-tab {% if division == key %}active{% endif %}" href="{{ url_for('main.sources', year=year, division=key) }}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <div class="definition-note">
+      <strong>Closed Total GCI</strong> = Base GCI + Bonus + Transaction Fees − Referral Fees, before agent splits.
+      Closed and Pending follow the selected calendar year. Active Listings are current inventory. Signed Buyers have an Active agreement signed in {{ year }} that is not expired.
+      Linked records use the current FUB Source field; unlinked records use the saved transaction source and are flagged <strong>No FUB profile</strong>. Sphere and all SOI variants are grouped as <strong>SOI</strong>.
+    </div>
+  </div>
+</div>
+
+<div class="card sources-card">
+  <table class="table table-hover sources-table" id="sourcesTable">
+    <thead>
+      <tr>
+        <th>Source</th>
+        <th class="text-end">Closed</th>
+        <th class="text-end">Pending</th>
+        <th class="text-end">Active Listings</th>
+        <th class="text-end">Signed Buyers</th>
+      </tr>
+    </thead>
+    {% for row in rows %}
+    <tbody class="source-group"
+      data-source="{{ row.source|lower }}"
+      data-closed-units="{{ row.closed.units }}"
+      data-closed-volume="{{ row.closed.volume }}"
+      data-closed-gci="{{ row.closed.total_gci }}"
+      data-pending-units="{{ row.pending.units }}"
+      data-pending-volume="{{ row.pending.volume }}"
+      data-listing-units="{{ row.active_listings.units }}"
+      data-listing-volume="{{ row.active_listings.volume }}"
+      data-buyer-units="{{ row.signed_buyers.units }}"
+      data-buyer-volume="{{ row.signed_buyers.volume }}">
+      <tr class="source-row" data-bs-toggle="collapse" data-bs-target="#source-detail-{{ loop.index }}" aria-expanded="false" tabindex="0">
+        <td><i class="bi bi-chevron-right source-chevron me-2"></i><span class="source-name">{{ row.source }}</span>{% if row.no_fub_profile_count %}<span class="badge bg-warning-subtle text-warning-emphasis ms-2">{{ row.no_fub_profile_count }} no FUB profile</span>{% endif %}</td>
+        <td class="text-end"><span class="metric-main">${{ '{:,.0f}'.format(row.closed.total_gci) }} GCI</span><span class="metric-sub">{{ row.closed.units|round(1) }} units · ${{ '{:,.0f}'.format(row.closed.volume) }} volume</span></td>
+        <td class="text-end"><span class="metric-main">{{ row.pending.units|round(1) }} units</span><span class="metric-sub">${{ '{:,.0f}'.format(row.pending.volume) }} volume</span></td>
+        <td class="text-end"><span class="metric-main">{{ row.active_listings.units|round(1) }} listings</span><span class="metric-sub">${{ '{:,.0f}'.format(row.active_listings.volume) }} list volume</span></td>
+        <td class="text-end"><span class="metric-main">{{ row.signed_buyers.units|round(1) }} buyers</span><span class="metric-sub">${{ '{:,.0f}'.format(row.signed_buyers.volume) }} buyer volume</span></td>
+      </tr>
+      <tr class="source-detail-row">
+        <td colspan="5" class="source-detail-cell">
+          <div class="collapse" id="source-detail-{{ loop.index }}">
+          <div class="source-detail-wrap">
+            <div class="source-detail-title">
+              <span>{{ row.source }} breakdown</span>
+              <span class="profile-note {% if row.no_fub_profile_count %}profile-warning{% endif %}">{% if row.no_fub_profile_count %}{{ row.no_fub_profile_count }} transaction{{ '' if row.no_fub_profile_count == 1 else 's' }} flagged No FUB profile{% else %}All displayed transactions linked to a FUB profile{% endif %}</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm detail-table">
+                <thead><tr><th>Stage</th><th>Client</th><th>Address</th><th>Source Status</th><th class="text-end">Units</th><th class="text-end">Volume</th><th class="text-end">Base GCI</th><th class="text-end">Bonus</th><th class="text-end">Transaction Fees</th><th class="text-end">Referral Fees</th><th class="text-end">Total GCI</th></tr></thead>
+                <tbody>
+                  {% for detail in row.details %}
+                  <tr>
+                    <td>{{ {'closed':'Closed','pending':'Pending','active_listings':'Active Listing','signed_buyers':'Signed Buyer'}[detail.stage] }}</td>
+                    <td>{{ detail.client_name }}</td><td>{{ detail.address }}</td>
+                    <td class="{% if detail.source_status == 'No FUB profile' %}profile-warning{% endif %}">{{ detail.source_status }}</td>
+                    <td class="text-end">{{ detail.units|round(1)|int if detail.units == detail.units|int else detail.units|round(1) }}</td>
+                    <td class="text-end">${{ '{:,.0f}'.format(detail.volume) }}</td>
+                    <td class="text-end">${{ '{:,.0f}'.format(detail.base_gci) }}</td>
+                    <td class="text-end">${{ '{:,.0f}'.format(detail.bonus) }}</td>
+                    <td class="text-end">${{ '{:,.0f}'.format(detail.transaction_fees) }}</td>
+                    <td class="text-end">${{ '{:,.0f}'.format(detail.referral_fees) }}</td>
+                    <td class="text-end"><strong>${{ '{:,.0f}'.format(detail.total_gci) }}</strong></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+                <tfoot><tr><td colspan="4">{{ row.source }} totals</td><td class="text-end">{{ (row.closed.units + row.pending.units + row.active_listings.units + row.signed_buyers.units)|round(1) }}</td><td class="text-end">${{ '{:,.0f}'.format(row.closed.volume + row.pending.volume + row.active_listings.volume + row.signed_buyers.volume) }}</td><td class="text-end">${{ '{:,.0f}'.format(row.closed.base_gci) }}</td><td class="text-end">${{ '{:,.0f}'.format(row.closed.bonus) }}</td><td class="text-end">${{ '{:,.0f}'.format(row.closed.transaction_fees) }}</td><td class="text-end">${{ '{:,.0f}'.format(row.closed.referral_fees) }}</td><td class="text-end">${{ '{:,.0f}'.format(row.closed.total_gci) }}</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+    {% else %}
+    <tbody><tr><td colspan="5" class="empty-state"><i class="bi bi-inbox fs-3 d-block mb-2"></i>No source activity found for this view.</td></tr></tbody>
+    {% endfor %}
+    <tfoot><tr class="sources-total"><td>All Sources</td><td class="text-end"><span class="metric-main">${{ '{:,.0f}'.format(totals.closed.total_gci) }} GCI</span><span class="metric-sub">{{ totals.closed.units|round(1) }} units · ${{ '{:,.0f}'.format(totals.closed.volume) }} volume</span></td><td class="text-end"><span class="metric-main">{{ totals.pending.units|round(1) }} units</span><span class="metric-sub">${{ '{:,.0f}'.format(totals.pending.volume) }} volume</span></td><td class="text-end"><span class="metric-main">{{ totals.active_listings.units|round(1) }} listings</span><span class="metric-sub">${{ '{:,.0f}'.format(totals.active_listings.volume) }} list volume</span></td><td class="text-end"><span class="metric-main">{{ totals.signed_buyers.units|round(1) }} buyers</span><span class="metric-sub">${{ '{:,.0f}'.format(totals.signed_buyers.volume) }} buyer volume</span></td></tr></tfoot>
+  </table>
+</div>
+
+<script>
+(function () {
+  const table = document.getElementById('sourcesTable');
+  if (!table) return;
+  const sortSelect = document.getElementById('sourceSort');
+  function sortGroups(key) {
+    const groups = Array.from(table.querySelectorAll('tbody.source-group'));
+    groups.sort((a, b) => {
+      const datasetKey = key.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      let left = a.dataset[datasetKey];
+      let right = b.dataset[datasetKey];
+      if (key !== 'source') { left = Number(left || 0); right = Number(right || 0); }
+      else { left = left || ''; right = right || ''; }
+      const result = typeof left === 'number' ? left - right : left.localeCompare(right);
+      return key === 'source' ? result : -result;
+    });
+    const footer = table.querySelector('tfoot');
+    groups.forEach(group => table.appendChild(group));
+    if (footer) table.appendChild(footer);
+  }
+  window.sortSourceTable = sortGroups;
+  table.querySelectorAll('.source-row').forEach(row => {
+    row.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); row.click(); }
+    });
+  });
+})();
+</script>
+{% endblock %}
