@@ -3714,6 +3714,19 @@ def scorecard_drill(agent_id):
             income += t.member4_gci or 0
         return income
 
+    def _all_agent_income(t):
+        """All named agent-side GCI on the transaction."""
+        return sum(
+            (getattr(t, gci_field) or 0)
+            for name_field, gci_field in (
+                ('primary_agent_name', 'primary_agent_gci'),
+                ('secondary_agent_name', 'secondary_agent_gci'),
+                ('member3_name', 'member3_gci'),
+                ('member4_name', 'member4_gci'),
+            )
+            if getattr(t, name_field)
+        )
+
     def _agent_split_pct(t, income):
         """Sum the split % across whichever role column(s) matched this agent.
         Falls back to income/t.gci if no explicit pct is stored."""
@@ -3793,6 +3806,7 @@ def scorecard_drill(agent_id):
         inc = _agent_income(t)
         split_pct = _agent_split_pct(t, inc)
         total_gci = t.gci or 0
+        company_gci = total_gci - _all_agent_income(t)
         deals.append({
             'id': t.id,
             'address': t.address or '—',
@@ -3803,6 +3817,8 @@ def scorecard_drill(agent_id):
             'lead_type': t.lead_type or '—',
             'agent_gci': f'${inc:,.0f}',
             'agent_gci_raw': inc,
+            'company_gci': f'${company_gci:,.0f}',
+            'company_gci_raw': company_gci,
             'total_gci': f'${total_gci:,.0f}',
             'total_gci_raw': total_gci,
             'split_pct': f'{split_pct*100:.1f}%',
@@ -3814,11 +3830,15 @@ def scorecard_drill(agent_id):
         })
 
     total_income = sum(d['agent_gci_raw'] for d in deals)
+    total_company_gci = sum(d['company_gci_raw'] for d in deals)
+    total_gci = sum(d['total_gci_raw'] for d in deals)
     return jsonify({
         'drill_type': drill_type,
         'agent': agent.name,
         'count': len(deals),
         'total_income': f'${total_income:,.0f}',
+        'total_company_gci': f'${total_company_gci:,.0f}',
+        'total_gci': f'${total_gci:,.0f}',
         'deals': deals,
     })
 

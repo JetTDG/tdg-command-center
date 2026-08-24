@@ -138,6 +138,52 @@ def test_rolling_40k_goal_uses_self_gen_total_transaction_gci(app):
     assert "$14K" in text
 
 
+def test_scorecard_drill_exposes_agent_company_and_total_gci(app):
+    from app import db
+    from app.models import Transaction
+
+    with app.app_context():
+        db.session.add(Transaction(
+            agent_id=app.test_ids["agent"],
+            primary_agent_id=app.test_ids["agent"],
+            primary_agent_name="Alpha Agent",
+            primary_agent_gci=3000,
+            secondary_agent_name="Beta Agent",
+            secondary_agent_gci=1000,
+            gci=6000,
+            sale_price=200000,
+            status="Closed",
+            division="Residential",
+            transaction_type="Buyer",
+            lead_type="Agent",
+            close_date=date.today(),
+            year=date.today().year,
+            month=date.today().month,
+            archived=False,
+        ))
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    response = client.get(
+        f"/scorecard/{app.test_ids['agent']}/drill?type=self_gen&year={date.today().year}"
+    )
+    payload = response.get_json()
+
+    assert response.status_code == 200
+    assert payload["count"] == 1
+    assert payload["total_income"] == "$3,000"
+    assert payload["total_company_gci"] == "$2,000"
+    assert payload["total_gci"] == "$6,000"
+    assert payload["deals"][0]["agent_gci"] == "$3,000"
+    assert payload["deals"][0]["company_gci"] == "$2,000"
+    assert payload["deals"][0]["total_gci"] == "$6,000"
+
+    page = client.get(f"/scorecard/{app.test_ids['agent']}").get_data(as_text=True)
+    assert "Company GCI" in page
+    assert "Total GCI" in page
+
+
 def _business_plan_payload(**overrides):
     payload = {
         "listing_unit_goal": "8",
