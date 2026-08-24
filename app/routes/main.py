@@ -3495,6 +3495,7 @@ def scorecard(agent_id):
         txn_filter,
         Transaction.status == 'Closed',
         Transaction.close_date >= _rolling_start,
+        Transaction.archived == False,
     )
     _rolling_q = apply_segment_filter(_rolling_q, division)
     rolling_12_closed = _rolling_q.all()
@@ -3502,11 +3503,16 @@ def scorecard(agent_id):
     SELF_GEN_TARGET = 40_000
     self_gen_closed  = [t for t in rolling_12_closed if t.lead_type == 'Agent']
     team_closed      = [t for t in rolling_12_closed if t.lead_type != 'Agent']
-    self_gen_income  = sum(agent_income(t) for t in self_gen_closed)
-    team_income_val  = sum(agent_income(t) for t in team_closed)
+    # The fixed self-gen target is whole-deal GCI: agent + company combined.
+    # Agent-side split GCI remains the basis for Closed/Pending/Projected cards.
+    self_gen_income  = sum(t.gci or 0 for t in self_gen_closed)
+    team_income_val  = sum(t.gci or 0 for t in team_closed)
     self_gen_units   = len(self_gen_closed)
     team_units       = len(team_closed)
-    self_gen_pct     = min(round(self_gen_income / SELF_GEN_TARGET * 100, 1), 100) if SELF_GEN_TARGET else 0
+    self_gen_pct = (
+        min(round(self_gen_income / SELF_GEN_TARGET * 100, 1), 100)
+        if SELF_GEN_TARGET else 0
+    )
 
     # ── Lead Mix KPI card (6th card in scorecard header row) ─────────────────
     def _lm_pct(num, denom):

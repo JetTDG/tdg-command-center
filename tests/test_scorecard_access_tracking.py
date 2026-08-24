@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 
@@ -92,6 +92,50 @@ def test_db_only_agent_scorecard_marks_fub_sections_unavailable(app):
     assert "Transaction production remains available" in text
     assert 'data-appointment-source="conversion-cohort"' not in text
     assert "FUB appointment detail has not synced yet" not in text
+
+
+def test_rolling_40k_goal_uses_self_gen_total_transaction_gci(app):
+    from app import db
+    from app.models import Transaction
+
+    with app.app_context():
+        db.session.add_all([
+            Transaction(
+                agent_id=app.test_ids["agent"], primary_agent_id=app.test_ids["agent"],
+                primary_agent_name="Alpha Agent", primary_agent_gci=10000, gci=14000,
+                sale_price=400000, status="Closed", division="Residential",
+                transaction_type="Buyer", lead_type="Agent", close_date=date.today(),
+                year=date.today().year, month=date.today().month, archived=False,
+            ),
+            Transaction(
+                agent_id=app.test_ids["agent"], primary_agent_id=app.test_ids["agent"],
+                primary_agent_name="Alpha Agent", primary_agent_gci=15000, gci=21000,
+                sale_price=600000, status="Closed", division="Residential",
+                transaction_type="Listing", lead_type="Company", close_date=date.today(),
+                year=date.today().year, month=date.today().month, archived=False,
+            ),
+            Transaction(
+                agent_id=app.test_ids["agent"], primary_agent_id=app.test_ids["agent"],
+                primary_agent_name="Alpha Agent", primary_agent_gci=30000, gci=42000,
+                sale_price=900000, status="Closed", division="Residential",
+                transaction_type="Listing", lead_type="Agent", close_date=date.today(),
+                year=date.today().year, month=date.today().month, archived=True,
+            ),
+        ])
+        db.session.commit()
+
+    client = app.test_client()
+    login(client, app.test_ids["agent_user"])
+    response = client.get(f"/scorecard/{app.test_ids['agent']}")
+    text = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Self-Gen (SOI) Progress · Rolling 12 Months" in text
+    assert "Self-Gen Total GCI" in text
+    assert "$14K of $40K" in text
+    assert "35.0%" in text
+    assert "Self-gen total GCI" in text
+    assert "$14K" in text
 
 
 def _business_plan_payload(**overrides):
