@@ -79,7 +79,9 @@ def _empty_row(source: str) -> dict:
         "pending": _empty_stage(),
         "active_listings": _empty_stage(),
         "signed_buyers": _empty_stage(),
-        "no_fub_profile_count": 0,
+        "transaction_count": 0,
+        "fub_linked_count": 0,
+        "missing_fub_link_count": 0,
         "details": [],
     }
 
@@ -95,14 +97,31 @@ def _add_closed(stage: dict, units: float, volume: float, components: dict) -> N
         stage[key] += value
 
 
-def _transaction_source(transaction, by_transaction_id: dict, by_fub_id: dict) -> tuple[str, bool]:
+def _transaction_source(transaction, by_transaction_id: dict, by_fub_id: dict) -> tuple[str, str | None, str]:
+    """Return displayed source, exact FUB identity, and attribution basis.
+
+    A missing ConversionLead does not prove that a person is absent from FUB.
+    The only truthful linkage statement is whether Jet Center has an exact FUB
+    person ID. Current FUB source is used only when the conversion sync has an
+    exact match; otherwise the saved Jet Center source is shown.
+    """
+    transaction_fub_id = str(getattr(transaction, "fub_id", "") or "").strip()
     conversion = by_transaction_id.get(getattr(transaction, "id", None))
-    if conversion is None:
-        fub_id = str(getattr(transaction, "fub_id", "") or "").strip()
-        conversion = by_fub_id.get(fub_id) if fub_id else None
+    if conversion is None and transaction_fub_id:
+        conversion = by_fub_id.get(transaction_fub_id)
     if conversion is not None:
-        return normalize_source_family(getattr(conversion, "current_source", None)), True
-    return normalize_source_family(getattr(transaction, "lead_source", None)), False
+        conversion_fub_id = str(getattr(conversion, "fub_person_id", "") or "").strip()
+        fub_id = conversion_fub_id or transaction_fub_id or None
+        return (
+            normalize_source_family(getattr(conversion, "current_source", None)),
+            fub_id,
+            "Current FUB source",
+        )
+    return (
+        normalize_source_family(getattr(transaction, "lead_source", None)),
+        transaction_fub_id or None,
+        "Saved Jet Center source",
+    )
 
 
 def build_source_dashboard(
@@ -171,18 +190,25 @@ def build_source_dashboard(
         if stage is None:
             continue
 
-        source, has_fub_profile = _transaction_source(transaction, by_transaction_id, by_fub_id)
+        source, fub_id, source_status = _transaction_source(transaction, by_transaction_id, by_fub_id)
         row = rows.setdefault(source, _empty_row(source))
         units = _units(transaction)
-        components = _closed_gci(transaction)
+        closed_components = _closed_gci(transaction)
 
         if stage == "closed":
-            _add_closed(row[stage], units, volume, components)
+            _add_closed(row[stage], units, volume, closed_components)
+            detail_components = closed_components
         else:
             _add_stage(row[stage], units, volume)
+            # Non-closed transaction GCI is projected data and does not feed the
+            # Closed GCI summary. Hide it here so visible rows reconcile exactly.
+            detail_components = {key: None for key in closed_components}
 
-        if not has_fub_profile:
-            row["no_fub_profile_count"] += 1
+        row["transaction_count"] += 1
+        if fub_id:
+            row["fub_linked_count"] += 1
+        else:
+            row["missing_fub_link_count"] += 1
 
         row["details"].append({
             "id": getattr(transaction, "id", None),
@@ -192,9 +218,19 @@ def build_source_dashboard(
             "division": getattr(transaction, "division", None) or "Residential",
             "units": units,
             "volume": volume,
-            **components,
-            "source_status": "FUB current source" if has_fub_profile else "No FUB profile",
+            **detail_components,
+            "source_used": source,
+            "source_status": source_status,
+            "fub_id": fub_id,
         })
+
+    stage_order = {"closed": 0, "pending": 1, "active_listings": 2, "signed_buyers": 3}
+    for row in rows.values():
+        row["details"].sort(key=lambda item: (
+            stage_order[item["stage"]],
+            str(item["client_name"]).casefold(),
+            item["id"] or 0,
+        ))
 
     ordered = sorted(
         rows.values(),
@@ -205,7 +241,10 @@ def build_source_dashboard(
         for stage_name in ("closed", "pending", "active_listings", "signed_buyers"):
             for key, value in row[stage_name].items():
                 totals[stage_name][key] += value
-        totals["no_fub_profile_count"] += row["no_fub_profile_count"]
+        for count_name in (
+            "transaction_count", "fub_linked_count", "missing_fub_link_count",
+        ):
+            totals[count_name] += row[count_name]
         totals["details"].extend(row["details"])
 
     return {

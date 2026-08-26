@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -116,11 +116,52 @@ def test_sources_aggregate_uses_current_fub_source_groups_soi_and_sorts_by_close
     assert soi["closed"]["total_gci"] == 10095.0
 
     referral = result["rows"][2]
-    assert referral["no_fub_profile_count"] == 1
-    assert referral["details"][0]["source_status"] == "No FUB profile"
+    assert referral["missing_fub_link_count"] == 1
+    assert referral["details"][0]["source_status"] == "Saved Jet Center source"
+    assert referral["details"][0]["fub_id"] is None
 
+    assert result["totals"]["transaction_count"] == 6
+    assert result["totals"]["fub_linked_count"] == 5
+    assert result["totals"]["missing_fub_link_count"] == 1
     assert result["totals"]["closed"]["total_gci"] == 37190.0
     assert result["totals"]["closed"]["referral_fees"] == 1500.0
+
+
+def test_sources_details_are_reconcilable_and_expose_direct_fub_identity():
+    from app.sources import build_source_dashboard
+
+    transactions = [
+        tx(
+            id=1, fub_id="12345", status="Closed", close_date=date(2026, 2, 1),
+            sale_price=300000, gci=9000, transaction_fee=595, referral_fee=1800,
+            lead_source="Old Source",
+        ),
+        tx(
+            id=2, status="Pending", projected_close_date=date(2026, 10, 1),
+            sale_price=450000, gci=13500, transaction_fee=595,
+            lead_source="Zillow Preferred",
+        ),
+    ]
+    leads = [lead(transaction_id=1, fub_person_id="12345", current_source="Zillow Preferred")]
+
+    result = build_source_dashboard(transactions, leads, 2026, as_of=date(2026, 8, 26))
+    zillow = result["rows"][0]
+    closed, pending = zillow["details"]
+
+    assert closed["fub_id"] == "12345"
+    assert closed["source_status"] == "Current FUB source"
+    assert closed["total_gci"] == 7795.0
+    assert pending["source_status"] == "Saved Jet Center source"
+    assert pending["fub_id"] is None
+    assert pending["base_gci"] is None
+    assert pending["transaction_fees"] is None
+    assert pending["total_gci"] is None
+
+    assert zillow["closed"]["total_gci"] == 7795.0
+    assert zillow["pending"]["volume"] == 450000.0
+    assert zillow["transaction_count"] == 2
+    assert zillow["fub_linked_count"] == 1
+    assert zillow["missing_fub_link_count"] == 1
 
 
 def test_sources_aggregate_filters_residential_commercial_and_selected_year():
@@ -177,6 +218,34 @@ def login(client, user_id):
 
 
 def test_sources_page_is_leadership_only_and_exposes_year_and_division_controls(route_app):
+    from app import db
+    from app.models import ConversionLead, Transaction
+
+    with route_app.app_context():
+        closed = Transaction(
+            status="Closed", transaction_type="Buyer", division="Residential",
+            close_date=date(2026, 2, 1), sale_price=300000, gci=9000,
+            transaction_fee=595, referral_fee=1800, client_name="Linked Client",
+            address="123 Main", lead_source="Old Source", fub_id="12345",
+            archived=False, is_import_duplicate=False,
+        )
+        pending = Transaction(
+            status="Pending", transaction_type="Buyer", division="Residential",
+            projected_close_date=date(2026, 10, 1), sale_price=450000,
+            gci=13500, transaction_fee=595, client_name="Unlinked Client",
+            address="456 Main", lead_source="Zillow Preferred",
+            archived=False, is_import_duplicate=False,
+        )
+        db.session.add_all([closed, pending])
+        db.session.flush()
+        db.session.add(ConversionLead(
+            fub_person_id="12345", transaction_id=closed.id,
+            lead_received_at=datetime(2026, 1, 1), current_source="Zillow Preferred",
+            current_source_family="Zillow", original_source="Old Source",
+            original_source_family="Other",
+        ))
+        db.session.commit()
+
     admin_client = route_app.test_client()
     login(admin_client, route_app.test_ids["admin"])
     response = admin_client.get("/sources?year=2026&division=combined")
@@ -191,7 +260,18 @@ def test_sources_page_is_leadership_only_and_exposes_year_and_division_controls(
     assert "Closed Total GCI" in text
     assert "Active Listings" in text
     assert "Signed Buyers" in text
-    assert "No FUB profile" in text
+    assert "FUB link missing" in text
+    assert "Records included in this view" in text
+    assert "Exact FUB links available" in text
+    assert "FUB #12345" in text
+    assert "poweredbyinfinity.followupboss.com/2/people/view/12345" in text
+    assert "Open Jet Center record" in text
+    assert "Current FUB source" in text
+    assert "Saved Jet Center source" in text
+    assert "Closed subtotal" in text
+    assert "Pending subtotal" in text
+    assert "$7,795" in text
+    assert "$13,500" not in text
 
     agent_client = route_app.test_client()
     login(agent_client, route_app.test_ids["agent"])

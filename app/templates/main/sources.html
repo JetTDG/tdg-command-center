@@ -10,7 +10,14 @@
   .sources-table { min-width:860px; table-layout:fixed; }
   .sources-table th:first-child, .sources-table td:first-child { width:24%; }
   .sources-table th:not(:first-child), .sources-table td:not(:first-child) { width:19%; }
-  .detail-table { min-width:1200px; table-layout:auto; }
+  .detail-table { min-width:1460px; table-layout:auto; }
+  .coverage-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.7rem; }
+  .coverage-item { border:1px solid var(--tdg-border); border-radius:10px; padding:.75rem .9rem; background:var(--tdg-surface); }
+  .coverage-value { display:block; color:var(--tdg-text); font-size:1.2rem; font-weight:800; line-height:1.1; }
+  .coverage-label { display:block; color:var(--tdg-muted); font-size:.73rem; margin-top:.25rem; }
+  .stage-subtotal td { font-weight:750; background:#F3F4F6; border-top:2px solid var(--tdg-border); }
+  .record-link { font-size:.7rem; white-space:nowrap; }
+  @media (max-width: 700px) { .coverage-grid { grid-template-columns:1fr; } }
   @media (max-width: 900px) {
     .sources-table { min-width:820px; }
   }
@@ -70,9 +77,16 @@
     <div class="definition-note">
       <strong>Closed Total GCI</strong> = Base GCI + Bonus + Transaction Fees − Referral Fees, before agent splits.
       Closed and Pending follow the selected calendar year. Active Listings are current inventory. Signed Buyers have an Active agreement signed in {{ year }} that is not expired.
-      Linked records use the current FUB Source field; unlinked records use the saved transaction source and are flagged <strong>No FUB profile</strong>. Sphere and all SOI variants are grouped as <strong>SOI</strong>.
+      Linked records use the current FUB Source field; records without an exact FUB ID use the saved Jet Center source and are flagged <strong>FUB link missing</strong>. That flag means Jet Center cannot open an exact profile—it does not claim that no matching person exists in FUB. Sphere and all SOI variants are grouped as <strong>SOI</strong>.
+      In each breakdown, GCI appears only on Closed rows because only Closed GCI contributes to the summary. Stage subtotals reconcile directly to the four summary cells.
     </div>
   </div>
+</div>
+
+<div class="coverage-grid mb-3" aria-label="FUB linkage coverage">
+  <div class="coverage-item"><span class="coverage-value">{{ totals.transaction_count }}</span><span class="coverage-label">Records included in this view</span></div>
+  <div class="coverage-item"><span class="coverage-value">{{ totals.fub_linked_count }}</span><span class="coverage-label">Exact FUB links available</span></div>
+  <div class="coverage-item"><span class="coverage-value">{{ totals.missing_fub_link_count }}</span><span class="coverage-label">Records missing an exact FUB link</span></div>
 </div>
 
 <div class="card sources-card">
@@ -99,7 +113,7 @@
       data-buyer-units="{{ row.signed_buyers.units }}"
       data-buyer-volume="{{ row.signed_buyers.volume }}">
       <tr class="source-row" data-bs-toggle="collapse" data-bs-target="#source-detail-{{ loop.index }}" aria-expanded="false" tabindex="0">
-        <td><i class="bi bi-chevron-right source-chevron me-2"></i><span class="source-name">{{ row.source }}</span>{% if row.no_fub_profile_count %}<span class="badge bg-warning-subtle text-warning-emphasis ms-2">{{ row.no_fub_profile_count }} no FUB profile</span>{% endif %}</td>
+        <td><i class="bi bi-chevron-right source-chevron me-2"></i><span class="source-name">{{ row.source }}</span>{% if row.missing_fub_link_count %}<span class="badge bg-warning-subtle text-warning-emphasis ms-2">{{ row.missing_fub_link_count }} FUB link missing</span>{% endif %}</td>
         <td class="text-end"><span class="metric-main">${{ '{:,.0f}'.format(row.closed.total_gci) }} GCI</span><span class="metric-sub">{{ row.closed.units|round(1) }} units · ${{ '{:,.0f}'.format(row.closed.volume) }} volume</span></td>
         <td class="text-end"><span class="metric-main">{{ row.pending.units|round(1) }} units</span><span class="metric-sub">${{ '{:,.0f}'.format(row.pending.volume) }} volume</span></td>
         <td class="text-end"><span class="metric-main">{{ row.active_listings.units|round(1) }} listings</span><span class="metric-sub">${{ '{:,.0f}'.format(row.active_listings.volume) }} list volume</span></td>
@@ -110,29 +124,50 @@
           <div class="collapse" id="source-detail-{{ loop.index }}">
           <div class="source-detail-wrap">
             <div class="source-detail-title">
-              <span>{{ row.source }} breakdown</span>
-              <span class="profile-note {% if row.no_fub_profile_count %}profile-warning{% endif %}">{% if row.no_fub_profile_count %}{{ row.no_fub_profile_count }} transaction{{ '' if row.no_fub_profile_count == 1 else 's' }} flagged No FUB profile{% else %}All displayed transactions linked to a FUB profile{% endif %}</span>
+              <span>{{ row.source }} breakdown · {{ row.transaction_count }} record{{ '' if row.transaction_count == 1 else 's' }}</span>
+              <span class="profile-note {% if row.missing_fub_link_count %}profile-warning{% endif %}">{% if row.missing_fub_link_count %}{{ row.missing_fub_link_count }} exact FUB link{{ '' if row.missing_fub_link_count == 1 else 's' }} missing{% else %}Every displayed record has an exact FUB link{% endif %}</span>
             </div>
             <div class="table-responsive">
               <table class="table table-sm detail-table">
-                <thead><tr><th>Stage</th><th>Client</th><th>Address</th><th>Source Status</th><th class="text-end">Units</th><th class="text-end">Volume</th><th class="text-end">Base GCI</th><th class="text-end">Bonus</th><th class="text-end">Transaction Fees</th><th class="text-end">Referral Fees</th><th class="text-end">Total GCI</th></tr></thead>
+                <thead><tr><th>Stage</th><th>Client / Jet Center</th><th>Address</th><th>FUB Profile</th><th>Source Used</th><th>Source Basis</th><th class="text-end">Units</th><th class="text-end">Volume</th><th class="text-end">Base GCI</th><th class="text-end">Bonus</th><th class="text-end">Transaction Fees</th><th class="text-end">Referral Fees</th><th class="text-end">Closed Total GCI</th></tr></thead>
                 <tbody>
-                  {% for detail in row.details %}
-                  <tr>
-                    <td>{{ {'closed':'Closed','pending':'Pending','active_listings':'Active Listing','signed_buyers':'Signed Buyer'}[detail.stage] }}</td>
-                    <td>{{ detail.client_name }}</td><td>{{ detail.address }}</td>
-                    <td class="{% if detail.source_status == 'No FUB profile' %}profile-warning{% endif %}">{{ detail.source_status }}</td>
-                    <td class="text-end">{{ detail.units|round(1)|int if detail.units == detail.units|int else detail.units|round(1) }}</td>
-                    <td class="text-end">${{ '{:,.0f}'.format(detail.volume) }}</td>
-                    <td class="text-end">${{ '{:,.0f}'.format(detail.base_gci) }}</td>
-                    <td class="text-end">${{ '{:,.0f}'.format(detail.bonus) }}</td>
-                    <td class="text-end">${{ '{:,.0f}'.format(detail.transaction_fees) }}</td>
-                    <td class="text-end">${{ '{:,.0f}'.format(detail.referral_fees) }}</td>
-                    <td class="text-end"><strong>${{ '{:,.0f}'.format(detail.total_gci) }}</strong></td>
-                  </tr>
+                  {% for stage_key, stage_label, stage_totals in [('closed','Closed',row.closed),('pending','Pending',row.pending),('active_listings','Active Listings',row.active_listings),('signed_buyers','Signed Buyers',row.signed_buyers)] %}
+                    {% set stage_details = row.details|selectattr('stage', 'equalto', stage_key)|list %}
+                    {% for detail in stage_details %}
+                    <tr>
+                      <td>{{ stage_label[:-1] if stage_label in ['Active Listings','Signed Buyers'] else stage_label }}</td>
+                      <td><div>{{ detail.client_name }}</div><a class="record-link" href="{{ url_for('main.edit_transaction', tid=detail.id) }}">Open Jet Center record</a></td>
+                      <td>{{ detail.address }}</td>
+                      <td>{% if detail.fub_id %}<a href="https://poweredbyinfinity.followupboss.com/2/people/view/{{ detail.fub_id }}" target="_blank" rel="noopener">FUB #{{ detail.fub_id }} <i class="bi bi-box-arrow-up-right"></i></a>{% else %}<span class="profile-warning">FUB link missing</span>{% endif %}</td>
+                      <td><strong>{{ detail.source_used }}</strong></td>
+                      <td>{{ detail.source_status }}</td>
+                      <td class="text-end">{{ detail.units|round(1)|int if detail.units == detail.units|int else detail.units|round(1) }}</td>
+                      <td class="text-end">${{ '{:,.0f}'.format(detail.volume) }}</td>
+                      {% if stage_key == 'closed' %}
+                      <td class="text-end">${{ '{:,.0f}'.format(detail.base_gci) }}</td>
+                      <td class="text-end">${{ '{:,.0f}'.format(detail.bonus) }}</td>
+                      <td class="text-end">${{ '{:,.0f}'.format(detail.transaction_fees) }}</td>
+                      <td class="text-end">${{ '{:,.0f}'.format(detail.referral_fees) }}</td>
+                      <td class="text-end"><strong>${{ '{:,.0f}'.format(detail.total_gci) }}</strong></td>
+                      {% else %}
+                      <td class="text-end text-muted">—</td><td class="text-end text-muted">—</td><td class="text-end text-muted">—</td><td class="text-end text-muted">—</td><td class="text-end text-muted">—</td>
+                      {% endif %}
+                    </tr>
+                    {% endfor %}
+                    {% if stage_details %}
+                    <tr class="stage-subtotal">
+                      <td colspan="6">{{ stage_label }} subtotal</td>
+                      <td class="text-end">{{ stage_totals.units|round(1)|int if stage_totals.units == stage_totals.units|int else stage_totals.units|round(1) }}</td>
+                      <td class="text-end">${{ '{:,.0f}'.format(stage_totals.volume) }}</td>
+                      {% if stage_key == 'closed' %}
+                      <td class="text-end">${{ '{:,.0f}'.format(stage_totals.base_gci) }}</td><td class="text-end">${{ '{:,.0f}'.format(stage_totals.bonus) }}</td><td class="text-end">${{ '{:,.0f}'.format(stage_totals.transaction_fees) }}</td><td class="text-end">${{ '{:,.0f}'.format(stage_totals.referral_fees) }}</td><td class="text-end">${{ '{:,.0f}'.format(stage_totals.total_gci) }}</td>
+                      {% else %}
+                      <td class="text-end text-muted">—</td><td class="text-end text-muted">—</td><td class="text-end text-muted">—</td><td class="text-end text-muted">—</td><td class="text-end text-muted">—</td>
+                      {% endif %}
+                    </tr>
+                    {% endif %}
                   {% endfor %}
                 </tbody>
-                <tfoot><tr><td colspan="4">{{ row.source }} totals</td><td class="text-end">{{ (row.closed.units + row.pending.units + row.active_listings.units + row.signed_buyers.units)|round(1) }}</td><td class="text-end">${{ '{:,.0f}'.format(row.closed.volume + row.pending.volume + row.active_listings.volume + row.signed_buyers.volume) }}</td><td class="text-end">${{ '{:,.0f}'.format(row.closed.base_gci) }}</td><td class="text-end">${{ '{:,.0f}'.format(row.closed.bonus) }}</td><td class="text-end">${{ '{:,.0f}'.format(row.closed.transaction_fees) }}</td><td class="text-end">${{ '{:,.0f}'.format(row.closed.referral_fees) }}</td><td class="text-end">${{ '{:,.0f}'.format(row.closed.total_gci) }}</td></tr></tfoot>
               </table>
             </div>
           </div>
