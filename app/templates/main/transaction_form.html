@@ -268,7 +268,7 @@
       <select name="admin_name" id="admin_name" class="form-select">
         <option value="">— Select —</option>
         <option value="Julie Kelsey" {% if t and t.admin_name=='Julie Kelsey' %}selected{% endif %}>Julie Kelsey</option>
-        <option value="Joanne Sumiec" {% if t and t.admin_name=='Joanne Sumiec' %}selected{% endif %}>Joanne Sumiec</option>
+        <option value="Jenny O'Neal" {% if t and t.admin_name=="Jenny O'Neal" %}selected{% endif %}>Jenny O'Neal</option>
       </select>
     </div>
     <div class="col-md-2">
@@ -312,7 +312,7 @@ function applyDefaults() {
 
   // Admin default (only set if blank)
   if (!adminSel.value) {
-    if (division === 'Commercial') adminSel.value = 'Joanne Sumiec';
+    if (division === 'Commercial') adminSel.value = "Jenny O'Neal";
     else if (division === 'Residential') adminSel.value = 'Julie Kelsey';
   }
 }
@@ -327,7 +327,7 @@ document.querySelector('select[name="agent_id"]').addEventListener('change', fun
 document.querySelector('select[name="division"]').addEventListener('change', function() {
   var adminSel = document.getElementById('admin_name');
   // Always update admin when division changes
-  if (this.value === 'Commercial') adminSel.value = 'Joanne Sumiec';
+  if (this.value === 'Commercial') adminSel.value = "Jenny O'Neal";
   else if (this.value === 'Residential') adminSel.value = 'Julie Kelsey';
   applyDefaults();
 });

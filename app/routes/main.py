@@ -1540,7 +1540,7 @@ def my_business():
     agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
     statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
                 'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
-    admin_names = ['Joanne Sumiec', 'Julie Kelsey']
+    admin_names = ["Jenny O'Neal", 'Julie Kelsey']
 
     # Distinct lead sources from DB (non-null, non-empty)
     lead_sources = [
