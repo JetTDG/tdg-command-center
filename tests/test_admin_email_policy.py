@@ -7,6 +7,12 @@ def test_jenny_is_an_explicit_jet_center_admin():
     assert email in ALLOWED_EMAILS
 
 
+def test_emily_colvin_is_an_explicit_jet_center_admin():
+    email = "klrw928@kw.com"
+    assert email in ADMIN_EMAILS
+    assert email in ALLOWED_EMAILS
+
+
 def test_joanne_is_removed_from_jet_center_access():
     email = "joanne@thedeliagroup.com"
     assert email not in ADMIN_EMAILS

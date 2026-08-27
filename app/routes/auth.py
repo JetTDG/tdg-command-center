@@ -19,6 +19,7 @@ ADMIN_EMAILS = {
     "julie@poweredbyinfinity.com",   # Julie Kelsey
     "team@poweredbyinfinity.com",    # Team@PoweredByInfinity.com
     "jenny@thedeliagroup.com",       # Jenny O'Neal — Executive Assistant
+    "klrw928@kw.com",                # Emily Colvin
     "jet.tdg3@gmail.com",            # Jet (Hermes agent) — QA/verification login, admin tier
     "mattmartinec@kw.com",            # Matt Martinec — office team leader / recruit demonstrations
 }
