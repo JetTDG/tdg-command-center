@@ -136,3 +136,75 @@ def test_replayed_form_token_is_idempotent_and_honeypot_does_not_persist(app):
     assert bot.status_code == 200
     with app.app_context():
         assert SmsConsentEnrollment.query.count() == 1
+
+
+def _twilio_signature(path, data, token):
+    from twilio.request_validator import RequestValidator
+    return RequestValidator(token).compute_signature('http://localhost' + path, data)
+
+
+def test_twilio_webhooks_fail_closed_without_auth_token(app, monkeypatch):
+    monkeypatch.delenv('TWILIO_AUTH_TOKEN', raising=False)
+    response = app.test_client().post(
+        '/twilio/agent-operations/inbound', data={'MessageSid': 'SM123'}
+    )
+    assert response.status_code == 503
+
+
+def test_signed_twilio_inbound_and_status_are_sanitized_and_idempotent(app, monkeypatch):
+    from app.models import SmsWebhookEvent
+
+    token = 'test-auth-token'
+    monkeypatch.setenv('TWILIO_AUTH_TOKEN', token)
+    client = app.test_client()
+
+    inbound_path = '/twilio/agent-operations/inbound'
+    inbound = {
+        'MessageSid': 'SM00000000000000000000000000000001',
+        'From': '+12485550199',
+        'To': '+12485552720',
+        'Body': 'Please call me about the document',
+    }
+    signature = _twilio_signature(inbound_path, inbound, token)
+    first = client.post(inbound_path, data=inbound, headers={'X-Twilio-Signature': signature})
+    second = client.post(inbound_path, data=inbound, headers={'X-Twilio-Signature': signature})
+    assert first.status_code == 200
+    assert first.mimetype == 'application/xml'
+    assert second.status_code == 200
+
+    status_path = '/twilio/agent-operations/status'
+    status_data = {
+        'MessageSid': 'SM00000000000000000000000000000002',
+        'MessageStatus': 'delivered',
+        'To': '+12485550199',
+        'From': '+12485552720',
+    }
+    status_signature = _twilio_signature(status_path, status_data, token)
+    status = client.post(status_path, data=status_data, headers={'X-Twilio-Signature': status_signature})
+    assert status.status_code == 204
+
+    with app.app_context():
+        rows = SmsWebhookEvent.query.order_by(SmsWebhookEvent.id).all()
+        assert len(rows) == 2
+        assert rows[0].event_type == 'inbound'
+        assert rows[0].message_sid == inbound['MessageSid']
+        assert rows[0].body_sha256
+        assert rows[0].from_phone_sha256 and inbound['From'] not in rows[0].from_phone_sha256
+        assert rows[0].to_phone_sha256 and inbound['To'] not in rows[0].to_phone_sha256
+        assert not hasattr(rows[0], 'body')
+        assert rows[1].event_type == 'status'
+        assert rows[1].message_status == 'delivered'
+
+
+def test_twilio_webhook_rejects_invalid_signature_without_record(app, monkeypatch):
+    from app.models import SmsWebhookEvent
+
+    monkeypatch.setenv('TWILIO_AUTH_TOKEN', 'test-auth-token')
+    response = app.test_client().post(
+        '/twilio/agent-operations/status',
+        data={'MessageSid': 'SMbad', 'MessageStatus': 'failed'},
+        headers={'X-Twilio-Signature': 'invalid'},
+    )
+    assert response.status_code == 403
+    with app.app_context():
+        assert SmsWebhookEvent.query.count() == 0

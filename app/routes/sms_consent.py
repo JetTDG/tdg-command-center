@@ -2,16 +2,18 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import uuid
 from datetime import datetime
 
-from flask import Blueprint, current_app, render_template, request
+from flask import Blueprint, Response, current_app, render_template, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy.exc import IntegrityError
+from twilio.request_validator import RequestValidator
 
 from app import db
-from app.models import SmsConsentEnrollment
+from app.models import SmsConsentEnrollment, SmsWebhookEvent
 
 
 bp = Blueprint('sms_consent', __name__)
@@ -56,6 +58,56 @@ def _normalize_phone(value):
 
 def _valid_email(value):
     return bool(re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', value or ''))
+
+
+def _twilio_request_is_valid():
+    token = os.environ.get('TWILIO_AUTH_TOKEN')
+    if not token:
+        return None
+    signature = request.headers.get('X-Twilio-Signature', '')
+    return RequestValidator(token).validate(request.url, request.form, signature)
+
+
+def _private_hash(value):
+    if not value:
+        return None
+    secret = str(current_app.config['SECRET_KEY'])
+    return hashlib.sha256((secret + '|' + value).encode('utf-8')).hexdigest()
+
+
+def _record_webhook_event(event_type):
+    message_sid = (request.form.get('MessageSid') or '').strip()
+    if not re.fullmatch(r'SM[0-9A-Za-z]{32}', message_sid):
+        return False
+    status = (request.form.get('MessageStatus') or '').strip().lower()[:30] or None
+    error_code = (request.form.get('ErrorCode') or '').strip()[:20] or None
+    body = request.form.get('Body') or ''
+    normalized = body.strip().upper()
+    keyword = normalized if normalized in {
+        'STOP', 'END', 'CANCEL', 'UNSUBSCRIBE', 'QUIT',
+        'START', 'UNSTOP', 'HELP', 'INFO',
+    } else ('OTHER' if body else None)
+    event_key = hashlib.sha256(
+        '|'.join([event_type, message_sid, status or '', error_code or '']).encode('utf-8')
+    ).hexdigest()
+    row = SmsWebhookEvent(
+        event_key=event_key,
+        event_type=event_type,
+        message_sid=message_sid,
+        message_status=status,
+        from_phone_sha256=_private_hash(request.form.get('From') or ''),
+        to_phone_sha256=_private_hash(request.form.get('To') or ''),
+        body_sha256=_private_hash(body),
+        keyword=keyword,
+        error_code=error_code,
+        received_at=datetime.utcnow(),
+    )
+    db.session.add(row)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+    return True
 
 
 def _render_form(*, errors=None, values=None, status=200):
@@ -145,3 +197,29 @@ def enroll():
             raise
         return render_template('public/sms_enroll_success.html', receipt_id=existing.receipt_id), 200
     return render_template('public/sms_enroll_success.html', receipt_id=row.receipt_id), 201
+
+
+@bp.post('/twilio/agent-operations/inbound')
+def twilio_inbound():
+    valid = _twilio_request_is_valid()
+    if valid is None:
+        return '', 503
+    if not valid:
+        return '', 403
+    if not _record_webhook_event('inbound'):
+        return '', 400
+    # Standard opt-out/help behavior is owned by Twilio Advanced Opt-Out.
+    # This callback records sanitized evidence and emits no message itself.
+    return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', mimetype='application/xml')
+
+
+@bp.post('/twilio/agent-operations/status')
+def twilio_status():
+    valid = _twilio_request_is_valid()
+    if valid is None:
+        return '', 503
+    if not valid:
+        return '', 403
+    if not _record_webhook_event('status'):
+        return '', 400
+    return '', 204

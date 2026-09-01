@@ -485,6 +485,23 @@ class SmsConsentEnrollment(db.Model):
         return f'<SmsConsentEnrollment receipt={self.receipt_id}>'
 
 
+class SmsWebhookEvent(db.Model):
+    """Sanitized, idempotent evidence received from signed Twilio webhooks."""
+    __tablename__ = 'sms_webhook_events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    event_key = db.Column(db.String(64), unique=True, nullable=False)
+    event_type = db.Column(db.String(20), nullable=False, index=True)
+    message_sid = db.Column(db.String(34), nullable=False, index=True)
+    message_status = db.Column(db.String(30))
+    from_phone_sha256 = db.Column(db.String(64))
+    to_phone_sha256 = db.Column(db.String(64))
+    body_sha256 = db.Column(db.String(64))
+    keyword = db.Column(db.String(20))
+    error_code = db.Column(db.String(20))
+    received_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
 class Pipeline(db.Model):
     __tablename__ = 'pipeline'
     id = db.Column(db.Integer, primary_key=True)
