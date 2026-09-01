@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TDG Agent Operations SMS Enrollment</title>
+<style>body{font-family:Inter,system-ui,sans-serif;background:#f5f6fa;color:#1a1d23;margin:0}.wrap{max-width:680px;margin:32px auto;padding:30px;background:#fff;border:1px solid #e4e7ef;border-radius:12px}label{display:block;font-weight:600;margin:18px 0 6px}input[type=text],input[type=email],input[type=tel]{width:100%;padding:12px;border:1px solid #cbd0db;border-radius:7px;box-sizing:border-box}.check{display:flex;gap:10px;align-items:flex-start;margin:22px 0}.check label{margin:0;font-weight:400;line-height:1.55}.check input{margin-top:5px}.btn{background:#1a1d23;color:#fff;border:0;border-radius:7px;padding:12px 20px;font-weight:700}.errors{background:#fee2e2;color:#991b1b;padding:12px 18px;border-radius:7px}.muted{color:#6b7280;line-height:1.55}.hp{position:absolute;left:-10000px}</style></head>
+<body><main class="wrap">
+<h1>TDG Agent Operations SMS Enrollment</h1>
+<p class="muted">Enroll to receive recurring operational document and transaction workflow text messages from The Delia Group. Messages may include signature progress, missing-information alerts, review requests, completion notices, and related two-way support. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help.</p>
+{% if errors %}<div class="errors" role="alert"><ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" novalidate>
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<div class="hp" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+<label for="full_name">Full name</label><input id="full_name" name="full_name" type="text" maxlength="160" required autocomplete="name" value="{{ values.get('full_name','') }}">
+<label for="company_email">TDG company email</label><input id="company_email" name="company_email" type="email" maxlength="254" required autocomplete="email" value="{{ values.get('company_email','') }}">
+<label for="mobile_number">Mobile number</label><input id="mobile_number" name="mobile_number" type="tel" required autocomplete="tel" value="{{ values.get('mobile_number','') }}">
+<div class="check"><input id="consent" name="consent" type="checkbox" value="yes" required><label for="consent">{{ consent_copy }}</label></div>
+<p class="muted">Policy version {{ policy_version }}. Review the <a href="/sms/agent-operations/terms" target="_blank" rel="noopener">SMS Terms</a> and <a href="https://thedeliagroup.com/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
+<button class="btn" type="submit">Enroll in operational SMS</button>
+</form></main></body></html>

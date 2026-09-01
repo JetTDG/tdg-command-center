@@ -463,6 +463,28 @@ class GLScan(db.Model):
         return f'<GLScan {self.slug} {self.event_type} {self.created_at}>'
 
 
+class SmsConsentEnrollment(db.Model):
+    """Append-only evidence of affirmative TDG Agent Operations SMS consent."""
+    __tablename__ = 'sms_consent_enrollments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    receipt_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    submission_token = db.Column(db.String(64), unique=True, nullable=False)
+    full_name = db.Column(db.String(160), nullable=False)
+    company_email = db.Column(db.String(254), nullable=False, index=True)
+    mobile_number = db.Column(db.String(16), nullable=False, index=True)
+    consent_granted = db.Column(db.Boolean, nullable=False, default=True)
+    consent_method = db.Column(db.String(30), nullable=False, default='web_form')
+    policy_version = db.Column(db.String(20), nullable=False)
+    consent_copy_sha256 = db.Column(db.String(64), nullable=False)
+    consented_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    ip_address_sha256 = db.Column(db.String(64), nullable=False)
+    user_agent = db.Column(db.String(300))
+
+    def __repr__(self):
+        return f'<SmsConsentEnrollment receipt={self.receipt_id}>'
+
+
 class Pipeline(db.Model):
     __tablename__ = 'pipeline'
     id = db.Column(db.Integer, primary_key=True)

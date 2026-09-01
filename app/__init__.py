@@ -37,7 +37,7 @@ def create_app():
     def load_user(user_id):
         return User.query.get(int(user_id))
 
-    from app.routes import auth, main
+    from app.routes import auth, main, sms_consent
     from app.routes import gl
     from app.routes import docs
     auth.init_oauth(app)
@@ -45,6 +45,7 @@ def create_app():
     app.register_blueprint(main.bp)
     app.register_blueprint(gl.bp)
     app.register_blueprint(docs.bp)
+    app.register_blueprint(sms_consent.bp)
 
     # ── Timezone filter ──────────────────────────────────────────────────────
     # All DB timestamps (doc_envelopes.sent_at/completed_at/last_synced_at,
