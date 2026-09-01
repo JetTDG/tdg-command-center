@@ -14,6 +14,26 @@ depends_on = None
 
 
 def upgrade():
+    # This application currently calls db.create_all() while Flask imports,
+    # before the Railway start command invokes `flask db upgrade`.  Reconcile
+    # that precreated table instead of attempting duplicate DDL, but fail closed
+    # if the precreated shape is incomplete.
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if 'sms_consent_enrollments' in inspector.get_table_names():
+        existing = {column['name'] for column in inspector.get_columns('sms_consent_enrollments')}
+        required = {
+            'id', 'receipt_id', 'submission_token', 'full_name', 'company_email',
+            'mobile_number', 'consent_granted', 'consent_method', 'policy_version',
+            'consent_copy_sha256', 'consented_at', 'ip_address_sha256', 'user_agent',
+        }
+        missing = sorted(required - existing)
+        if missing:
+            raise RuntimeError(
+                'sms_consent_enrollments exists with missing columns: ' + ', '.join(missing)
+            )
+        return
+
     op.create_table(
         'sms_consent_enrollments',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -40,6 +60,8 @@ def upgrade():
 
 
 def downgrade():
+    if 'sms_consent_enrollments' not in sa.inspect(op.get_bind()).get_table_names():
+        return
     op.drop_index('ix_sms_consent_enrollments_consented_at', table_name='sms_consent_enrollments')
     op.drop_index('ix_sms_consent_enrollments_mobile_number', table_name='sms_consent_enrollments')
     op.drop_index('ix_sms_consent_enrollments_company_email', table_name='sms_consent_enrollments')
