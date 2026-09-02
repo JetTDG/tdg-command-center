@@ -1,7 +1,7 @@
 
-from flask import Flask
+from flask import Flask, abort, redirect, request, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
+from flask_login import LoginManager, current_user
 from flask_migrate import Migrate
 from flask_socketio import SocketIO
 from dotenv import load_dotenv
@@ -46,6 +46,33 @@ def create_app():
     app.register_blueprint(gl.bp)
     app.register_blueprint(docs.bp)
     app.register_blueprint(sms_consent.bp)
+
+    # Agents are self-service users: their own scorecard is their complete
+    # authenticated Jet Center surface. Enforce this server-side instead of
+    # relying on navigation visibility, which previously left company pages
+    # and mutation routes directly reachable by URL.
+    agent_scorecard_endpoints = {
+        'main.scorecard',
+        'main.scorecard_drill',
+        'main.scorecard_zillow_detail',
+        'main.scorecard_deal_breakdown',
+        'main.business_plan_form_for',
+        'auth.logout',
+        'main.health',
+        'static',
+    }
+
+    @app.before_request
+    def enforce_agent_scorecard_only():
+        if not current_user.is_authenticated or current_user.role != 'agent':
+            return None
+        if not current_user.agent_id:
+            abort(403)
+        if request.endpoint in agent_scorecard_endpoints:
+            return None
+        if request.method in {'GET', 'HEAD'}:
+            return redirect(url_for('main.scorecard', agent_id=current_user.agent_id))
+        abort(403)
 
     # ── Timezone filter ──────────────────────────────────────────────────────
     # All DB timestamps (doc_envelopes.sent_at/completed_at/last_synced_at,

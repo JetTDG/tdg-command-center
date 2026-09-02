@@ -331,16 +331,15 @@ def test_every_breakdown_table_column_has_filter_and_sort_controls(app):
     assert text.count('class="form-control form-control-sm conversion-date"') == 2
 
 
-def test_agent_user_is_forced_to_own_data_even_if_other_agent_requested(app):
+def test_agent_user_is_redirected_from_conversion_to_own_scorecard(app):
     client = app.test_client()
     login(client, app.test_ids["agent_user"])
-    response = client.get(f"/conversion?start=2026-01-01&end=2026-12-31&agent_id={app.test_ids['a2']}")
-    text = response.get_data(as_text=True)
-    assert response.status_code == 200
-    assert 'data-metric="leads">2<' in text
-    assert 'data-metric="production-closed">1<' in text
-    assert "Alpha Agent" in text
-    assert "Beta Agent" not in text
+    response = client.get(
+        f"/conversion?start=2026-01-01&end=2026-12-31&agent_id={app.test_ids['a2']}",
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert response.location.endswith(f"/scorecard/{app.test_ids['a1']}")
 
 
 def test_conversion_navigation_is_present_on_desktop_and_mobile_and_filters_are_preserved(app):

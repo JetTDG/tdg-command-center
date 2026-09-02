@@ -547,7 +547,7 @@
 
   <!-- Top Navbar -->
   <header class="top-navbar">
-    <a href="{{ url_for('main.home') }}" class="brand">
+    <a href="{{ url_for('main.scorecard', agent_id=current_user.agent_id) if current_user.is_authenticated and current_user.role == 'agent' and current_user.agent_id else url_for('main.home') }}" class="brand">
       <picture><source media="(max-width:768px)" srcset="/static/branding/jet-center-icon-light.svg"><img class="brand-logo" src="/static/branding/jet-center-primary-on-white.svg" alt="Jet Center"></picture>
     </a>
     <div class="nav-user">
@@ -568,6 +568,7 @@
     <aside class="sidebar">
       <div class="sidebar-section-label">Main</div>
       <nav class="nav flex-column">
+        {% if current_user.is_admin %}
         <a class="nav-link {% if request.endpoint == 'main.home' %}active{% endif %}"
            href="{{ url_for('main.home') }}">
           <i class="bi bi-house-door"></i> Home
@@ -618,8 +619,15 @@
            href="{{ url_for('gl.gl_residential_analytics') }}">
           <i class="bi bi-house"></i> Residential GL Analytics
         </a>
+        {% else %}
+        <a class="nav-link active"
+           href="{{ url_for('main.scorecard', agent_id=current_user.agent_id) }}">
+          <i class="bi bi-person-badge"></i> My Scorecard
+        </a>
+        {% endif %}
       </nav>
 
+      {% if current_user.is_admin %}
       <hr class="divider my-2">
       <hr>
       <div class="sidebar-section-label">Document Pipeline</div>
@@ -632,7 +640,6 @@
       <hr>
       <div class="sidebar-section-label">Admin</div>
       <nav class="nav flex-column">
-        {% if current_user.is_admin %}
         <a class="nav-link {% if request.endpoint == 'main.zillow_performance' %}active{% endif %}"
            href="{{ url_for('main.zillow_performance') }}">
           <i class="bi bi-house-heart"></i> Zillow Performance
@@ -645,17 +652,13 @@
            href="{{ url_for('main.users') }}">
           <i class="bi bi-shield-lock"></i> Users
         </a>
-        {% else %}
-        <a class="nav-link {% if 'scorecard' in request.endpoint %}active{% endif %}"
-           href="{{ url_for('main.scorecard', agent_id=current_user.agent_id) if current_user.agent_id else '#' }}">
-          <i class="bi bi-person-badge"></i> My Scorecard
-        </a>
         {% endif %}
       </nav>
     </aside>
 
     <!-- Mobile Bottom Nav -->
     <nav class="mobile-bottom-nav">
+      {% if current_user.is_admin %}
       <a href="{{ url_for('main.home') }}" {% if request.endpoint == 'main.home' %}class="active"{% endif %}>
         <i class="bi bi-house-door"></i>Home
       </a>
@@ -674,9 +677,15 @@
       <a href="#" id="mobile-more-btn">
         <i class="bi bi-list"></i>More
       </a>
+      {% else %}
+      <a href="{{ url_for('main.scorecard', agent_id=current_user.agent_id) }}" class="active">
+        <i class="bi bi-person-badge"></i>Scorecard
+      </a>
+      {% endif %}
     </nav>
 
     <!-- Mobile "More" slide-up drawer -->
+    {% if current_user.is_admin %}
     <div id="mobile-more-drawer" style="
       position:fixed;bottom:60px;left:0;right:0;
       background:var(--tdg-surface);border-top:1px solid var(--tdg-border);
@@ -727,6 +736,7 @@
         </a>
       </div>
     </div>
+    {% endif %}
     <script>
       (function(){
         var drawer = document.getElementById('mobile-more-drawer');

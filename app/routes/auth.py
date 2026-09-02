@@ -27,14 +27,18 @@ ADMIN_EMAILS = {
 # All TDG Google accounts allowed to log in (agents get role='agent')
 ALLOWED_EMAILS = ADMIN_EMAILS | {
     "alex@thedeliagroup.com",
+    "anisa@thedeliagroup.com",
+    "anthony@thedeliagroup.com",
     "lexy@thedeliagroup.com",
     "alia@thedeliagroup.com",
     "austin@thedeliagroup.com",
     "brock@tdgcommercialre.com",
     "bryan@thedeliagroup.com",
+    "bryanduff@thedeliagroup.com",
     "casey@thedeliagroup.com",
     "chaise@tdgcommercialre.com",
     "christilles@thedeliagroup.com",
+    "christian@thedeliagroup.com",
     "jair@thedeliagroup.com",
     "jimmy@thedeliagroup.com",
     "joe.c@thedeliagroup.com",
@@ -48,12 +52,16 @@ ALLOWED_EMAILS = ADMIN_EMAILS | {
     "maeson@thedeliagroup.com",
     "martin@thedeliagroup.com",
     "megan@thedeliagroup.com",
+    "michael@thedeliagroup.com",
     "parker@thedeliagroup.com",
     "ryan@tothteamnetwork.com",
+    "robert@thedeliagroup.com",
     "samar@thedeliagroup.com",
     "sara@thedeliagroup.com",
     "sarah@thedeliagroup.com",
     "shariful@thedeliagroup.com",
+    "skylar@thedeliagroup.com",
+    "tomdelia@kw.com",
 }
 
 
