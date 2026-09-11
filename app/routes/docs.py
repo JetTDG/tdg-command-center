@@ -89,6 +89,7 @@ def doc_pipeline():
     q_search   = (request.args.get('search', '') or '').strip()
     q_stage    = request.args.get('stage', '')
     q_division = request.args.get('division', '')   # '' | 'Residential' | 'CRE'
+    q_agent    = (request.args.get('agent_name', '') or '').strip()
     q_source   = request.args.get('source', '')     # '' | 'api' | 'personal'
 
     # ── Year / Month / date-range filter (same pattern as My Business) ────────
@@ -158,6 +159,10 @@ def doc_pipeline():
     if q_division:
         query = query.filter(DocEnvelope.division == q_division)
 
+    # Agent filter — exact selection from the populated agent dropdown
+    if q_agent:
+        query = query.filter(DocEnvelope.agent_name == q_agent)
+
     # Source filter
     if q_source:
         query = query.filter(DocEnvelope.source == q_source)
@@ -214,6 +219,19 @@ def doc_pipeline():
 
     month_names = [(str(i), _cal.month_name[i]) for i in range(1, 13)]
     years = list(range(2023, current_yr + 1))
+    agent_names = [
+        row[0]
+        for row in (
+            db.session.query(DocEnvelope.agent_name)
+            .filter(
+                DocEnvelope.agent_name.isnot(None),
+                db.func.trim(DocEnvelope.agent_name) != '',
+            )
+            .distinct()
+            .order_by(DocEnvelope.agent_name.asc())
+            .all()
+        )
+    ]
 
     return render_template(
         'main/doc_pipeline.html',
@@ -226,6 +244,7 @@ def doc_pipeline():
         q_search=q_search,
         q_stage=q_stage,
         q_division=q_division,
+        q_agent=q_agent,
         q_source=q_source,
         q_year=q_year,
         q_month=q_month,
@@ -235,6 +254,7 @@ def doc_pipeline():
         q_dir=q_dir,
         month_names=month_names,
         years=years,
+        agent_names=agent_names,
         last_sync=last_sync,
         total=len(envelopes),
     )

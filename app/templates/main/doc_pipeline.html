@@ -191,7 +191,7 @@
   {% for stage, label in stage_labels.items() %}
   {% set is_active = (q_stage == stage) %}
   <a href="{{ url_for('docs.doc_pipeline',
-       doc_type=q_type, division=q_division, source=q_source,
+       doc_type=q_type, division=q_division, agent_name=q_agent, source=q_source,
        year=q_year, month=q_month, date_from=q_date_from, date_to=q_date_to, search=q_search,
        stage=('' if is_active else stage)) }}"
      class="stage-card sc-{{ stage }} {% if is_active %}active{% endif %}">
@@ -220,7 +220,17 @@
       <select class="form-select" name="division" onchange="this.form.submit()">
         <option value="" {% if not q_division %}selected{% endif %}>All</option>
         <option value="Residential" {% if q_division == 'Residential' %}selected{% endif %}>Residential</option>
-        <option value="CRE" {% if q_division == 'CRE' %}selected{% endif %}>CRE</option>
+        <option value="CRE" {% if q_division == 'CRE' %}selected{% endif %}>Commercial</option>
+      </select>
+    </div>
+    <!-- Agent -->
+    <div class="f-grp">
+      <label class="form-label">Agent Name</label>
+      <select class="form-select" name="agent_name" onchange="this.form.submit()">
+        <option value="" {% if not q_agent %}selected{% endif %}>All Agents</option>
+        {% for agent_name in agent_names %}
+        <option value="{{ agent_name }}" {% if q_agent == agent_name %}selected{% endif %}>{{ agent_name }}</option>
+        {% endfor %}
       </select>
     </div>
     <!-- Doc type -->
@@ -307,6 +317,8 @@ function dpMonthChanged() {
   <span style="font-size:0.8rem;color:var(--tdg-muted)">
     Showing <strong id="dp-count-line">{{ total }}</strong> envelope{{ 's' if total != 1 else '' }}
     {% if q_search %} matching "<em>{{ q_search }}</em>"{% endif %}
+    {% if q_division %} · {{ 'Commercial' if q_division == 'CRE' else q_division }}{% endif %}
+    {% if q_agent %} · {{ q_agent }}{% endif %}
     {% if q_type %} · {{ doc_type_labels.get(q_type, q_type) }}{% endif %}
     {% if q_stage %} · {{ stage_labels.get(q_stage, q_stage) }}{% endif %}
     {% if q_month %} · {{ month_names[q_month|int - 1][1] }} {{ q_year }}{% else %} · {{ q_year }}{% endif %}
