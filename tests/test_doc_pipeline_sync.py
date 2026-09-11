@@ -15,6 +15,12 @@ def app(tmp_path, monkeypatch):
     with app.app_context():
         db.drop_all()
         db.create_all()
+        from app.models import Agent
+        db.session.add_all([
+            Agent(name="Active Agent", email="ACTIVE@example.com", status="Active"),
+            Agent(name="Inactive Agent", email="inactive@example.com", status="Inactive"),
+        ])
+        db.session.commit()
     yield app
 
 
@@ -77,7 +83,11 @@ def test_delayed_viewed_event_cannot_regress_completed_envelope(app):
 
     assert first.status_code == 200
     assert second.status_code == 200
-    assert second.get_json() == {"upserted": 1}
+    assert second.get_json() == {
+        "received": 1,
+        "upserted": 1,
+        "accepted_envelope_ids": ["terminal-envelope"],
+    }
     with app.app_context():
         row = DocEnvelope.query.filter_by(envelope_id="terminal-envelope").one()
         assert row.stage == "completed"
@@ -123,3 +133,30 @@ def test_completed_event_advances_sent_envelope_without_erasing_original_sent_ti
         assert row.sent_at == datetime.fromisoformat(sent_at)
         assert row.created_at == datetime.fromisoformat(sent_at)
         assert row.completed_at == datetime.fromisoformat(completed_at)
+
+
+def test_sync_agent_roster_returns_only_normalized_active_agents(app):
+    response = app.test_client().get("/api/doc-pipeline/agents")
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "agents": [{"name": "Active Agent", "email": "active@example.com"}]
+    }
+
+
+def test_sync_acknowledges_the_exact_committed_envelope_ids(app):
+    payload = [
+        _event("accepted-one", "completed", "2026-07-21T21:00:00"),
+        _event("accepted-two", "sent_to_docusign", "2026-07-21T22:00:00"),
+    ]
+
+    response = app.test_client().post(
+        "/api/doc-pipeline/sync", json={"envelopes": payload}
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "received": 2,
+        "upserted": 2,
+        "accepted_envelope_ids": ["accepted-one", "accepted-two"],
+    }

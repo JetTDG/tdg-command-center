@@ -279,6 +279,35 @@ def doc_pipeline():
 
 
 # ── Sync endpoint ─────────────────────────────────────────────────────────────
+@bp.route('/api/doc-pipeline/agents', methods=['GET'])
+def sync_agent_roster():
+    """Return the authoritative active-agent roster to the signed sync job."""
+    raw_body = request.get_data()
+    sig = request.headers.get('X-TDG-Signature', '')
+    if SYNC_KEY and not _verify_sig(raw_body, sig):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    agents = (
+        Agent.query
+        .filter(
+            Agent.name.isnot(None),
+            db.func.trim(Agent.name) != '',
+            db.func.lower(Agent.status) == 'active',
+        )
+        .order_by(Agent.name.asc())
+        .all()
+    )
+    return jsonify({
+        'agents': [
+            {
+                'name': agent.name.strip(),
+                'email': (agent.email or '').strip().lower(),
+            }
+            for agent in agents
+        ]
+    })
+
+
 @bp.route('/api/doc-pipeline/sync', methods=['POST'])
 def sync_envelopes():
     """
@@ -299,6 +328,7 @@ def sync_envelopes():
 
     envelopes_data = data.get('envelopes', [])
     upserted = 0
+    accepted_envelope_ids = []
     errors = []
 
     for env in envelopes_data:
@@ -411,9 +441,19 @@ def sync_envelopes():
 
             rec.last_synced_at = datetime.utcnow()
             upserted += 1
+            accepted_envelope_ids.append(env['envelope_id'])
 
         except Exception as e:
             errors.append({'envelope_id': env.get('envelope_id', '?'), 'error': str(e)})
+
+    if errors:
+        db.session.rollback()
+        return jsonify({
+            'received': len(envelopes_data),
+            'upserted': 0,
+            'accepted_envelope_ids': [],
+            'errors': errors,
+        }), 422
 
     try:
         db.session.commit()
@@ -421,7 +461,9 @@ def sync_envelopes():
         db.session.rollback()
         return jsonify({'error': f'DB commit failed: {e}'}), 500
 
-    resp = {'upserted': upserted}
-    if errors:
-        resp['errors'] = errors
+    resp = {
+        'received': len(envelopes_data),
+        'upserted': upserted,
+        'accepted_envelope_ids': accepted_envelope_ids,
+    }
     return jsonify(resp), 200
