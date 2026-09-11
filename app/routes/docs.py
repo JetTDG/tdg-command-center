@@ -23,14 +23,12 @@ from app.models import Agent, DocEnvelope
 bp = Blueprint('docs', __name__)
 
 # ── Sync authentication ──────────────────────────────────────────────────────
-SYNC_KEY = os.environ.get('DOC_PIPELINE_SYNC_KEY', '')
-
-
 def _verify_sig(payload: bytes, sig_header: str) -> bool:
     """HMAC-SHA256 signature check — rejects unauthenticated sync requests."""
-    if not SYNC_KEY:
+    sync_key = os.environ.get('DOC_PIPELINE_SYNC_KEY', '')
+    if not sync_key:
         return False
-    expected = 'sha256=' + hmac.new(SYNC_KEY.encode(), payload, hashlib.sha256).hexdigest()
+    expected = 'sha256=' + hmac.new(sync_key.encode(), payload, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, sig_header or '')
 
 
@@ -284,7 +282,9 @@ def sync_agent_roster():
     """Return the authoritative active-agent roster to the signed sync job."""
     raw_body = request.get_data()
     sig = request.headers.get('X-TDG-Signature', '')
-    if SYNC_KEY and not _verify_sig(raw_body, sig):
+    if not os.environ.get('DOC_PIPELINE_SYNC_KEY', ''):
+        return jsonify({'error': 'Sync authentication is not configured'}), 503
+    if not _verify_sig(raw_body, sig):
         return jsonify({'error': 'Unauthorized'}), 401
 
     agents = (
@@ -318,7 +318,9 @@ def sync_envelopes():
     raw_body = request.get_data()
     sig = request.headers.get('X-TDG-Signature', '')
 
-    if SYNC_KEY and not _verify_sig(raw_body, sig):
+    if not os.environ.get('DOC_PIPELINE_SYNC_KEY', ''):
+        return jsonify({'error': 'Sync authentication is not configured'}), 503
+    if not _verify_sig(raw_body, sig):
         return jsonify({'error': 'Unauthorized'}), 401
 
     try:
