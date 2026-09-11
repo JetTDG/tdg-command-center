@@ -10,7 +10,7 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "sqlite:///" + str(tmp_path / "doc-pipeline-filters.db"))
     monkeypatch.setenv("SECRET_KEY", "test-secret")
     from app import create_app, db
-    from app.models import DocEnvelope, User
+    from app.models import Agent, DocEnvelope, User
 
     app = create_app()
     app.config.update(TESTING=True)
@@ -27,6 +27,10 @@ def app(tmp_path, monkeypatch):
         db.session.flush()
         db.session.add_all(
             [
+                Agent(name="Alice Agent", email="alice@example.com", status="Active"),
+                Agent(name="Bob Broker", email="bob@example.com", status="Active"),
+                Agent(name="No Docs Agent", email="nodocs@example.com", status="Active"),
+                Agent(name="Former Agent", email="former@example.com", status="Inactive"),
                 DocEnvelope(
                     envelope_id="res-alice",
                     doc_type="listing",
@@ -35,6 +39,7 @@ def app(tmp_path, monkeypatch):
                     stage="completed",
                     property_address="101 Residential Way",
                     agent_name="Alice Agent",
+                    agent_email="alice@example.com",
                     created_at=datetime(2026, 2, 1),
                     sent_at=datetime(2026, 2, 1),
                 ),
@@ -46,6 +51,7 @@ def app(tmp_path, monkeypatch):
                     stage="completed",
                     property_address="202 Commercial Blvd",
                     agent_name="Bob Broker",
+                    agent_email="bob@example.com",
                     created_at=datetime(2026, 3, 1),
                     sent_at=datetime(2026, 3, 1),
                 ),
@@ -57,6 +63,7 @@ def app(tmp_path, monkeypatch):
                     stage="completed",
                     property_address="303 Residential Lane",
                     agent_name="Bob Broker",
+                    agent_email="bob@example.com",
                     created_at=datetime(2026, 4, 1),
                     sent_at=datetime(2026, 4, 1),
                 ),
@@ -68,6 +75,7 @@ def app(tmp_path, monkeypatch):
                     stage="awaiting_agent_signature",
                     property_address="404 Commercial Blvd",
                     agent_name="Bob Broker",
+                    agent_email="bob@example.com",
                     created_at=datetime(2026, 3, 2),
                     sent_at=datetime(2026, 3, 2),
                 ),
@@ -79,8 +87,33 @@ def app(tmp_path, monkeypatch):
                     stage="completed",
                     property_address="505 Commercial Blvd",
                     agent_name="Alice Agent",
+                    agent_email="alice@example.com",
                     created_at=datetime(2026, 3, 3),
                     sent_at=datetime(2026, 3, 3),
+                ),
+                DocEnvelope(
+                    envelope_id="cre-bob-name-variant",
+                    doc_type="cre_listing",
+                    division="CRE",
+                    source="api",
+                    stage="completed",
+                    property_address="606 Commercial Court",
+                    agent_name="Robert Broker",
+                    agent_email="bob@example.com",
+                    created_at=datetime(2026, 5, 1),
+                    sent_at=datetime(2026, 5, 1),
+                ),
+                DocEnvelope(
+                    envelope_id="nonteam-recipient",
+                    doc_type="listing",
+                    division="Residential",
+                    source="api",
+                    stage="completed",
+                    property_address="707 Historical Error Road",
+                    agent_name="Client Person",
+                    agent_email="client@example.com",
+                    created_at=datetime(2026, 6, 1),
+                    sent_at=datetime(2026, 6, 1),
                 ),
             ]
         )
@@ -133,6 +166,20 @@ def test_agent_name_filter_lists_agents_and_filters_exactly(app):
     assert "303 Residential Lane" not in alice
     assert '<option value="Alice Agent" selected>Alice Agent</option>' in alice
     assert '<option value="Bob Broker"' in alice
+
+
+def test_agent_dropdown_uses_active_team_roster_and_email_matches_name_variants(app):
+    text = get_text(app)
+    assert '<option value="Alice Agent"' in text
+    assert '<option value="Bob Broker"' in text
+    assert '<option value="No Docs Agent"' in text
+    assert "Client Person</option>" not in text
+    assert "Former Agent</option>" not in text
+
+    bob = get_text(app, "&division=CRE&agent_name=Bob%20Broker")
+    assert "202 Commercial Blvd" in bob
+    assert "606 Commercial Court" in bob
+    assert "505 Commercial Blvd" not in bob
 
 
 def test_division_and_agent_filters_work_together_and_survive_stage_links(app):

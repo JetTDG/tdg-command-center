@@ -18,7 +18,7 @@ from flask_login import login_required
 from sqlalchemy import extract
 
 from app import db
-from app.models import DocEnvelope
+from app.models import Agent, DocEnvelope
 
 bp = Blueprint('docs', __name__)
 
@@ -159,9 +159,29 @@ def doc_pipeline():
     if q_division:
         query = query.filter(DocEnvelope.division == q_division)
 
-    # Agent filter — exact selection from the populated agent dropdown
+    # Agent filter — resolve the selection against the authoritative active
+    # roster, then match documents by canonical name or email. DocuSign display
+    # names can vary while the email remains stable.
     if q_agent:
-        query = query.filter(DocEnvelope.agent_name == q_agent)
+        selected_agent = Agent.query.filter(
+            db.func.lower(db.func.trim(Agent.name)) == q_agent.lower(),
+            db.func.lower(Agent.status) == 'active',
+        ).first()
+        if selected_agent:
+            agent_matches = [
+                db.func.lower(db.func.trim(DocEnvelope.agent_name))
+                == selected_agent.name.strip().lower()
+            ]
+            if selected_agent.email and selected_agent.email.strip():
+                agent_matches.append(
+                    db.func.lower(db.func.trim(DocEnvelope.agent_email))
+                    == selected_agent.email.strip().lower()
+                )
+            query = query.filter(db.or_(*agent_matches))
+        else:
+            # Reject stale/manually supplied non-roster names rather than
+            # exposing historical recipient misclassification as an agent.
+            query = query.filter(db.false())
 
     # Source filter
     if q_source:
@@ -219,13 +239,14 @@ def doc_pipeline():
     agent_names = [
         row[0]
         for row in (
-            db.session.query(DocEnvelope.agent_name)
+            db.session.query(Agent.name)
             .filter(
-                DocEnvelope.agent_name.isnot(None),
-                db.func.trim(DocEnvelope.agent_name) != '',
+                Agent.name.isnot(None),
+                db.func.trim(Agent.name) != '',
+                db.func.lower(Agent.status) == 'active',
             )
             .distinct()
-            .order_by(DocEnvelope.agent_name.asc())
+            .order_by(Agent.name.asc())
             .all()
         )
     ]
