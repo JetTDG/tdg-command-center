@@ -167,10 +167,6 @@ def doc_pipeline():
     if q_source:
         query = query.filter(DocEnvelope.source == q_source)
 
-    # Stage filter
-    if q_stage:
-        query = query.filter(DocEnvelope.stage == q_stage)
-
     # Text search — address, party label, agent name, party name
     if q_search:
         like = f'%{q_search}%'
@@ -184,6 +180,12 @@ def doc_pipeline():
                 DocEnvelope.subject.ilike(like),
             )
         )
+
+    # Stage cards summarize the current filtered cohort. Apply the selected
+    # stage afterward so every card remains a useful drill-in target.
+    filtered_query = query
+    if q_stage:
+        query = query.filter(DocEnvelope.stage == q_stage)
 
     # ── Sort ──────────────────────────────────────────────────────────────────
     sort_col_map = {
@@ -201,17 +203,12 @@ def doc_pipeline():
 
     envelopes = query.all()
 
-    # Summary counts by stage (same year filter applied, no month/search restriction)
+    # Summary counts by stage for all active filters except stage itself.
     stage_counts: dict[str, int] = {}
     for stage in STAGE_ORDER:
-        base = DocEnvelope.query.filter(
-            sa_or_(
-                sa_extract('year', DocEnvelope.sent_at)    == q_year,
-                sa_and_(DocEnvelope.sent_at == None,
-                        sa_extract('year', DocEnvelope.created_at) == q_year),
-            )
-        )
-        stage_counts[stage] = base.filter(DocEnvelope.stage == stage).count()
+        stage_counts[stage] = filtered_query.filter(
+            DocEnvelope.stage == stage
+        ).count()
 
     # Last sync time
     latest = DocEnvelope.query.order_by(DocEnvelope.last_synced_at.desc()).first()
