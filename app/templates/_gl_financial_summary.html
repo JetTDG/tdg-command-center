@@ -1,0 +1,60 @@
+{# Shared, authoritative Golden Letter financial summary. #}
+{% if data_warning %}
+<div class="alert alert-danger d-flex gap-2 align-items-start mb-4" role="alert">
+  <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+  <div><strong>Live source unavailable — rates and spend are not current.</strong><br><span style="font-size:12px;">{{ data_warning }}</span></div>
+</div>
+{% endif %}
+
+<div class="card border-0 mb-4" style="box-shadow:0 1px 8px rgba(0,0,0,0.07);">
+  <div class="card-body p-4">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+      <div>
+        <h6 class="fw-bold mb-1" style="font-size:15px;color:#1a1d23;">{{ division_name }} Golden Letter Financial Performance</h6>
+        <div class="text-muted" style="font-size:11px;">{{ year }} company-paid production · live Jet Center transactions · refreshed {{ generated_at.strftime('%b %-d, %Y %-I:%M %p UTC') }}</div>
+      </div>
+      <div class="btn-group btn-group-sm" role="group" aria-label="Report year">
+        {% for y in [year - 1, year] %}
+        <a class="btn {% if y == year %}btn-dark{% else %}btn-outline-secondary{% endif %}" href="?year={{ y }}">{{ y }}</a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-6 col-lg"><div class="rounded-3 p-3 h-100" style="background:#f8fafc;border:1px solid #e5e7eb;">
+        <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;">Company spend</div>
+        <div class="fw-bold mt-1" style="font-size:22px;color:#1a1d23;">${{ '{:,.2f}'.format(mailing.spend) }}</div>
+        <div class="text-muted" style="font-size:11px;">{{ '{:,}'.format(mailing.letters_produced) }} produced · {{ '{:,}'.format(mailing.letters_mailed) }} documented mailed</div>
+      </div></div>
+      <div class="col-6 col-lg"><div class="rounded-3 p-3 h-100" style="background:#f8fafc;border:1px solid #e5e7eb;">
+        <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;">Closed production</div>
+        <div class="fw-bold mt-1" style="font-size:22px;color:#1a1d23;">{{ financial.realized.deals }} deals</div>
+        <div class="text-muted" style="font-size:11px;">${{ '{:,.2f}'.format(financial.realized.gci) }} GCI</div>
+      </div></div>
+      <div class="col-6 col-lg"><div class="rounded-3 p-3 h-100" style="background:#f8fafc;border:1px solid #e5e7eb;">
+        <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;">Company contribution</div>
+        <div class="fw-bold mt-1" style="font-size:22px;color:#1a1d23;">${{ '{:,.2f}'.format(financial.realized.company_contribution) }}</div>
+        <div class="text-muted" style="font-size:11px;">after Other Fee · before overhead</div>
+      </div></div>
+      <div class="col-6 col-lg"><div class="rounded-3 p-3 h-100" style="background:{% if financial.realized.roi is not none and financial.realized.roi >= 0 %}#f0fdf4{% else %}#fef2f2{% endif %};border:1px solid {% if financial.realized.roi is not none and financial.realized.roi >= 0 %}#bbf7d0{% else %}#fecaca{% endif %};">
+        <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;">Realized company ROI</div>
+        <div class="fw-bold mt-1" style="font-size:22px;color:{% if financial.realized.roi is not none and financial.realized.roi >= 0 %}#15803d{% else %}#b91c1c{% endif %};">{% if financial.realized.roi is not none %}{{ '{:,.1f}%'.format(financial.realized.roi * 100) }}{% else %}—{% endif %}</div>
+        <div class="text-muted" style="font-size:11px;">{% if financial.realized.return_multiple is not none %}{{ '{:.2f}x'.format(financial.realized.return_multiple) }} return multiple{% else %}Spend unavailable{% endif %}</div>
+      </div></div>
+    </div>
+
+    <div class="mt-3 p-3 rounded-3" style="background:#fff7ed;border:1px solid #fed7aa;">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+          <strong style="font-size:12px;color:#9a3412;">Active + Pending scenario — not realized revenue</strong>
+          <div style="font-size:12px;color:#7c2d12;">{{ financial.pipeline.deals }} deals · ${{ '{:,.2f}'.format(financial.pipeline.gci) }} potential GCI · ${{ '{:,.2f}'.format(financial.pipeline.company_contribution) }} potential company contribution</div>
+        </div>
+        <span class="badge" style="background:#ffedd5;color:#9a3412;">Unweighted pipeline</span>
+      </div>
+    </div>
+    {% if mailing.unmailed_letters %}
+    <div class="mt-2 text-muted" style="font-size:11px;"><i class="bi bi-info-circle me-1"></i>{{ mailing.unmailed_letters }} produced letters have no documented mail date and are excluded from response-rate denominators.</div>
+    {% endif %}
+    <div class="mt-2 text-muted" style="font-size:10px;">Realized ROI = (closed company contribution − company-paid mailing spend) ÷ mailing spend. Exact transaction source “Golden Letter” only; archived and import-duplicate rows excluded.</div>
+  </div>
+</div>

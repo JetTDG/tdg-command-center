@@ -7,7 +7,7 @@
 <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
   <div>
     <h1 class="h4 fw-bold mb-1" style="color:#1a1d23;">🏢 Golden Letter Analytics</h1>
-    <p class="text-muted mb-0" style="font-size:13px;">QR scans · form submits · SMS taps · calls · texts by city</p>
+    <p class="text-muted mb-0" style="font-size:13px;">QR page-load events · form submits · SMS taps · attributed inbound calls/texts by city</p>
   </div>
   <div class="d-flex align-items-center gap-2 flex-wrap">
     <span class="badge" style="background:#c9a84c20;color:#c9a84c;font-size:12px;padding:7px 14px;border:1px solid #c9a84c40;border-radius:20px;font-weight:600;">
@@ -15,6 +15,8 @@
     </span>
   </div>
 </div>
+
+{% include '_gl_financial_summary.html' %}
 
 {# ── KPI Cards ──────────────────────────────────────────────────────────── #}
 {% if total_letters > 0 %}
@@ -25,7 +27,7 @@
     ("SMS Taps",        total_sms,       sms_pct,    "#c9a84c", "bi-chat-text",     "of letters → text"),
     ("Inbound Calls",   total_calls,     calls_pct,  "#0891b2", "bi-telephone-inbound", "calls to GL numbers"),
     ("Inbound Texts",   total_texts,     texts_pct,  "#7c3aed", "bi-chat-dots",     "texts to GL numbers"),
-    ("Total Responses", total_responses, resp_pct,   "#dc2626", "bi-activity",      "forms + SMS taps"),
+    ("Response Events", total_responses, resp_pct,   "#dc2626", "bi-activity",      "forms + taps + attributed inbound"),
   ] %}
   {% for label, val, pct, color, icon, sub in kpis %}
   <div class="col-6 col-lg-4 col-xl-2">
@@ -243,7 +245,7 @@
             </a>
             <div style="font-size:11px;color:#9ca3af;">{{ s.county }} · {{ s.vertical }}</div>
           </div>
-          {% set resp = s.response_pct %}
+          {% set resp = s.response_pct or 0 %}
           <span class="badge fw-bold" style="
             font-size:12px;padding:5px 10px;border-radius:20px;
             background:{% if resp >= 2 %}#16a34a20{% elif resp >= 0.5 %}#c9a84c20{% else %}#f3f4f6{% endif %};
@@ -351,7 +353,7 @@
               <span style="font-size:12px;color:#2563EB;font-weight:600;">{{ s.scan_pct }}%</span>
             </td>
             <td class="text-end pe-4">
-              {% set resp = s.response_pct %}
+              {% set resp = s.response_pct or 0 %}
               <span class="fw-bold" style="
                 display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;
                 background:{% if resp >= 2 %}#16a34a18{% elif resp >= 0.5 %}#c9a84c18{% else %}#f3f4f6{% endif %};

@@ -40,10 +40,13 @@ def _source_classification(person: dict) -> dict:
     tag_blob = " ".join(
         str(tag.get("name") if isinstance(tag, dict) else tag) for tag in person.get("tags") or []
     ).lower()
-    # Fello PURL records retain their true campaign in FUB tags.
-    if "golden letter" in tag_blob:
+    # Fello PURL records retain their true campaign only in FUB tags. Never let
+    # a generic historical tag overwrite an explicit source such as Zillow,
+    # SOI, Facebook, HomeLight, or Mojo.
+    raw_source = str(person.get("source") or "").strip().lower()
+    if "golden letter" in tag_blob and raw_source.startswith("fello"):
         classification["source_family"] = "Golden Letter"
-    elif "zillow" in tag_blob:
+    elif "zillow" in tag_blob and classification["source_family"] in {"Unknown", "Internet / Portal"}:
         classification["source_family"] = "Zillow"
     return classification
 

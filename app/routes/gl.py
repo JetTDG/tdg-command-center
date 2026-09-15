@@ -6,13 +6,18 @@ Routes:
   GET  /gl/<slug>/qr.png   — serves the QR code image
   GET  /gl/qr/<slug>.png   — alternate path used in merge script
 """
+from __future__ import annotations
 from flask import Blueprint, render_template, request, redirect, send_file, abort, jsonify
 from flask_login import login_required
 from datetime import datetime
 from app import db
 from app.models import GLScan
-from app.residential_gl_analytics import extract_residential_sheet_events
-from app.google_token import decode_google_token_json
+from app.gl_metrics import (
+    build_financial_summary,
+    canonical_residential_events,
+    commercial_batches_by_slug,
+    parse_company_mailings,
+)
 import os, io, logging, requests as http
 
 log = logging.getLogger(__name__)
@@ -1143,6 +1148,49 @@ def webhook_fub():
 
 
 
+# ── Authoritative analytics sources ──────────────────────────────────────────
+
+GL_TRACKER_SHEET_ID = "1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo"
+
+
+def _analytics_year() -> int:
+    try:
+        requested = int(request.args.get("year", datetime.utcnow().year))
+    except (TypeError, ValueError):
+        requested = datetime.utcnow().year
+    return max(2025, min(requested, datetime.utcnow().year + 1))
+
+
+def _load_company_mailings(year: int) -> list:
+    """Load the live year-specific Tracker tab; failures are never rendered as zero."""
+    from googleapiclient.discovery import build as goog_build
+    from google.oauth2.credentials import Credentials as GCreds
+    import base64 as _b64
+    import json as _json
+    import google.auth.transport.requests as _gtr
+
+    token = os.environ.get("GOOGLE_TOKEN_JSON_FOR_RAILWAY", "")
+    if not token:
+        raise RuntimeError("Golden Letter Tracker credential is unavailable")
+    credentials = GCreds.from_authorized_user_info(_json.loads(_b64.b64decode(token).decode()))
+    if credentials.expired and credentials.refresh_token:
+        credentials.refresh(_gtr.Request())
+    service = goog_build("sheets", "v4", credentials=credentials, cache_discovery=False)
+    return service.spreadsheets().values().get(
+        spreadsheetId=GL_TRACKER_SHEET_ID,
+        range=f"'{year} Company Mailings'!A:S",
+    ).execute().get("values", [])
+
+
+def _gl_financials(division: str, year: int, spend: float) -> dict:
+    from app.models import Transaction
+    rows = Transaction.query.filter(
+        Transaction.lead_source == "Golden Letter",
+        Transaction.division == division,
+    ).all()
+    return build_financial_summary(rows, division=division, year=year, spend=spend)
+
+
 # ── GL Analytics Dashboard ────────────────────────────────────────────────────
 
 @bp.route("/analytics")
@@ -1170,6 +1218,8 @@ def gl_analytics():
         "fraser":       "Macomb",
         "roseville":    "Macomb",
         "chesterfield": "Macomb",
+        "macomb":       "Macomb",
+        "sterling":     "Macomb",
         # Oakland
         "highland":     "Oakland",
         "white":        "Oakland",
@@ -1189,6 +1239,13 @@ def gl_analytics():
         "farmington":   "Oakland",
         "wixom":        "Oakland",
         "novi":         "Oakland",
+        "rochester":    "Oakland",
+        "lake":         "Oakland",
+        "orion":        "Oakland",
+        "auburn":       "Oakland",
+        "southfield":   "Oakland",
+        "pontiac":      "Oakland",
+        "troy":         "Oakland",
         # Wayne
         "taylor":       "Wayne",
         "wyandotte":    "Wayne",
@@ -1214,6 +1271,15 @@ def gl_analytics():
         # Genesee
         "flint":        "Genesee",
         "genesee":      "Genesee",
+        "grand":        "Genesee",
+        "swartz":       "Genesee",
+        "burton":       "Genesee",
+        "fenton":       "Genesee",
+        "flushing":     "Genesee",
+        "linden":       "Genesee",
+        "goodrich":     "Genesee",
+        "clio":         "Genesee",
+        "lapeer":       "Lapeer",
         # Livingston
         "livingston":   "Livingston",
         "brighton":     "Livingston",
@@ -1332,6 +1398,43 @@ def gl_analytics():
     batch_rows.sort(key=lambda r: (0 if r["mail_date"] else 1, r["city"]))
     total_batch = sum(r["letters"] for r in batch_rows)
 
+    # Authoritative year-specific Company Mailings replaces the legacy partial
+    # LETTER_COUNTS map above. The old map remains only as landing-page history;
+    # it is never used for dashboard denominators or spend.
+    year = _analytics_year()
+    data_warning = None
+    commercial_mailing = {
+        "year": year, "letters_produced": 0, "letters_mailed": 0,
+        "unmailed_letters": 0, "spend": 0.0, "batches": [],
+    }
+    try:
+        company_rows = _load_company_mailings(year)
+        commercial_mailing = parse_company_mailings(company_rows, year)["Commercial"]
+        grouped_batches = commercial_batches_by_slug(commercial_mailing)
+        LETTER_COUNTS = {slug: row["letters"] for slug, row in grouped_batches.items()}
+        batch_rows = []
+        for slug, row in sorted(grouped_batches.items()):
+            parts = slug.rsplit("-", 1)
+            city = parts[0].replace("-", " ").title()
+            vertical = parts[1].title() if len(parts) > 1 else "Commercial"
+            batch_rows.append({
+                "slug": slug, "city": city, "vertical": vertical,
+                "letters": row["letters"], "spend": row["spend"],
+                "mail_date": ", ".join(row["mail_dates"]),
+            })
+            city_key = slug.split("-")[0]
+            slugs_meta.setdefault(slug, {
+                "city": city, "vertical": vertical,
+                "county": COUNTY_MAP_GL.get(city_key, "Other"),
+            })
+        total_batch = commercial_mailing["letters_mailed"]
+    except Exception as exc:
+        log.exception("Commercial GL Tracker load failed")
+        data_warning = f"Live Golden Letter Tracker unavailable: {exc}"
+        LETTER_COUNTS, batch_rows, total_batch = {}, [], 0
+
+    financial = _gl_financials("Commercial", year, commercial_mailing["spend"])
+
     # Also build county rollup from batch_rows (for the county accordion table)
     # county → {letters, cities[], mail_dates[]}
     _county_map_b = {}
@@ -1382,11 +1485,13 @@ def gl_analytics():
         except Exception:
             pass
 
-    # inbox_id → {calls, texts} filtered since first scan
+    # Shared inbox totals are not campaign-safe: the same inbox may receive
+    # unrelated activity. Retain the historical code path disabled; canonical
+    # call/text counts below come only from events already attributed to a GL slug.
     inbox_activity = {}
-    total_calls = 0
-    total_texts = 0
-    if _fub_key and _inbox_first_scan:
+    total_calls = sum(events.get("call", 0) for events in slug_events.values())
+    total_texts = sum(events.get("text", 0) for events in slug_events.values())
+    if False:  # pragma: no cover - intentionally retired unsafe source
         _fub_auth = _b64_fub.b64encode(f"{_fub_key}:".encode()).decode()
         _fub_hdrs = {
             "Authorization": f"Basic {_fub_auth}",
@@ -1444,6 +1549,8 @@ def gl_analytics():
                 "inbox_id": None, "slugs": [], "inboxes": set()
             }
         _county_data[_co]["letters"] += _letters
+        _county_data[_co]["calls"] += slug_events[_slug].get("call", 0)
+        _county_data[_co]["texts"] += slug_events[_slug].get("text", 0)
         _county_data[_co]["slugs"].append(_slug)
         if _iid:
             _county_data[_co]["inboxes"].add(_iid)
@@ -1463,7 +1570,7 @@ def gl_analytics():
         for r in batch_rows
     }
     county_rows = []
-    _county_order = ["Macomb", "Oakland", "Wayne", "Genesee", "Washtenaw", "Livingston", "Other"]
+    _county_order = ["Macomb", "Oakland", "Wayne", "Genesee", "Lapeer", "Washtenaw", "Livingston", "Other"]
     for _co in _county_order:
         if _co not in _county_data:
             continue
@@ -1515,6 +1622,9 @@ def gl_analytics():
         scans   = events.get("scan", 0)
         forms   = events.get("form_submit", 0)
         sms     = events.get("sms_tap", 0)
+        calls   = events.get("call", 0)
+        texts   = events.get("text", 0)
+        emails  = events.get("email", 0)
         city_stats.append({
             "slug":         slug,
             "city":         meta["city"],
@@ -1524,10 +1634,13 @@ def gl_analytics():
             "scans":        scans,
             "forms":        forms,
             "sms":          sms,
-            "scan_pct":     round(scans / letters * 100, 1) if letters else 0,
-            "form_pct":     round(forms / letters * 100, 1) if letters else 0,
-            "sms_pct":      round(sms   / letters * 100, 1) if letters else 0,
-            "response_pct": round((forms + sms) / letters * 100, 1) if letters else 0,
+            "calls":        calls,
+            "texts":        texts,
+            "emails":       emails,
+            "scan_pct":     round(scans / letters * 100, 1) if letters else None,
+            "form_pct":     round(forms / letters * 100, 1) if letters else None,
+            "sms_pct":      round(sms   / letters * 100, 1) if letters else None,
+            "response_pct": round((forms + sms + calls + texts + emails) / letters * 100, 1) if letters else None,
         })
 
     # ── Totals ────────────────────────────────────────────────────────────────
@@ -1536,32 +1649,26 @@ def gl_analytics():
     # total_calls and total_texts already accumulated in the FUB block above
     total_forms     = sum(s["forms"]   for s in city_stats)
     total_sms       = sum(s["sms"]     for s in city_stats)
-    total_responses = total_forms + total_sms
+    total_emails    = sum(s["emails"]  for s in city_stats)
+    total_responses = total_forms + total_sms + total_calls + total_texts + total_emails
 
-    # ── Weekly trend (last 8 weeks) ───────────────────────────────────────────
-    weekly = db.session.execute(text("""
-        SELECT DATE_TRUNC('week', created_at)::date AS week,
-               event_type, COUNT(*) AS cnt
-        FROM   gl_scans
-        WHERE  created_at >= NOW() - INTERVAL '8 weeks'
-        GROUP  BY 1, 2
-        ORDER  BY 1
-    """)).fetchall()
+    # ── Weekly trend (last 8 weeks), DB-portable and source-local ─────────────
+    from datetime import timedelta as _timedelta
+    cutoff = datetime.utcnow() - _timedelta(weeks=8)
+    weekly_events = GLScan.query.filter(GLScan.created_at >= cutoff).all()
+    weekly_map = defaultdict(lambda: {"scan": 0, "form_submit": 0, "sms_tap": 0})
+    for event in weekly_events:
+        if event.event_type not in weekly_map["_"]:
+            continue
+        week = (event.created_at - _timedelta(days=event.created_at.weekday())).date()
+        weekly_map[week][event.event_type] += 1
+    weekly_map.pop("_", None)
 
-    weeks = sorted(set(str(r[0]) for r in weekly))
-    weekly_scans = {w: 0 for w in weeks}
-    weekly_forms = {w: 0 for w in weeks}
-    weekly_sms   = {w: 0 for w in weeks}
-    for r in weekly:
-        w = str(r[0])
-        if r[1] == "scan":        weekly_scans[w] += r[2]
-        elif r[1] == "form_submit": weekly_forms[w] += r[2]
-        elif r[1] == "sms_tap":   weekly_sms[w]   += r[2]
-
-    chart_labels  = weeks
-    chart_scans   = [weekly_scans[w] for w in weeks]
-    chart_forms   = [weekly_forms[w] for w in weeks]
-    chart_sms     = [weekly_sms[w]   for w in weeks]
+    weeks = sorted(weekly_map)
+    chart_labels = [str(week) for week in weeks]
+    chart_scans = [weekly_map[week]["scan"] for week in weeks]
+    chart_forms = [weekly_map[week]["form_submit"] for week in weeks]
+    chart_sms = [weekly_map[week]["sms_tap"] for week in weeks]
 
     return render_template("gl_analytics.html",
         city_stats=city_stats,
@@ -1575,12 +1682,19 @@ def gl_analytics():
         total_calls=total_calls,
         total_texts=total_texts,
         total_responses=total_responses,
-        scan_pct  =round(total_scans/total_letters*100,1) if total_letters else 0,
-        form_pct  =round(total_forms/total_letters*100,1) if total_letters else 0,
-        sms_pct   =round(total_sms/total_letters*100,1)   if total_letters else 0,
-        calls_pct =round(total_calls/total_letters*100,1) if total_letters else 0,
-        texts_pct =round(total_texts/total_letters*100,1) if total_letters else 0,
-        resp_pct  =round(total_responses/total_letters*100,1) if total_letters else 0,
+        total_emails=total_emails,
+        division_name="Commercial",
+        year=year,
+        mailing=commercial_mailing,
+        financial=financial,
+        data_warning=data_warning,
+        generated_at=datetime.utcnow(),
+        scan_pct  =round(total_scans/total_letters*100,1) if total_letters else None,
+        form_pct  =round(total_forms/total_letters*100,1) if total_letters else None,
+        sms_pct   =round(total_sms/total_letters*100,1)   if total_letters else None,
+        calls_pct =round(total_calls/total_letters*100,1) if total_letters else None,
+        texts_pct =round(total_texts/total_letters*100,1) if total_letters else None,
+        resp_pct  =round(total_responses/total_letters*100,1) if total_letters else None,
         chart_labels=chart_labels,
         chart_scans=chart_scans,
         chart_forms=chart_forms,
@@ -1797,6 +1911,10 @@ def gl_resi_analytics_detail():
         et_filter = ("'call'", "'text'", "'email'", "'gl_contact'")
 
     conditions = ["event_type IN (" + ",".join(et_filter) + ")"]
+    if event_type == "scans":
+        conditions.append("source = 'qr_scans'")
+    else:
+        conditions.append("source IN ('sheet_backfill', 'gl_nightly')")
     params = {}
     if area_filter:
         conditions.append("LOWER(TRIM(area)) = :area")
@@ -1829,7 +1947,18 @@ def gl_resi_analytics_detail():
             "fub_url": f"{FUB_PROFILE_BASE}/{fub_id}" if fub_id else ""
         })
 
-    return jsonify(results)
+    # Match KPI identity rule: one person/contact + event type + date.
+    seen = set()
+    deduped = []
+    for result, row in zip(results, rows):
+        identity = result.get("fub_id") or row[4] or row[5] or result.get("name") or row[0]
+        key = (str(identity).lower(), event_type, result.get("date"))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(result)
+
+    return jsonify(deduped)
 
 
 # ── Residential GL Analytics ──────────────────────────────────────────────
@@ -1865,46 +1994,11 @@ def gl_residential_analytics():
         "gl - resi eastside":          "Macomb",
     }
 
-    # ── 1. Pull letter counts from Residential GLs Schedule + Company Mailings ──
-    _gsvc    = None
-    mailing_data_error = None
-    SHEET_ID = "1nwEtJad8T3iY5OL6bJ4SNy2rdmuxBv0k4ap_UQ03Axo"
-    try:
-        from googleapiclient.discovery import build as goog_build
-        from google.oauth2.credentials import Credentials as GCreds
-        import os as _os
-        # Support Railway env var (raw or base64 token JSON) OR local file
-        _token_env = _os.environ.get("GOOGLE_TOKEN_JSON_FOR_RAILWAY", "")
-        if _token_env:
-            _token_dict = decode_google_token_json(_token_env)
-            import google.auth.transport.requests as _gtr
-            _gcreds = GCreds.from_authorized_user_info(_token_dict)
-            if _gcreds.expired and _gcreds.refresh_token:
-                _gcreds.refresh(_gtr.Request())
-        else:
-            token_path = _os.path.expanduser("~/.hermes/google_token.json")
-            _gcreds = GCreds.from_authorized_user_file(token_path)
-        if _gcreds and _gcreds.expired and _gcreds.refresh_token:
-            import google.auth.transport.requests as _gtr
-            _gcreds.refresh(_gtr.Request())
-        _gsvc   = goog_build("sheets", "v4", credentials=_gcreds)
-
-        rows_resi_sched = _gsvc.spreadsheets().values().get(
-            spreadsheetId=SHEET_ID,
-            range="'Residential GLs Schedule'!A:S").execute().get("values", [])
-
-        rows_2026 = _gsvc.spreadsheets().values().get(
-            spreadsheetId=SHEET_ID,
-            range="'2026 Company Mailings'!A:N").execute().get("values", [])
-
-        rows_2025 = _gsvc.spreadsheets().values().get(
-            spreadsheetId=SHEET_ID,
-            range="'2025 Company Mailings'!A:Q").execute().get("values", [])
-
-    except Exception as e:
-        rows_resi_sched, rows_2026, rows_2025 = [], [], []
-        mailing_data_error = f"{type(e).__name__}: {e}"
-        log.exception("Residential GL analytics could not load mailing data")
+    # Legacy multi-tab inputs are intentionally disabled. The live year-specific
+    # Company Mailings tab is loaded once below and is the only denominator.
+    _gsvc = None
+    SHEET_ID = GL_TRACKER_SHEET_ID
+    rows_resi_sched, rows_2026, rows_2025 = [], [], []
 
     # area_meta: normalised_area → {display, letters, mail_date}
     # We accumulate letters/mail_date from both the Schedule tab and Company Mailings.
@@ -1990,7 +2084,39 @@ def gl_residential_analytics():
         mail_norm = _normalize_mail_date(mail_raw, 2025)
         _merge(area_raw, area_raw, letters, mail_norm)
 
-    # ── 2. Scan/call/text/email counts from res_gl_scans (by event_type) ──────
+    # Replace the legacy multi-tab/2025 accumulation above with the one
+    # authoritative year-specific Company Mailings ledger. Only documented
+    # mailed rows form the response-rate denominator; produced-but-undated rows
+    # remain visible in the financial summary and data-quality note.
+    year = _analytics_year()
+    data_warning = None
+    mailing_data_error = None
+    activity_data_error = None
+    residential_mailing = {
+        "year": year, "letters_produced": 0, "letters_mailed": 0,
+        "unmailed_letters": 0, "spend": 0.0, "batches": [],
+    }
+    area_meta = {}
+    try:
+        company_rows = _load_company_mailings(year)
+        residential_mailing = parse_company_mailings(company_rows, year)["Residential"]
+        for batch in residential_mailing["batches"]:
+            if not batch["mailed"]:
+                continue
+            key = batch["area"].lower().strip()
+            if key not in area_meta:
+                area_meta[key] = {"display": batch["area"], "letters": 0, "mail_date": ""}
+            area_meta[key]["letters"] += batch["letters"]
+            dates = [d for d in (area_meta[key]["mail_date"], batch["mail_date"]) if d]
+            area_meta[key]["mail_date"] = ", ".join(dict.fromkeys(dates))
+    except Exception as exc:
+        log.exception("Residential GL Tracker load failed")
+        data_warning = f"Live Golden Letter Tracker unavailable: {exc}"
+        mailing_data_error = data_warning
+
+    financial = _gl_financials("Residential", year, residential_mailing["spend"])
+
+    # ── 2. Canonical scan/call/text/email ledger from res_gl_scans ─────────
     event_rows = db.session.execute(sa_text("""
         SELECT LOWER(TRIM(area)) as area_key, event_type, COUNT(*) as cnt
         FROM   res_gl_scans
@@ -2027,60 +2153,29 @@ def gl_residential_analytics():
         sa_text("SELECT COUNT(*) FROM res_gl_scans WHERE source = 'fello_audit'")
     ).scalar() or 0
 
-    # ── 3. Calls/Texts/Emails from the live Google Sheet ────────────────────
-    # The tracker is the source of truth; repeated database backfills are not
-    # included in either the cards, area attribution, or weekly trend.
-    # Sheet cols: A(0)=Phone#, B(1)=Call Date, C(2)=Text Date, D(3)=Email Date,
-    #             E(4)=Client Name, F(5)=Agent, G(6)=Subdivision, H(7)=Address, I(8)=Notes
-    sheet_events = []
-    activity_data_error = None
-    try:
-        if _gsvc is None:
-            raise RuntimeError("Sheets not initialized")
-        cte_res = _gsvc.spreadsheets().values().get(
-            spreadsheetId=SHEET_ID,
-            range="'Resi Inbound Calls/Texts/Emails'!A:I"
-        ).execute()
-        cte_rows = cte_res.get("values", [])[1:]
-        sheet_events = extract_residential_sheet_events(cte_rows)
-
-        for event in sheet_events:
-            address = event['address']
-            # Parse city from address to find area
-            city = ''
-            if address and ',' in address:
-                parts = [p.strip() for p in address.split(',')]
-                if len(parts) >= 2 and not parts[1].startswith('MI '):
-                    city = parts[1]
-
-            # Try to match to a known area via city keywords
-            matched_area = ''
-            city_l = city.lower()
-            for key in area_meta:
-                if city_l and city_l in key:
-                    matched_area = key
-                    break
-
-            if event['event_type'] == 'call':
-                if matched_area:
-                    calls_by_area[matched_area] += 1
-            elif event['event_type'] == 'text':
-                if matched_area:
-                    texts_by_area[matched_area] += 1
-            elif event['event_type'] == 'email':
-                if matched_area:
-                    emails_by_area[matched_area] += 1
-
-    except Exception as e:
-        activity_data_error = f"{type(e).__name__}: {e}"
-        log.exception("Residential GL analytics could not load activity data")
-
-    # The live tracker is authoritative for calls/texts/emails. Database
-    # backfill rows are intentionally excluded because historical imports were
-    # repeated and gl_nightly rows are also written to this same tracker.
-    total_calls  = sum(1 for e in sheet_events if e['event_type'] == 'call')
-    total_texts  = sum(1 for e in sheet_events if e['event_type'] == 'text')
-    total_emails = sum(1 for e in sheet_events if e['event_type'] == 'email')
+    # ── 3. Canonical calls/texts/emails ─────────────────────────────────────
+    # The database already contains the historical Sheet backfill plus live
+    # nightly events. Reading the Sheet again here would duplicate those rows.
+    canonical_rows = db.session.execute(sa_text("""
+        SELECT id, scan_date, area, event_type, source, fub_id, phone, email,
+               first_name, last_name
+        FROM res_gl_scans
+    """)).mappings().all()
+    canonical = canonical_residential_events(canonical_rows)
+    scans_by_area = defaultdict(int)
+    calls_by_area = defaultdict(int)
+    texts_by_area = defaultdict(int)
+    emails_by_area = defaultdict(int)
+    for area_key, counts in canonical["by_area"].items():
+        scans_by_area[area_key] = counts["scan"]
+        calls_by_area[area_key] = counts["call"]
+        texts_by_area[area_key] = counts["text"]
+        emails_by_area[area_key] = counts["email"]
+    total_scans = canonical["totals"]["scan"]
+    total_fello = canonical["totals"]["fello"]
+    total_calls = canonical["totals"]["call"]
+    total_texts = canonical["totals"]["text"]
+    total_emails = canonical["totals"]["email"]
 
     # ── 4. Build per-area stats table ─────────────────────────────────────
     area_stats = []
@@ -2144,35 +2239,25 @@ def gl_residential_analytics():
         chart_weeks = 16
     chart_weeks = max(4, min(chart_weeks, 104))   # clamp 4w – 2yr
 
-    weekly_rows = db.session.execute(sa_text("""
-        SELECT DATE_TRUNC('week', scan_date)::date AS week,
-               COUNT(*) AS scans
-        FROM   res_gl_scans
-        WHERE  scan_date >= NOW() - (:weeks * INTERVAL '1 week')
-          AND  event_type = 'scan'
-          AND  source != 'fello_audit'
-        GROUP  BY 1
-        ORDER  BY 1
-    """), {'weeks': chart_weeks}).fetchall()
-
-    from datetime import date as _chart_date, timedelta as _chart_delta
-    chart_data = {
-        str(r[0]): {'scans': r[1], 'calls': 0, 'texts': 0}
-        for r in weekly_rows
-    }
-    chart_cutoff = _chart_date.today() - _chart_delta(weeks=chart_weeks)
-    for event in sheet_events:
-        event_date = event.get('event_date')
-        if event['event_type'] not in ('call', 'text') or not event_date or event_date < chart_cutoff:
+    from datetime import date as _date, timedelta as _timedelta
+    cutoff = _date.today() - _timedelta(weeks=chart_weeks)
+    by_week = defaultdict(lambda: {"scan": 0, "call": 0, "text": 0})
+    for day_text, counts in canonical["weekly"].items():
+        try:
+            day = _date.fromisoformat(day_text[:10])
+        except (TypeError, ValueError):
             continue
-        week = event_date - _chart_delta(days=event_date.weekday())
-        bucket = chart_data.setdefault(str(week), {'scans': 0, 'calls': 0, 'texts': 0})
-        bucket[event['event_type'] + 's'] += 1
+        if day < cutoff:
+            continue
+        week = day - _timedelta(days=day.weekday())
+        for event_name in ("scan", "call", "text"):
+            by_week[week][event_name] += counts[event_name]
 
-    chart_labels = sorted(chart_data)
-    chart_scans  = [chart_data[w]['scans'] for w in chart_labels]
-    chart_calls  = [chart_data[w]['calls'] for w in chart_labels]
-    chart_texts  = [chart_data[w]['texts'] for w in chart_labels]
+    chart_days = sorted(by_week)
+    chart_labels = [str(day) for day in chart_days]
+    chart_scans = [by_week[day]["scan"] for day in chart_days]
+    chart_calls = [by_week[day]["call"] for day in chart_days]
+    chart_texts = [by_week[day]["text"] for day in chart_days]
 
     # ── 7. Batch summary table ─────────────────────────────────────────────
     # Re-use area_meta, sorted by mail_date
@@ -2199,12 +2284,18 @@ def gl_residential_analytics():
         mailing_data_error = mailing_data_error,
         activity_data_error = activity_data_error,
         chart_weeks     = chart_weeks,
-        scan_pct        = round(total_scans / total_letters * 100, 1) if total_letters else 0,
-        fello_pct       = round(total_fello  / total_letters * 100, 1) if total_letters else 0,
-        calls_pct       = round(total_calls  / total_letters * 100, 1) if total_letters else 0,
-        texts_pct       = round(total_texts  / total_letters * 100, 1) if total_letters else 0,
-        emails_pct      = round(total_emails / total_letters * 100, 1) if total_letters else 0,
-        resp_pct        = round(total_resp_all / total_letters * 100, 1) if total_letters else 0,
+        division_name   = "Residential",
+        year            = year,
+        mailing         = residential_mailing,
+        financial       = financial,
+        data_warning    = data_warning,
+        generated_at    = datetime.utcnow(),
+        scan_pct        = round(total_scans / total_letters * 100, 1) if total_letters else None,
+        fello_pct       = round(total_fello  / total_letters * 100, 1) if total_letters else None,
+        calls_pct       = round(total_calls  / total_letters * 100, 1) if total_letters else None,
+        texts_pct       = round(total_texts  / total_letters * 100, 1) if total_letters else None,
+        emails_pct      = round(total_emails / total_letters * 100, 1) if total_letters else None,
+        resp_pct        = round(total_resp_all / total_letters * 100, 1) if total_letters else None,
         chart_labels    = chart_labels,
         chart_scans     = chart_scans,
         chart_calls     = chart_calls,

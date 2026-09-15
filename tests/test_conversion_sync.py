@@ -104,6 +104,22 @@ def test_person_to_payload_has_no_pii_and_derives_source_side_and_stage_mileston
     assert payload["attribution_quality"] == "current_agent_backfill"
 
 
+def test_golden_letter_tag_only_overrides_known_fello_source_not_unrelated_sources():
+    base = {
+        "id": 456,
+        "created": "2026-03-01T10:00:00Z",
+        "updated": "2026-03-02T11:00:00Z",
+        "tags": ["Golden Letter", "Seller"],
+    }
+    fello = person_to_payload({**base, "source": "Fello Personalized URL"}, backfill=True)
+    zillow = person_to_payload({**base, "id": 457, "source": "Zillow Premier"}, backfill=True)
+    soi = person_to_payload({**base, "id": 458, "source": "SOI Kim Duff"}, backfill=True)
+
+    assert fello["current_source_family"] == "Golden Letter"
+    assert zillow["current_source_family"] == "Zillow"
+    assert soi["current_source_family"] == "SOI"
+
+
 def test_closed_deal_uses_close_date_and_implies_signed_and_pending():
     payload = person_to_payload({
         "id": "c1", "created": "2026-01-01T00:00:00Z", "updated": "2026-07-01T00:00:00Z",
