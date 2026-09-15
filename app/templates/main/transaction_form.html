@@ -3,6 +3,9 @@
 {% block content %}
 <div class="page-title">{{ 'Edit' if t else 'Add' }} Transaction</div>
 <div class="page-subtitle">{{ 'Update transaction details' if t else 'Record a new transaction' }}</div>
+<div id="required-fields-note" class="small text-muted mt-1">
+  <span class="text-danger fw-bold" aria-hidden="true">*</span> Required to save
+</div>
 
 <div id="tx-validation-alert" style="display:none;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:14px 18px;margin-bottom:16px;color:#991b1b;">
   <strong>⚠️ Please fill in the required fields before saving:</strong>
@@ -25,7 +28,7 @@
     <div class="col-12"><h6 class="text-muted fw-semibold text-uppercase" style="font-size:.72rem;letter-spacing:.08em;border-bottom:1px solid #eee;padding-bottom:6px">Core Info</h6></div>
 
     <div class="col-md-3">
-      <label class="form-label">Agent (Primary) *</label>
+      <label class="form-label">Agent (Primary) <span id="required-agent" class="text-danger fw-bold" aria-hidden="true">*</span></label>
       <select name="agent_id" class="form-select" data-required="Agent (Primary)">
         <option value="" {% if not t or not t.agent_id %}selected{% endif %}>— Select agent —</option>
         {% for a in agents %}
@@ -34,20 +37,20 @@
       </select>
     </div>
     <div class="col-md-2">
-      <label class="form-label">Type *</label>
+      <label class="form-label">Type <span id="required-type" class="text-danger fw-bold" aria-hidden="true">*</span></label>
       <select name="transaction_type" class="form-select" data-required="Type">
         {% for tp in ['Listing','Buyer','Referral','Lease','LOI','CRE Listing','CRE Buyer','CRE Landlord Rep','CRE Tenant Rep','CRE Business Only','Other'] %}
         <option {% if t and t.transaction_type==tp %}selected{% endif %}>{{ tp }}</option>{% endfor %}
       </select>
     </div>
     <div class="col-md-2">
-      <label class="form-label">Status *</label>
-      <select name="status" class="form-select" data-required="Status">
+      <label class="form-label">Status <span id="required-status" class="text-danger fw-bold" aria-hidden="true">*</span></label>
+      <select name="status" id="transaction_status" class="form-select" data-required="Status">
         {% for s in statuses %}<option {% if t and t.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
       </select>
     </div>
     <div class="col-md-2">
-      <label class="form-label">Division *</label>
+      <label class="form-label">Division <span id="required-division" class="text-danger fw-bold" aria-hidden="true">*</span></label>
       <select name="division" class="form-select" data-required="Division">
         <option value="" {% if not t or not t.division %}selected{% endif %}>— Select —</option>
         <option value="Residential" {% if t and t.division=='Residential' %}selected{% endif %}>Residential</option>
@@ -73,16 +76,19 @@
     </div>
 
     <div class="col-md-6">
-      <label class="form-label">Address</label>
+      <label class="form-label">Address <span class="search-identity-required text-danger fw-bold" aria-hidden="true">*</span></label>
       <input type="text" name="address" class="form-control" value="{{ t.address if t else '' }}">
     </div>
     <div class="col-md-3">
-      <label class="form-label">Client Name(s)</label>
+      <label class="form-label">Client Name(s) <span class="search-identity-required text-danger fw-bold" aria-hidden="true">*</span></label>
       <input type="text" name="client_name" class="form-control" value="{{ t.client_name if t else '' }}">
     </div>
     <div class="col-md-3">
       <label class="form-label">Location / Office</label>
       <input type="text" name="location" id="location" class="form-control" value="{{ t.location if t else '' }}" placeholder="e.g. Rochester">
+    </div>
+    <div id="required-address-or-client" class="col-12 small text-muted" style="margin-top:-6px;">
+      <span class="text-danger fw-bold" aria-hidden="true">*</span> At least one of Address or Client Name(s) is required so the transaction can be found in MyBusiness search.
     </div>
 
     {# ── SECTION: Dates ───────────────────────────────────────────── #}
@@ -101,15 +107,15 @@
       <input type="date" name="expiry_date" id="expiry_date" class="form-control" value="{{ t.expiry_date.strftime('%Y-%m-%d') if t and t.expiry_date else '' }}">
     </div>
     <div class="col-md-2">
-      <label class="form-label">Under Contract Date</label>
+      <label class="form-label">Under Contract Date <span id="required-under-contract" class="text-danger fw-bold" aria-hidden="true" style="display:{{ 'inline' if t and t.status == 'Pending' else 'none' }}">*</span></label>
       <input type="date" name="contract_date" class="form-control" value="{{ t.under_contract_date.strftime('%Y-%m-%d') if t and t.under_contract_date else '' }}">
     </div>
     <div class="col-md-2">
-      <label class="form-label">Proj Close Date</label>
+      <label class="form-label">Proj Close Date <span id="required-projected-close" class="text-danger fw-bold" aria-hidden="true" style="display:{{ 'inline' if t and t.status == 'Pending' else 'none' }}">*</span></label>
       <input type="date" name="projected_close_date" class="form-control" value="{{ t.projected_close_date.strftime('%Y-%m-%d') if t and t.projected_close_date else '' }}">
     </div>
     <div class="col-md-2">
-      <label class="form-label">Close Date</label>
+      <label class="form-label">Close Date <span id="required-close-date" class="text-danger fw-bold" aria-hidden="true" style="display:{{ 'inline' if t and t.status == 'Closed' else 'none' }}">*</span></label>
       <input type="date" name="close_date" class="form-control" value="{{ t.close_date.strftime('%Y-%m-%d') if t and t.close_date else '' }}">
     </div>
     <div class="col-md-2">
@@ -505,10 +511,39 @@ calcAll();
   });
 })();
 
-// ── Required field validation ─────────────────────────────────────────────
+// ── Required field markers + validation ───────────────────────────────────
+var statusField = document.getElementById('transaction_status');
+var contractDateField = document.querySelector('#tx-form input[name="contract_date"]');
+var projectedCloseField = document.querySelector('#tx-form input[name="projected_close_date"]');
+var closeDateField = document.querySelector('#tx-form input[name="close_date"]');
+
+function updateConditionalRequiredMarkers() {
+  var status = statusField ? statusField.value.trim().toLowerCase() : '';
+  var pending = status === 'pending';
+  var closed = status === 'closed';
+  document.getElementById('required-under-contract').style.display = pending ? 'inline' : 'none';
+  document.getElementById('required-projected-close').style.display = pending ? 'inline' : 'none';
+  document.getElementById('required-close-date').style.display = closed ? 'inline' : 'none';
+  if (contractDateField) contractDateField.setAttribute('aria-required', pending ? 'true' : 'false');
+  if (projectedCloseField) projectedCloseField.setAttribute('aria-required', pending ? 'true' : 'false');
+  if (closeDateField) closeDateField.setAttribute('aria-required', closed ? 'true' : 'false');
+}
+updateConditionalRequiredMarkers();
+if (statusField) statusField.addEventListener('change', updateConditionalRequiredMarkers);
+
 document.getElementById('tx-form').addEventListener('submit', function(e) {
   var errors = [];
   var firstMissing = null;
+  function requireField(field, message) {
+    if (field && !field.value) {
+      errors.push(message);
+      if (!firstMissing) firstMissing = field;
+      field.style.borderColor = '#f87171';
+    } else if (field) {
+      field.style.borderColor = '';
+    }
+  }
+
   document.querySelectorAll('#tx-form select[data-required]').forEach(function(sel) {
     if (!sel.value || sel.value === '') {
       errors.push(sel.getAttribute('data-required'));
@@ -518,16 +553,33 @@ document.getElementById('tx-form').addEventListener('submit', function(e) {
       sel.style.borderColor = '';
     }
   });
-  var statusField = document.querySelector('#tx-form select[name="status"]');
-  var closeDateField = document.querySelector('#tx-form input[name="close_date"]');
-  if (statusField && statusField.value.trim().toLowerCase() === 'closed' &&
-      closeDateField && !closeDateField.value) {
-    errors.push('Close Date is required when Status is Closed');
-    if (!firstMissing) firstMissing = closeDateField;
-    closeDateField.style.borderColor = '#f87171';
+
+  var addressField = document.querySelector('#tx-form input[name="address"]');
+  var clientField = document.querySelector('#tx-form input[name="client_name"]');
+  if (addressField && clientField && !addressField.value.trim() && !clientField.value.trim()) {
+    errors.push('Client Name(s) or Address is required for MyBusiness search');
+    if (!firstMissing) firstMissing = addressField;
+    addressField.style.borderColor = '#f87171';
+    clientField.style.borderColor = '#f87171';
+  } else {
+    if (addressField) addressField.style.borderColor = '';
+    if (clientField) clientField.style.borderColor = '';
+  }
+
+  var status = statusField ? statusField.value.trim().toLowerCase() : '';
+  if (status === 'pending') {
+    requireField(contractDateField, 'Under Contract Date is required when Status is Pending');
+    requireField(projectedCloseField, 'Projected Close Date is required when Status is Pending');
+  } else {
+    if (contractDateField) contractDateField.style.borderColor = '';
+    if (projectedCloseField) projectedCloseField.style.borderColor = '';
+  }
+  if (status === 'closed') {
+    requireField(closeDateField, 'Close Date is required when Status is Closed');
   } else if (closeDateField) {
     closeDateField.style.borderColor = '';
   }
+
   if (errors.length > 0) {
     e.preventDefault();
     var alertBox = document.getElementById('tx-validation-alert');
