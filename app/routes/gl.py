@@ -12,6 +12,7 @@ from flask_login import login_required
 from datetime import datetime
 from app import db
 from app.models import GLScan
+from app.google_token import decode_google_token_json
 from app.gl_metrics import (
     build_financial_summary,
     canonical_residential_events,
@@ -1165,14 +1166,12 @@ def _load_company_mailings(year: int) -> list:
     """Load the live year-specific Tracker tab; failures are never rendered as zero."""
     from googleapiclient.discovery import build as goog_build
     from google.oauth2.credentials import Credentials as GCreds
-    import base64 as _b64
-    import json as _json
     import google.auth.transport.requests as _gtr
 
     token = os.environ.get("GOOGLE_TOKEN_JSON_FOR_RAILWAY", "")
     if not token:
         raise RuntimeError("Golden Letter Tracker credential is unavailable")
-    credentials = GCreds.from_authorized_user_info(_json.loads(_b64.b64decode(token).decode()))
+    credentials = GCreds.from_authorized_user_info(decode_google_token_json(token))
     if credentials.expired and credentials.refresh_token:
         credentials.refresh(_gtr.Request())
     service = goog_build("sheets", "v4", credentials=credentials, cache_discovery=False)
