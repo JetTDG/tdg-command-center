@@ -470,8 +470,8 @@ document.getElementById('referral_fee').addEventListener('input', function() { t
     signedEl.removeEventListener('change', autoFillExpiry);
   });
 })();
-// Run on load if editing existing transaction
-calcAll();
+// On edit forms, identify saved manual overrides before running formulas.
+// Otherwise calcAll() replaces the saved value before the override can be detected.
 // Show manual badge if existing GCI doesn't match formula
 (function() {
   var gciField = document.getElementById('gci');
@@ -510,6 +510,9 @@ calcAll();
     }
   });
 })();
+
+// Run formulas only after saved manual overrides have been marked.
+calcAll();
 
 // ── Required field markers + validation ───────────────────────────────────
 var statusField = document.getElementById('transaction_status');
