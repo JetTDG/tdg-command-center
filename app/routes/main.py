@@ -1037,6 +1037,53 @@ def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter,
     if admin_filter: query = query.filter(Transaction.admin_name == admin_filter)
     return apply_segment_filter(query, segment)
 
+
+def _my_business_visibility_year(transaction):
+    """Return the year whose normal MyBusiness view should contain this row."""
+    if transaction.status == 'Pending' and transaction.projected_close_date:
+        return transaction.projected_close_date.year
+    if transaction.year:
+        return transaction.year
+    anchor = transaction.close_date or transaction.signed_date
+    return anchor.year if anchor else None
+
+
+def _my_business_save_error(transaction):
+    """Explain why a proposed transaction could not be found in MyBusiness."""
+    if (transaction.status or '').casefold() == 'pending':
+        pending_errors = []
+        if not transaction.under_contract_date:
+            pending_errors.append('Under Contract Date is required when Status is Pending')
+        if not transaction.projected_close_date:
+            pending_errors.append('Projected Close Date is required when Status is Pending')
+        if pending_errors:
+            return 'Save blocked. ' + '. '.join(pending_errors) + '.'
+    if not (transaction.client_name or '').strip() and not (transaction.address or '').strip():
+        return (
+            'Save blocked. Add Client(s) or Address so this transaction can be found '
+            'in MyBusiness search.'
+        )
+    if transaction.archived or transaction.is_import_duplicate:
+        return 'Save blocked. This transaction is marked archived or duplicate and would be hidden from MyBusiness.'
+
+    visible_year = _my_business_visibility_year(transaction)
+    if not visible_year:
+        return (
+            'Save blocked. Add a Signed Date, Projected Close Date, or Close Date so '
+            'MyBusiness can determine which year should display this transaction.'
+        )
+
+    visible = _mb_query(
+        visible_year, '', '', '', '', '', '', '', '',
+        all_years=False, segment='combined',
+    ).filter(Transaction.id == transaction.id).first()
+    if not visible:
+        return (
+            f'Save blocked. This transaction would not appear in MyBusiness for {visible_year}. '
+            'Add or correct its Status, Projected Close Date, Signed Date, or Close Date before saving.'
+        )
+    return None
+
 # ─── SOURCES PAGE ───────────────────────────────────────────────────────────
 
 @bp.route('/sources')
@@ -1695,6 +1742,20 @@ def add_transaction():
             recalc_member4=_agent_recalc('member4_gci', 'member4_pct'),
         )
         try:
+            db.session.flush()
+            visibility_error = _my_business_save_error(t)
+            if visibility_error:
+                db.session.rollback()
+                agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
+                statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
+                            'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
+                lead_sources = [r[0] for r in db.session.query(Transaction.lead_source)
+                                .filter(Transaction.lead_source.isnot(None), Transaction.lead_source != '')
+                                .distinct().order_by(Transaction.lead_source).all()]
+                return render_template(
+                    'main/transaction_form.html', agents=agents, statuses=statuses,
+                    lead_sources=lead_sources, t=None, form_error=visibility_error,
+                ), 400
             db.session.commit()
         except Exception as e:
             db.session.rollback()
@@ -1829,6 +1890,20 @@ def edit_transaction(tid):
             recalc_member3=_agent_recalc('member3_gci', 'member3_pct'),
             recalc_member4=_agent_recalc('member4_gci', 'member4_pct'),
         )
+        db.session.flush()
+        visibility_error = _my_business_save_error(t)
+        if visibility_error:
+            db.session.rollback()
+            agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
+            statuses = ['Active', 'Pending', 'Closed', 'Pipeline', 'Pre-Signed', 'Signed', 'LOI', 'Coming Soon',
+                        'x-Cancelled', 'y-Sale Failed', 'z-Expired', 'Temp Off Market']
+            lead_sources = [r[0] for r in db.session.query(Transaction.lead_source)
+                            .filter(Transaction.lead_source.isnot(None), Transaction.lead_source != '')
+                            .distinct().order_by(Transaction.lead_source).all()]
+            return render_template(
+                'main/transaction_form.html', agents=agents, statuses=statuses,
+                lead_sources=lead_sources, t=t, form_error=visibility_error,
+            ), 400
         db.session.commit()
         flash('Transaction updated.', 'success')
         return redirect(url_for('main.my_business'))
@@ -1944,6 +2019,12 @@ def patch_transaction(tid):
             )
 
         t.updated_at = datetime.utcnow()
+        db.session.flush()
+        visibility_error = _my_business_save_error(t)
+        if visibility_error:
+            db.session.rollback()
+            return jsonify({'error': visibility_error}), 400
+
         # Write audit log entry (committed together)
         new_val = getattr(t, field, None)
         if str(old_val) != str(new_val):
@@ -4290,7 +4371,15 @@ def _transaction_missing_required_fields(form, submitted_close_date=None):
         ('division', 'Division'),
     )
     missing = [label for field, label in required if not (form.get(field) or '').strip()]
-    if (form.get('status') or '').strip().casefold() == 'closed' and not submitted_close_date:
+    if not (form.get('client_name') or '').strip() and not (form.get('address') or '').strip():
+        missing.append('Client(s) or Address (needed for MyBusiness search)')
+    status = (form.get('status') or '').strip().casefold()
+    if status == 'pending':
+        if not _parse_date(form.get('contract_date')):
+            missing.append('Under Contract Date is required when Status is Pending')
+        if not _parse_date(form.get('projected_close_date')):
+            missing.append('Projected Close Date is required when Status is Pending')
+    if status == 'closed' and not submitted_close_date:
         missing.append('Close Date is required when Status is Closed')
     return missing
 

@@ -112,6 +112,98 @@ def test_add_closed_transaction_lists_close_date_with_other_missing_fields(app):
         assert Transaction.query.count() == 0
 
 
+def test_add_transaction_requires_client_or_address_for_my_business_search(app):
+    from app.models import Transaction
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    response = client.post(
+        "/my-business/add",
+        data=transaction_form(
+            app,
+            status="Active",
+            address="",
+            client_name="",
+        ),
+    )
+
+    assert response.status_code == 400
+    assert "Client(s) or Address (needed for MyBusiness search)" in response.get_data(as_text=True)
+    with app.app_context():
+        assert Transaction.query.count() == 0
+
+
+def test_add_pending_transaction_requires_under_contract_and_projected_close_dates(app):
+    from app.models import Transaction
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    response = client.post(
+        "/my-business/add",
+        data=transaction_form(
+            app,
+            status="Pending",
+            close_date="",
+            contract_date="",
+            projected_close_date="",
+        ),
+    )
+
+    assert response.status_code == 400
+    body = response.get_data(as_text=True)
+    assert "Under Contract Date is required when Status is Pending" in body
+    assert "Projected Close Date is required when Status is Pending" in body
+    with app.app_context():
+        assert Transaction.query.count() == 0
+
+
+def test_add_active_buyer_without_address_is_searchable_by_client(app):
+    from app.models import Transaction
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    response = client.post(
+        "/my-business/add",
+        data=transaction_form(
+            app,
+            transaction_type="Buyer",
+            status="Active",
+            address="",
+            client_name="Searchable Buyer",
+        ),
+    )
+
+    assert response.status_code == 302
+    with app.app_context():
+        assert Transaction.query.one().client_name == "Searchable Buyer"
+
+
+def test_add_transaction_rolls_back_if_my_business_query_would_suppress_it(app, monkeypatch):
+    from app.models import Transaction
+    from app.routes import main
+
+    monkeypatch.setattr(
+        main,
+        "_mb_query",
+        lambda *args, **kwargs: Transaction.query.filter(Transaction.id == -1),
+    )
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    response = client.post(
+        "/my-business/add",
+        data=transaction_form(app, close_date="2026-08-05"),
+    )
+
+    assert response.status_code == 400
+    assert "would not appear in MyBusiness" in response.get_data(as_text=True)
+    with app.app_context():
+        assert Transaction.query.count() == 0
+
+
 def test_add_closed_transaction_with_date_derives_reporting_period(app):
     from app.models import Transaction
 
@@ -233,3 +325,98 @@ def test_inline_close_date_cannot_be_cleared_while_closed(app):
     assert response.get_json()["error"] == "Close Date is required when Status is Closed."
     with app.app_context():
         assert Transaction.query.get(tid).close_date == date(2026, 8, 5)
+
+
+def test_inline_edit_cannot_remove_last_my_business_search_identity(app):
+    from app import db
+    from app.models import Transaction
+
+    with app.app_context():
+        row = Transaction(
+            agent_id=app.test_ids["agent"], transaction_type="Referral", status="Active",
+            division="Residential", address="Only Search Value", client_name=None,
+            year=2026, month=8, archived=False, is_import_duplicate=False,
+        )
+        db.session.add(row)
+        db.session.commit()
+        tid = row.id
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    response = client.post(
+        f"/api/transaction/{tid}/patch",
+        json={"field": "address", "value": ""},
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == (
+        "Save blocked. Add Client(s) or Address so this transaction can be found in MyBusiness search."
+    )
+    with app.app_context():
+        assert db.session.get(Transaction, tid).address == "Only Search Value"
+
+
+def test_inline_status_change_to_pending_requires_both_pending_dates(app):
+    from app import db
+    from app.models import Transaction
+
+    with app.app_context():
+        row = Transaction(
+            agent_id=app.test_ids["agent"], transaction_type="Referral", status="Active",
+            division="Residential", address="Pending Guard", year=2026, month=8,
+            archived=False, is_import_duplicate=False,
+        )
+        db.session.add(row)
+        db.session.commit()
+        tid = row.id
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    response = client.post(
+        f"/api/transaction/{tid}/patch",
+        json={"field": "status", "value": "Pending"},
+    )
+
+    assert response.status_code == 400
+    error = response.get_json()["error"]
+    assert "Under Contract Date is required when Status is Pending" in error
+    assert "Projected Close Date is required when Status is Pending" in error
+    with app.app_context():
+        assert db.session.get(Transaction, tid).status == "Active"
+
+
+@pytest.mark.parametrize(
+    ("field", "message"),
+    [
+        ("under_contract_date", "Under Contract Date is required when Status is Pending"),
+        ("projected_close_date", "Projected Close Date is required when Status is Pending"),
+    ],
+)
+def test_inline_edit_cannot_clear_required_pending_date(app, field, message):
+    from app import db
+    from app.models import Transaction
+
+    with app.app_context():
+        row = Transaction(
+            agent_id=app.test_ids["agent"], transaction_type="Referral", status="Pending",
+            division="Residential", address="Pending Dates", year=2026, month=8,
+            under_contract_date=date(2026, 8, 1), projected_close_date=date(2026, 9, 1),
+            archived=False, is_import_duplicate=False,
+        )
+        db.session.add(row)
+        db.session.commit()
+        tid = row.id
+
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+    response = client.post(
+        f"/api/transaction/{tid}/patch",
+        json={"field": field, "value": ""},
+    )
+
+    assert response.status_code == 400
+    assert message in response.get_json()["error"]
+    with app.app_context():
+        saved = db.session.get(Transaction, tid)
+        assert saved.under_contract_date == date(2026, 8, 1)
+        assert saved.projected_close_date == date(2026, 9, 1)
