@@ -961,6 +961,34 @@ def luxury_drill():
 
 # ─── MY BUSINESS ────────────────────────────────────────────────────────────
 
+def _mb_pending_year_match(year):
+    """Match Pending rows even when no projected close date is entered yet."""
+    return and_(
+        Transaction.status == 'Pending',
+        or_(
+            and_(
+                Transaction.projected_close_date.isnot(None),
+                extract('year', Transaction.projected_close_date) == year,
+            ),
+            and_(
+                Transaction.projected_close_date.is_(None),
+                or_(
+                    Transaction.year == year,
+                    and_(
+                        Transaction.year.is_(None),
+                        extract('year', Transaction.signed_date) == year,
+                    ),
+                    and_(
+                        Transaction.year.is_(None),
+                        Transaction.signed_date.is_(None),
+                        extract('year', Transaction.close_date) == year,
+                    ),
+                ),
+            ),
+        ),
+    )
+
+
 def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter,
               type_filter, lead_source_filter, admin_filter, all_years=False,
               segment='combined'):
@@ -984,9 +1012,7 @@ def _mb_query(year, month_filter, date_from, date_to, agent_id, status_filter,
         # Closed / all other statuses continue to use the year column (same as before).
         query = query.filter(
             or_(
-                and_(Transaction.status == 'Pending',
-                     Transaction.projected_close_date.isnot(None),
-                     extract('year', Transaction.projected_close_date) == year),
+                _mb_pending_year_match(year),
                 and_(Transaction.status != 'Pending',
                      or_(
                          Transaction.year == year,
@@ -1528,9 +1554,7 @@ def my_business():
             Transaction.transaction_type == 'Buyer',
             Transaction.status == 'Active').count(),
         'pending': _summary_base.filter(
-            Transaction.status == 'Pending',
-            Transaction.projected_close_date.isnot(None),
-            extract('year', Transaction.projected_close_date) == year).count(),
+            _mb_pending_year_match(year)).count(),
         'closed': _summary_base.filter(
             Transaction.status == 'Closed', _year_match).count(),
         'pipeline': _summary_base.filter(

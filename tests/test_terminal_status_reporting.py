@@ -67,6 +67,14 @@ def app(tmp_path, monkeypatch):
                 primary_agent_gci=7000,
             ),
             Transaction(
+                **{**common, "division": "Commercial"},
+                transaction_type="CRE Listing",
+                status="Pending",
+                address="1357 S Gratiot",
+                signed_date=date(2026, 6, 4),
+                projected_close_date=None,
+            ),
+            Transaction(
                 **common,
                 transaction_type="Listing",
                 status="Pre-Signed",
@@ -166,9 +174,24 @@ def test_my_business_summary_excludes_terminal_statuses_from_live_counts(app):
     assert response.status_code == 200
     assert summary_value("Active Listings") == 1
     assert summary_value("Active Buyers") == 1
-    assert summary_value("Pending") == 1
+    assert summary_value("Pending") == 2
     assert summary_value("Closed") == 1
     assert summary_value("Pre-Signed") == 1
+
+
+def test_my_business_includes_pending_without_projected_close_date(app):
+    client = app.test_client()
+    login(client, app.test_ids["admin"])
+
+    response = client.get(
+        f"/my-business?year=2026&agent_id={app.test_ids['agent']}"
+        "&status=Pending&segment=commercial"
+    )
+    text = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "1357 S Gratiot" in text
+    assert "1 records" in text
 
 
 def test_ceo_summary_and_leaderboard_use_only_closed_and_pending(app):
@@ -193,5 +216,5 @@ def test_ceo_summary_and_leaderboard_use_only_closed_and_pending(app):
 
     row = lambda board: next(item for item in board if item["agent_id"] == app.test_ids["agent"])
     assert row(closed)["units"] == 1
-    assert row(pending)["units"] == 1
-    assert row(combined_board)["units"] == 2
+    assert row(pending)["units"] == 2
+    assert row(combined_board)["units"] == 3
