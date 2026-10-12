@@ -175,7 +175,7 @@ def test_executive_pages_render_segment_aware_year_end_projection_and_prior_year
 
     assert 'id="year-end-projection"' in text
     assert "Projected Year-End" in text
-    assert "Based on seasonal pace" in text
+    assert "Commercial: closed + pending with a projected close this year; no new-deal extrapolation" in text
     assert "Full-Year 2025" in text
     for metric in ("units", "volume", "gci"):
         assert f'id="ye-{metric}"' in text
@@ -229,6 +229,66 @@ def test_year_end_projection_uses_full_prior_year_and_referral_safe_volume(app):
         assert commercial["ye_units"] >= 2
         assert commercial["ye_volume"] >= 900_000
         assert commercial["ye_gci"] >= 27_000
+
+
+def test_commercial_year_end_excludes_new_deals_and_reconciles_combined(app):
+    from app import db
+    from app.models import Agent, Transaction
+    from app.routes.main import _team_year_end_projection_segments
+
+    with app.app_context():
+        agent = Agent.query.filter_by(name="Commercial Agent").one()
+        for address, status, close_date, projected_close, price, revenue in (
+            ("December history", "Closed", date(2025, 12, 15), None, 30_000_000, 200_000),
+            ("Current pending", "Pending", None, date(2026, 12, 15), 400_000, 12_000),
+            ("Next-year pending", "Pending", None, date(2027, 3, 15), 900_000, 30_000),
+            ("Not under contract", "Active", None, date(2026, 11, 15), 700_000, 22_000),
+        ):
+            db.session.add(Transaction(
+                agent_id=agent.id, primary_agent_id=agent.id, address=address,
+                status=status, division="Commercial", transaction_type="CRE Buyer",
+                close_date=close_date, projected_close_date=projected_close,
+                sale_price=price, gci=revenue, year=(close_date or projected_close).year,
+                month=12, archived=False,
+            ))
+        db.session.commit()
+        metrics = _team_year_end_projection_segments(2026, as_of=date(2026, 10, 12))
+        commercial = metrics["comm"]
+        assert (commercial["closed_units"], commercial["pending_units"], commercial["ye_units"]) == (2, 1, 3)
+        assert (commercial["closed_volume"], commercial["pending_volume"], commercial["ye_volume"]) == (300_000, 400_000, 700_000)
+        assert (commercial["closed_gci"], commercial["pending_gci"], commercial["ye_gci"]) == (0, 12_000, 12_000)
+        for key in ("ye_units", "ye_volume", "ye_gci"):
+            assert metrics["combined"][key] == metrics["res"][key] + commercial[key]
+
+
+def test_agent_commercial_scorecard_projects_only_closed_and_this_year_pending(app):
+    from app import db
+    from app.models import Agent, Transaction
+
+    with app.app_context():
+        agent = Agent.query.filter_by(name="Commercial Agent").one()
+        agent_id = agent.id
+        for address, status, projected_close in (
+            ("In contract", "Pending", date(2026, 12, 1)),
+            ("Next year", "Pending", date(2027, 3, 1)),
+            ("Still active", "Active", date(2026, 11, 1)),
+        ):
+            db.session.add(Transaction(
+                agent_id=agent_id, primary_agent_id=agent_id,
+                primary_agent_name=agent.name, address=address,
+                division="Commercial", transaction_type="CRE Buyer", status=status,
+                projected_close_date=projected_close, sale_price=100_000,
+                primary_agent_gci=2_000, year=2026, month=10, archived=False,
+            ))
+        db.session.commit()
+    client = app.test_client()
+    login(client, app.test_admin_id)
+    response = client.get(f"/scorecard/{agent_id}?year=2026&division=Commercial")
+    assert response.status_code == 200
+    text = response.get_data(as_text=True)
+    projection = text.split('class="sc-business-card projected', 1)[1].split('</button>', 1)[0]
+    assert re.findall(r'class="sc-metric-value"[^>]*>([^<]+)', projection) == ["3", "$400K", "$2K"]
+    assert "Commercial: closed + pending due this year; no speculative new deals" in text
 
 
 def test_commercial_view_renders_rep_section_and_listing_volume_footer(app):

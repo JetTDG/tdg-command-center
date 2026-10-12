@@ -14,7 +14,7 @@
     <div class="d-flex justify-content-between align-items-start gap-2 mb-3 flex-wrap">
       <div>
         <h6 class="fw-bold mb-1">Projected Year-End</h6>
-        <div class="text-muted small">Based on seasonal pace, current closed production, and pending deals without double-counting.</div>
+        <div class="text-muted small" id="ye-method">Residential: seasonal pace plus closed and pending. Commercial: closed + pending with a projected close this year; no new-deal extrapolation.</div>
       </div>
       <span class="badge rounded-pill text-bg-light border">Full-Year {{ year - 1 }} comparison</span>
     </div>
@@ -41,5 +41,6 @@
         </div>
       </div>
     </div>
+    <div class="text-muted small mt-3 d-none" id="ye-commercial-breakdown" aria-live="polite"></div>
   </div>
 </div>

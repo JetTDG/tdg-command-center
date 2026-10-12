@@ -137,7 +137,7 @@
       <div class="sc-metrics"><div class="sc-metric"><div class="sc-metric-label">Units</div><div class="sc-metric-value">{{ proj_units }}</div></div><div class="sc-metric"><div class="sc-metric-label">Volume</div><div class="sc-metric-value">{{ compact_money(proj_volume) }}</div></div><div class="sc-metric"><div class="sc-metric-label">GCI to agent</div><div class="sc-metric-value">{{ compact_money(proj_income) }}</div></div></div>
     </button>
   </div>
-  <div class="collapse mt-2" id="projection-method"><div class="alert alert-light border mb-0 small"><strong>Projection:</strong> closed production + current pending business + seasonal new production expected after the pending window. It never projects below Closed + Pending.</div></div>
+  <div class="collapse mt-2" id="projection-method"><div class="alert alert-light border mb-0 small"><strong>Projection:</strong> {% if division == 'Commercial' %}Commercial: closed + pending due this year; no speculative new deals.{% elif division == 'all' %}Residential seasonal pace plus commercial closed and pending due this year; no speculative new commercial deals.{% else %}Closed production + current pending business + seasonal new production expected after the pending window. It never projects below Closed + Pending.{% endif %}</div></div>
 
   <div class="sc-overview-grid">
     <div class="sc-surface">

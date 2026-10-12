@@ -180,20 +180,33 @@ def _team_year_end_projection_segments(year, as_of=None):
         pending_volume = sum(row_volume(row, segment, pending=True) for row in pending)
         pending_gci = sum(company_revenue(row) for row in pending)
 
-        ye_units = round(seasonal_year_end_projection(
-            closed_units, pending_units, seasonal_units, year, as_of
-        ))
-        ye_volume = round(seasonal_year_end_projection(
-            closed_volume, pending_volume, seasonal_volume, year, as_of
-        ))
-        ye_gci = round(seasonal_year_end_projection(
-            closed_gci, pending_gci, seasonal_gci, year, as_of
-        ))
+        if segment == 'comm':
+            # Commercial closing cycles are 4–6 months: do not invent
+            # additional future deals beyond those already under contract.
+            ye_units = closed_units + pending_units
+            ye_volume = round(closed_volume + pending_volume)
+            ye_gci = round(closed_gci + pending_gci)
+        else:
+            ye_units = round(seasonal_year_end_projection(
+                closed_units, pending_units, seasonal_units, year, as_of
+            ))
+            ye_volume = round(seasonal_year_end_projection(
+                closed_volume, pending_volume, seasonal_volume, year, as_of
+            ))
+            ye_gci = round(seasonal_year_end_projection(
+                closed_gci, pending_gci, seasonal_gci, year, as_of
+            ))
         prior_full_units = len(prior)
         prior_full_volume = round(sum(row_volume(row, segment) for row in prior))
         prior_full_gci = round(sum(company_revenue(row) for row in prior))
 
         result[segment] = {
+            'closed_units': closed_units,
+            'closed_volume': round(closed_volume),
+            'closed_gci': round(closed_gci),
+            'pending_units': pending_units,
+            'pending_volume': round(pending_volume),
+            'pending_gci': round(pending_gci),
             'ye_units': ye_units,
             'ye_volume': ye_volume,
             'ye_gci': ye_gci,
@@ -204,6 +217,13 @@ def _team_year_end_projection_segments(year, as_of=None):
             'ye_volume_yoy_pct': pct_change(ye_volume, prior_full_volume),
             'ye_gci_yoy_pct': pct_change(ye_gci, prior_full_gci),
         }
+    # Mixed view: preserve residential seasonal pace, but no commercial extrapolation.
+    for metric in ('units', 'volume', 'gci'):
+        key = f'ye_{metric}'
+        result['combined'][key] = result['res'][key] + result['comm'][key]
+        result['combined'][f'{key}_yoy_pct'] = pct_change(
+            result['combined'][key], result['combined'][f'prior_full_{metric}']
+        )
     return result
 
 
@@ -3627,6 +3647,36 @@ def scorecard(agent_id):
     proj_units  = round(_project(ytd_units,  w_pending_units,  _seas_units))
     proj_volume = round(_project(ytd_volume, w_pending_volume, _seas_vol))
     proj_income = round(_project(ytd_income, w_pending_income, _seas_gci))
+    if division in ('Commercial', 'all'):
+        comm_closed = [t for t in closed_txns if t.division == 'Commercial']
+        comm_pending = [t for t in _pending_txns if t.division == 'Commercial'
+                        and t.projected_close_date and t.projected_close_date.year == year]
+        comm_projection = (
+            len(comm_closed) + len(comm_pending),
+            round(sum(recognized_volume(t.transaction_type, t.sale_price)
+                      for t in comm_closed + comm_pending)),
+            round(sum(agent_income(t) for t in comm_closed + comm_pending)),
+        )
+        if division == 'Commercial':
+            proj_units, proj_volume, proj_income = comm_projection
+        else:
+            # Combined uses the residential seasonal curve plus committed CRE.
+            res_closed = [t for t in closed_txns if t.division != 'Commercial']
+            res_pending = [t for t in _pending_txns if t.division != 'Commercial']
+            res_history = [t for t in _seas_rows if t.division != 'Commercial']
+            def res_month_values(value):
+                months = {m: 0.0 for m in range(1, 13)}
+                for t in res_history:
+                    months[t.month or t.close_date.month] += value(t)
+                return months
+            proj_units = round(_project(len(res_closed), len(res_pending),
+                                        res_month_values(lambda t: 1))) + comm_projection[0]
+            proj_volume = round(_project(sum(t.sale_price or 0 for t in res_closed),
+                                         sum(t.sale_price or 0 for t in res_pending),
+                                         res_month_values(lambda t: t.sale_price or 0))) + comm_projection[1]
+            proj_income = round(_project(sum(agent_income(t) for t in res_closed),
+                                         sum(agent_income(t) for t in res_pending),
+                                         res_month_values(lambda t: t.gci or 0))) + comm_projection[2]
     # Back-compat alias used elsewhere in the template
     proj_income_with_pending = proj_income
 

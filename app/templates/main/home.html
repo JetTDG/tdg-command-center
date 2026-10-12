@@ -372,6 +372,9 @@ function fmtDollar(v) {
 function fmtInt(v) { return Number(v).toLocaleString('en-US'); }
 
 function refreshYearEndProjection(d) {
+  const breakdown = document.getElementById('ye-commercial-breakdown');
+  breakdown.classList.toggle('d-none', segment !== 'comm');
+  if (segment === 'comm') breakdown.textContent = `Closed: ${fmtInt(d.closed_units)} sides · ${fmtDollar(d.closed_volume)} volume · ${fmtDollar(d.closed_gci)} company revenue; pending for this year: ${fmtInt(d.pending_units)} sides · ${fmtDollar(d.pending_volume)} volume · ${fmtDollar(d.pending_gci)} company revenue.`;
   document.getElementById('ye-units').textContent = fmtInt(d.ye_units);
   document.getElementById('ye-volume').textContent = fmtDollar(d.ye_volume);
   document.getElementById('ye-gci').textContent = fmtDollar(d.ye_gci);

@@ -308,6 +308,9 @@ function setMetric(metric, btn) {
 const usd = v => '$' + Number(v||0).toLocaleString('en-US', {maximumFractionDigits:0});
 
 function refreshYearEndProjection(d) {
+  const breakdown = document.getElementById('ye-commercial-breakdown');
+  breakdown.classList.toggle('d-none', segment !== 'comm');
+  if (segment === 'comm') breakdown.textContent = `Closed: ${Number(d.closed_units).toLocaleString('en-US')} sides · ${usd(d.closed_volume)} volume · ${usd(d.closed_gci)} company revenue; pending for this year: ${Number(d.pending_units).toLocaleString('en-US')} sides · ${usd(d.pending_volume)} volume · ${usd(d.pending_gci)} company revenue.`;
   document.getElementById('ye-units').textContent = Number(d.ye_units).toLocaleString('en-US');
   document.getElementById('ye-volume').textContent = usd(d.ye_volume);
   document.getElementById('ye-gci').textContent = usd(d.ye_gci);
