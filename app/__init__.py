@@ -37,7 +37,7 @@ def create_app():
     def load_user(user_id):
         return User.query.get(int(user_id))
 
-    from app.routes import auth, main, sms_consent
+    from app.routes import auth, main, sms_consent, incoming_offer_reporting, transaction_event_reporting
     from app.routes import gl
     from app.routes import docs
     auth.init_oauth(app)
@@ -46,6 +46,8 @@ def create_app():
     app.register_blueprint(gl.bp)
     app.register_blueprint(docs.bp)
     app.register_blueprint(sms_consent.bp)
+    app.register_blueprint(incoming_offer_reporting.bp)
+    app.register_blueprint(transaction_event_reporting.bp)
 
     # Agents are self-service users: their own scorecard is their complete
     # authenticated Jet Center surface. Enforce this server-side instead of

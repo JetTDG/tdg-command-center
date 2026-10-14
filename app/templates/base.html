@@ -607,10 +607,6 @@
            href="{{ url_for('main.luxury') }}">
           <i class="bi bi-gem"></i> TDG Luxury
         </a>
-        <a class="nav-link {% if 'ask' in request.endpoint %}active{% endif %}"
-           href="{{ url_for('main.ask') }}">
-          <i class="bi bi-chat-dots"></i> Ask TDG
-        </a>
         <a class="nav-link {% if request.endpoint == 'gl.gl_analytics' %}active{% endif %}"
            href="{{ url_for('gl.gl_analytics') }}">
           <i class="bi bi-qr-code-scan"></i> CRE GL Analytics
@@ -664,9 +660,6 @@
       </a>
       <a href="{{ url_for('main.leaderboard') }}" {% if 'leaderboard' in request.endpoint %}class="active"{% endif %}>
         <i class="bi bi-trophy"></i>Board
-      </a>
-      <a href="{{ url_for('main.ask') }}" {% if 'ask' in request.endpoint %}class="active"{% endif %}>
-        <i class="bi bi-chat-dots"></i>Ask
       </a>
       <a href="{{ url_for('main.my_business') }}" {% if 'my_business' in request.endpoint %}class="active"{% endif %}>
         <i class="bi bi-briefcase"></i>Deals
