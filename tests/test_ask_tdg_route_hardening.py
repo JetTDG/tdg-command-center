@@ -1,10 +1,10 @@
+"""Retired Jet Center Ask surface must not be available to old bookmarks."""
 import pytest
 
 
 @pytest.fixture()
 def app(tmp_path, monkeypatch):
-    db_path = tmp_path / "ask-tdg-test.db"
-    monkeypatch.setenv("DATABASE_URL", "sqlite:///" + str(db_path))
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///" + str(tmp_path / "retired-ask.db"))
     monkeypatch.setenv("SECRET_KEY", "test-secret")
     from app import create_app, db
     from app.models import User
@@ -21,45 +21,28 @@ def app(tmp_path, monkeypatch):
     yield app
 
 
-def login(client, user_id):
+def test_legacy_ask_routes_are_retired(app):
+    client = app.test_client()
     with client.session_transaction() as session:
-        session["_user_id"] = str(user_id)
+        session["_user_id"] = str(app.test_admin_id)
         session["_fresh"] = True
+    assert client.get("/ask").status_code == 404
+    assert client.post("/api/ask", json={"question": "Hello"}).status_code == 404
+    assert "main.ask" not in app.view_functions
+    assert "main.api_ask" not in app.view_functions
 
 
-def test_ask_tdg_rejects_malformed_and_oversized_requests(app):
+def test_admin_navigation_does_not_include_old_ask(app):
     client = app.test_client()
-    login(client, app.test_admin_id)
-
-    malformed = client.post("/api/ask", json=[])
-    assert malformed.status_code == 400
-    assert malformed.get_json() == {"error": "Ask TDG requires a valid JSON object."}
-
-    oversized = client.post("/api/ask", json={"question": "x" * 2001})
-    assert oversized.status_code == 400
-    assert oversized.get_json() == {"error": "Question must be 2,000 characters or fewer."}
-
-
-def test_ask_tdg_sanitizes_worker_failure_for_user(app, monkeypatch):
-    client = app.test_client()
-    login(client, app.test_admin_id)
-    monkeypatch.setattr("app.routes.main.load_knowledge_base", lambda: "TDG context")
-    monkeypatch.setattr("app.routes.main.fetch_gdrive_context", lambda question: "")
-
-    calls = iter(["DOCS", RuntimeError("Authorization Bearer secret-token")])
-
-    def fake_call(*args, **kwargs):
-        result = next(calls)
-        if isinstance(result, Exception):
-            raise result
-        return result
-
-    monkeypatch.setattr("app.ask_jet_llm.call_ask_jet", fake_call)
-    response = client.post("/api/ask", json={"question": "Where is the TDG guide?"})
-
-    assert response.status_code == 200
-    assert response.get_json() == {
-        "answer": "Sorry, Ask TDG is temporarily unavailable. Please try again.",
-        "sql": "",
-    }
-    assert "secret-token" not in response.get_data(as_text=True)
+    with client.session_transaction() as session:
+        session["_user_id"] = str(app.test_admin_id)
+        session["_fresh"] = True
+    from flask import render_template
+    from flask_login import login_user
+    from app.models import User
+    with app.test_request_context("/"):
+        login_user(User.query.get(app.test_admin_id))
+        html = render_template("base.html")
+    assert "Ask TDG" not in html
+    assert 'href="/ask"' not in html
+    assert "My Business" in html
