@@ -1,5 +1,5 @@
 
-from flask import Blueprint, current_app, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, current_app, render_template, request, redirect, url_for, flash, jsonify, abort
 from flask_login import login_required, current_user
 from app.models import AuditLog, ScorecardAccess, User
 
@@ -62,6 +62,29 @@ import calendar
 import requests
 
 bp = Blueprint('main', __name__)
+NON_REPORTING_AGENT_NAMES = frozenset({
+    'sarah hayes', 'maeson monsod', 'skylar louwers',
+    'jimmy zaflow', 'megan calahan', 'alex linton',
+})
+
+def _eligible_for_agent_dashboard(agent):
+    return (agent.name or '').strip().casefold() not in NON_REPORTING_AGENT_NAMES
+
+@bp.before_request
+def block_retired_agent_dashboard_routes():
+    """Keep historical agent records while retiring only their dashboard surface."""
+    if request.endpoint not in {
+        'main.scorecard', 'main.scorecard_drill', 'main.scorecard_appointment_drill',
+        'main.scorecard_zillow_detail', 'main.scorecard_deal_breakdown',
+        'main.business_plan_form_for',
+    }:
+        return None
+    agent_id = request.view_args.get('agent_id') if request.view_args else None
+    if agent_id is not None:
+        agent = Agent.query.get(agent_id)
+        if agent is not None and not _eligible_for_agent_dashboard(agent):
+            abort(404)
+    return None
 
 # Canonical CTE/Jet Center terminal statuses plus legacy/plain aliases. Keep
 # scorecard summary and drill-downs on this single rule so failed deals can
@@ -1386,6 +1409,7 @@ def conversion():
         'lead_type': selected_lead_type, 'attribution': attribution,
         'include_soi': include_soi, 'include_bulk': include_bulk,
     }
+
     return render_template(
         'main/conversion.html', overall=overall, agent_breakdown=agent_breakdown,
         family_breakdown=family_breakdown, source_breakdown=source_breakdown,
@@ -2241,7 +2265,8 @@ def _build_leaderboard(year, statuses, segment='all', month=None):
     Agents with 0 are included. Deduplication is by agent_id (not free-text name).
     Optionally filter by canonical division segment and month."""
     from app.models import Agent as AgentModel
-    active_agents = AgentModel.query.filter_by(status='Active').order_by(AgentModel.name).all()
+    active_agents = [a for a in AgentModel.query.filter_by(status='Active').order_by(AgentModel.name).all()
+                     if _eligible_for_agent_dashboard(a)]
 
     result = []
     for agent in active_agents:
@@ -2289,7 +2314,8 @@ def leaderboard():
     timeframe = request.args.get('timeframe', 'YTD')
     month = int(request.args.get('month', current_month()))
 
-    agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
+    agents = [a for a in Agent.query.filter_by(status='Active').order_by(Agent.name).all()
+              if _eligible_for_agent_dashboard(a)]
 
     board = []
     for agent in agents:
@@ -3211,7 +3237,8 @@ def scorecard(agent_id):
         division = 'all'
 
     # All agents for switcher dropdown (admin only)
-    all_agents = Agent.query.filter_by(status='Active').order_by(Agent.name).all()
+    all_agents = [a for a in Agent.query.filter_by(status='Active').order_by(Agent.name).all()
+                  if _eligible_for_agent_dashboard(a)]
 
     # ── Transactions where this agent appears in ANY column ──────────────────
     txn_filter = or_(

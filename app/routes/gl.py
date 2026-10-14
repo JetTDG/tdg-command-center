@@ -129,11 +129,21 @@ PHONE_MAP = {
     "ypsilanti-industrial":       ("(734) 821-3877", "17348213877"),
     # Livingston County
     "livingston-industrial":      ("(517) 618-9157", "15176189157"),
+    # Dedicated Bryan Besaw three-county Industrial GL team inbox (FUB #62).
+    "bay-industrial":             ("(989) 439-8455", "19894398455"),
+    "midland-industrial":         ("(989) 439-8455", "19894398455"),
+    "saginaw-industrial":         ("(989) 439-8455", "19894398455"),
+    "gladwin-industrial":           ("(989) 439-8455", "19894398455"),
+    "arenac-industrial":            ("(989) 439-8455", "19894398455"),
+    "ogemaw-industrial":            ("(989) 439-8455", "19894398455"),
 }
 # NO DEFAULT — missing slug = hard failure + alert. Never silently use wrong number.
 
 # Reverse map: e164 digits → slug (for webhook routing)
 PHONE_TO_SLUG = {v[1]: k for k, v in PHONE_MAP.items()}
+# Phone-only replies cannot identify the printed county QR. Attribute to the
+# shared campaign, not erroneously to whichever slug appears last in the map.
+PHONE_TO_SLUG["19894398455"] = "bryan-mid-michigan-industrial"
 
 FUB_TAG       = "Commercial Golden Letters"
 FUB_BASE      = "https://api.followupboss.com/v1"
@@ -176,7 +186,16 @@ SLUG_INBOX = {
     "ferndale-industrial":        43,
     "clarkston-industrial":       43,
     "ypsilanti-industrial":       51,
+    "bay-industrial":             62,
+    "midland-industrial":         62,
+    "saginaw-industrial":         62,
+    "gladwin-industrial":           62,
+    "arenac-industrial":            62,
+    "ogemaw-industrial":            62,
 }
+# New or unowned contacts from only these campaign forms belong to Bryan;
+# existing real-agent ownership is preserved by the pre-existing routing rules.
+DIRECT_GL_AGENT_BY_SLUG = {}
 
 # Slug → FUB CRE Group ID (form submission — round-robin across live members)
 SLUG_GROUP = {
@@ -210,6 +229,13 @@ SLUG_GROUP = {
     "milford-industrial":    22,
     "ferndale-industrial":   22,
     "clarkston-industrial":  22,
+    "bay-industrial":               32,
+    "midland-industrial":           32,
+    "saginaw-industrial":           32,
+    "gladwin-industrial":           32,
+    "arenac-industrial":            32,
+    "ogemaw-industrial":            32,
+    "bryan-mid-michigan-industrial": 32,
 }
 
 # Non-agent pond IDs — eligible for reassignment (VA Support etc.)
@@ -280,11 +306,12 @@ def _is_real_agent(assigned_id, assigned_to: str) -> bool:
     return True
 
 
-def _apply_ap(person_id, headers: dict):
-    """Apply the CRE GL Action Plan to a FUB contact."""
+def _apply_ap(person_id, headers: dict, slug: str = ""):
+    """Apply this campaign's GL Action Plan without changing legacy routes."""
+    plan_id = 194 if SLUG_GROUP.get(slug) == 32 else CRE_GL_AP_ID
     try:
         r = http.post(f"{FUB_BASE}/actionPlansPeople",
-                      json={"actionPlanId": CRE_GL_AP_ID, "personId": person_id},
+                      json={"actionPlanId": plan_id, "personId": person_id},
                       headers=headers, timeout=15)
         if r.status_code not in (200, 201):
             log.warning(f"GL: AP apply failed {r.status_code}: {r.text[:100]}")
@@ -518,11 +545,17 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
 
         # ── Get group members for round-robin ────────────────────────────────
         group_id = SLUG_GROUP.get(slug)
+        direct_agent = DIRECT_GL_AGENT_BY_SLUG.get(slug)
         group_members = _get_group_members(group_id, headers) if group_id else []
-        if not group_members:
+        if group_id == 32 and group_members != [99]:
+            log.error("GL: CRE Mid Michigan membership unexpected; refusing form write")
+            return None, "group_unavailable"
+        if not group_members and not direct_agent:
             log.warning(f"GL: No group members found for slug '{slug}' group {group_id}")
 
         def pick_next_agent():
+            if direct_agent:
+                return direct_agent
             if not group_members:
                 return None
             idx = _get_rr_index(group_id, len(group_members))
@@ -597,7 +630,7 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
                 http.put(f"{FUB_BASE}/people/{existing_id}",
                          json=update_a,
                          headers=headers, timeout=15)
-                _apply_ap(existing_id, headers)
+                _apply_ap(existing_id, headers, slug)
                 http.post(f"{FUB_BASE}/notes",
                           json={"personId": existing_id, "body": note_text},
                           headers=headers, timeout=15)
@@ -616,7 +649,7 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
                 r = http.put(f"{FUB_BASE}/people/{existing_id}",
                              json=update, headers=headers, timeout=15)
                 if r.status_code in (200, 201):
-                    _apply_ap(existing_id, headers)
+                    _apply_ap(existing_id, headers, slug)
                     http.post(f"{FUB_BASE}/notes",
                               json={"personId": existing_id, "body": note_text},
                               headers=headers, timeout=15)
@@ -646,7 +679,7 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
                 r = http.put(f"{FUB_BASE}/people/{existing_id}",
                              json=update, headers=headers, timeout=15)
                 if r.status_code in (200, 201):
-                    _apply_ap(existing_id, headers)
+                    _apply_ap(existing_id, headers, slug)
                     http.post(f"{FUB_BASE}/notes",
                               json={"personId": existing_id, "body": note_text},
                               headers=headers, timeout=15)
@@ -687,7 +720,7 @@ def _fub_push(name: str, phone: str, address: str, slug: str, city: str, vertica
         if r.status_code in (200, 201):
             fub_id = r.json().get("id") or r.json().get("person", {}).get("id")
             if fub_id:
-                _apply_ap(fub_id, headers)
+                _apply_ap(fub_id, headers, slug)
                 http.post(f"{FUB_BASE}/notes",
                           json={"personId": fub_id, "body": note_text},
                           headers=headers, timeout=15)
@@ -794,6 +827,15 @@ def submit(slug):
 
     log.info(f"[GL SUBMIT] {slug} | {name} | {phone} | {address} | fub={fub_id}/{fub_status}")
     return redirect(f"/gl/{slug}?submitted=1")
+
+
+@bp.route("/<slug>/config.json")
+def public_route_config(slug):
+    """Non-counting readback for Bryan's six county landing-page routes."""
+    if slug not in ("bay-industrial", "midland-industrial", "saginaw-industrial", "gladwin-industrial", "arenac-industrial", "ogemaw-industrial"):
+        abort(404)
+    phone, _, _, _ = _lookup(slug)
+    return jsonify({"slug": slug, "phone": phone})
 
 
 @bp.route("/<slug>/qr.png")
@@ -1088,19 +1130,20 @@ def webhook_fub():
         # ── Apply routing logic (mirrors _fub_push) ──────────────────────────
         group_id = SLUG_GROUP.get(slug)
         group_members = _get_group_members(group_id, fub_headers) if group_id else []
+        direct_agent = DIRECT_GL_AGENT_BY_SLUG.get(slug)
         has_real_agent = _is_real_agent(existing_assigned_id, existing_assigned_to)
         fub_status = "no_action"
 
         if has_real_agent:
             # Real agent already owns this contact — apply AP only, never reassign
-            _apply_ap(person_id, fub_headers)
+            _apply_ap(person_id, fub_headers, slug)
             fub_status = "ap_applied_existing_agent"
             log.info(f"GL webhook: personId={person_id} slug={slug} — "
                      f"real agent '{existing_assigned_to}', AP applied only")
         else:
             # Pond / unassigned — round-robin assign + AP
-            next_agent = None
-            if group_members:
+            next_agent = direct_agent
+            if not next_agent and group_members:
                 idx = _get_rr_index(group_id, len(group_members))
                 next_agent = group_members[idx]
 
@@ -1120,12 +1163,12 @@ def webhook_fub():
                 fub_status = "no_group_members"
                 log.warning(f"GL webhook: no group members for slug={slug} group={group_id}")
 
-            _apply_ap(person_id, fub_headers)
+            _apply_ap(person_id, fub_headers, slug)
 
         # ── Log event to DB ──────────────────────────────────────────────────
         parts = slug.split("-", 1)
-        city     = parts[0].title() if parts else "Unknown"
-        vertical = parts[1].replace("-", " ").title() if len(parts) > 1 else "Commercial"
+        city = "Bryan Mid-Michigan (city unknown)" if slug == "bryan-mid-michigan-industrial" else (parts[0].title() if parts else "Unknown")
+        vertical = "Industrial" if slug == "bryan-mid-michigan-industrial" else (parts[1].replace("-", " ").title() if len(parts) > 1 else "Commercial")
         try:
             row = GLScan(
                 slug=slug, city=city, vertical=vertical,
